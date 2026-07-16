@@ -29,9 +29,12 @@ DESIRED_URL="https://mcp.realize.com/mcp"
 DESIRED_PORT="3000"
 SERVER_NAME="realize-mcp"
 
-# Outgoing client-identity header, mirrored from .mcp.json's `headers` block so
-# CLI-installed sessions match plugin-provided ones. Version's single source of
-# truth is .claude-plugin/plugin.json; fall back to a literal if it can't be read.
+# Outgoing client-identity header for the CLI-install fallback path. The plugin's
+# .mcp.json uses a `headersHelper` (scripts/mcp-headers.sh) to stamp this header
+# dynamically, but `claude mcp add` exposes only a static `--header` flag (no
+# headers-helper equivalent), so here we resolve the version once at add time.
+# Version's single source of truth is .claude-plugin/plugin.json; fall back to a
+# literal if it can't be read.
 PLUGIN_JSON="$(dirname "$0")/../.claude-plugin/plugin.json"
 DESIRED_VERSION="$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' "$PLUGIN_JSON" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
 DESIRED_VERSION="${DESIRED_VERSION:-0.3.0}"

@@ -3,9 +3,7 @@
     "realize-mcp": {
       "type": "http",
       "url": "https://mcp.realize.com/mcp",
-      "headers": {
-        "X-Realize-Client": "realize-mcp-plugin/${REALIZE_PLUGIN_VERSION:-0.3.0}"
-      },
+      "headersHelper": "bash \"$CLAUDE_PLUGIN_ROOT/scripts/mcp-headers.sh\"",
       "oauth": {
         "callbackPort": 3000
       }
