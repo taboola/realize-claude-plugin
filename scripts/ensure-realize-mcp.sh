@@ -29,6 +29,14 @@ DESIRED_URL="https://mcp.realize.com/mcp"
 DESIRED_PORT="3000"
 SERVER_NAME="realize-mcp"
 
+# Outgoing client-identity header, mirrored from .mcp.json's `headers` block so
+# CLI-installed sessions match plugin-provided ones. Version's single source of
+# truth is .claude-plugin/plugin.json; fall back to a literal if it can't be read.
+PLUGIN_JSON="$(dirname "$0")/../.claude-plugin/plugin.json"
+DESIRED_VERSION="$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' "$PLUGIN_JSON" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
+DESIRED_VERSION="${DESIRED_VERSION:-0.3.0}"
+CLIENT_HEADER="X-Realize-Client: realize-mcp-plugin/${DESIRED_VERSION}"
+
 # Don't break the session if `claude` isn't on PATH for some reason.
 if ! command -v claude >/dev/null 2>&1; then
     echo "[ensure-realize-mcp] 'claude' CLI not on PATH; skipping auto-install." >&2
@@ -39,10 +47,10 @@ current=$(claude mcp get "$SERVER_NAME" 2>&1 || true)
 
 if echo "$current" | grep -qiE "(no MCP server|not found|does not exist)"; then
     echo "[ensure-realize-mcp] installing Realize MCP server (callback port $DESIRED_PORT)..."
-    if claude mcp add --transport http --callback-port "$DESIRED_PORT" "$SERVER_NAME" "$DESIRED_URL"; then
+    if claude mcp add --transport http --header "$CLIENT_HEADER" --callback-port "$DESIRED_PORT" "$SERVER_NAME" "$DESIRED_URL"; then
         echo "[ensure-realize-mcp] installed. Run '/mcp' to authenticate."
     else
-        echo "[ensure-realize-mcp] install failed; run manually: claude mcp add --transport http --callback-port $DESIRED_PORT $SERVER_NAME $DESIRED_URL" >&2
+        echo "[ensure-realize-mcp] install failed; run manually: claude mcp add --transport http --header \"$CLIENT_HEADER\" --callback-port $DESIRED_PORT $SERVER_NAME $DESIRED_URL" >&2
     fi
     exit 0
 fi
