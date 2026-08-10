@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-user opt-in to skip Claude Code's permission prompt for the 6 Realize write tools. The plugin's preview-then-confirm gate (see os/guardrails.md 'Write tool gate') still runs on every write. Copy this file to settings.local.json (gitignored) if you want to opt in.",
+  "_comment": "Per-user opt-in. (1) Skips Claude Code's permission prompt for the 8 Realize write tools — the plugin's preview-then-confirm gate (see os/guardrails.md 'Write tool gate') still runs on every write. (2) Allows the public-documentation fallback to look up topics the knowledge base doesn't cover; without these two entries every lookup prompts, and a declined prompt looks like the plugin simply having no answer. Copy this file to settings.local.json (gitignored) if you want to opt in.",
   "permissions": {
     "allow": [
       "mcp__realize-mcp__create_campaign",
@@ -7,7 +7,11 @@
       "mcp__realize-mcp__create_native_item",
       "mcp__realize-mcp__update_native_item",
       "mcp__realize-mcp__create_display_item",
-      "mcp__realize-mcp__update_display_item"
+      "mcp__realize-mcp__update_display_item",
+      "mcp__realize-mcp__create_conversion_rule",
+      "mcp__realize-mcp__update_conversion_rule",
+      "WebSearch",
+      "WebFetch(domain:realize.com)"
     ]
   }
 }

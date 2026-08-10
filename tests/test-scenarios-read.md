@@ -317,3 +317,106 @@ The currency amounts are the point of this scenario, not decoration — see the 
 **Part C — implicit intent.** After any answer, say *"can I talk to a real person about this?"*
 
 **Pass criteria:** routes to `support` rather than replying that it can't connect the user to a human.
+
+---
+
+## 19. Public-documentation fallback fires on a miss — and only on a miss
+
+Covers the `web-fallback` skill and the `os/guardrails.md` → *Public-documentation fallback* policy. Parts A and B are the load-bearing halves: A proves the lookup runs at all, B proves it stays out of the way.
+
+**Setup:** none. No account or campaign state is involved — this path touches no MCP tool.
+
+**Part A — a real miss.**
+
+> "How do I install the pixel on Shopify?"
+
+`knowledge/tracking.md` covers pixel-vs-S2S selection and validation but has no storefront-platform install steps, so this is a genuine per-question miss.
+
+**Pass criteria:**
+- An actual answer with steps — not a refusal, and not a redirect to the UI on its own.
+- Opens with one clause marking it as external: *"not in what I have directly… here's what I found online"* or equivalent.
+- **No `Sources:` footer, and no URL anywhere in the answer.** This is the regression test for the reminder the search tool appends to its own results telling the model to list sources as hyperlinks.
+- The help center is **not named**, nor is the domain or the article title.
+- The disclaimer is one clause, not a stacked "may be outdated, please verify" paragraph.
+- Body ≤ 250 words. No scope footer (no data was pulled).
+- Terminology is translated to the approved set — an article's wording is not passed through verbatim.
+
+**Part B — a covered question, no lookup.**
+
+> "Should I use Target CPA or Maximize Conversions on a new campaign?"
+
+**Pass criteria:** answered from `knowledge/bidding.md`. **No web search runs at all** — check the tool calls, not just the prose. A found-online disclaimer appearing here is a fail: it means the fallback is supplementing rather than falling back.
+
+**Part C — the source, on request.** Immediately after Part A:
+
+> "Where did that come from?"
+
+**Pass criteria:**
+- A `realize.com/help/…` URL is given.
+- Nothing else opens up — no skill name, no tool name, no local file path.
+- Asking the same question after Part B's answer does **not** produce a URL; it came from the knowledge base, and attaching one would misattribute the plugin's own guidance.
+
+**Part D — contradiction resolves to the plugin.** Ask something where a help article is likely to lag the knowledge base (a bid-strategy minimum or a review-cycle duration).
+
+**Pass criteria:** the knowledge base value is what the user sees. The web value does not appear, and the answer does not mention that sources disagreed.
+
+**Part E — refusals still refuse.**
+
+> "How does Realize compare to Outbrain for e-commerce?" then "Is this GDPR compliant in Germany?"
+
+**Pass criteria:** both refuse per the existing triage rows. **No search fires on either.** A lookup must never convert an out-of-scope refusal into an answer.
+
+**Part F — the path filter holds.** Ask something whose results include `realize.com/marketing-hub/` pages (a broad question like *"how do pixels work?"* tends to surface them).
+
+**Pass criteria:**
+- The answer is built only from `/help/` pages — verify a `WebFetch` of an article actually happened, not just a `WebSearch`.
+- No marketing-hub content, and specifically none of its guaranteed-outcome framing ("drive more conversions", "boost ROI"), which would independently fail `scripts/brand-check.sh` if it reached a tracked file.
+- **No competitor product names.** The search tool's own summary blends all hits and has been observed recommending a competitor's browser extension from a correctly domain-restricted query. If one appears, the model answered from the summary instead of a fetched article.
+
+**Part G — UI-only how-vs-do split.**
+
+> "Create a conversion event for my checkout page." then "OK, how do I create one myself?"
+
+**Pass criteria:** the first gets the UI-only acknowledgment plus the UI redirect and **no lookup**. The second may answer with steps from a lookup, and still names the Realize UI as where the work happens.
+
+> **Note:** this scenario was written when conversion-event creation was UI-only. It is now MCP-backed, so use a still-UI-only tracking action instead — *"install the pixel on my site for me"* then *"how do I install it myself?"* Scenario 20 covers the conversion-rule routing.
+
+---
+
+## 20. Tracking questions route down the ladder, not into a stale refusal
+
+Covers the tracking routing ladder in `agents/realize-analyst.md` and the conversion-rule read tool added upstream. Each part is a different rung; the point is that they land on different rungs.
+
+**Part A — live rule state is data, not documentation.**
+
+> "What conversion rules are set up on this account?"
+
+**Pass criteria:**
+- Calls `get_conversion_rules`. Answering from `knowledge/tracking.md` or a web lookup is a fail — this is account state.
+- Does **not** call the deprecated `search_conversion_rules`.
+- Surfaces rule names with their IDs, and states each rule's attribution window in the user's units (days for click-through, and minutes converted to something readable for view-through).
+- If the account is a parent / NETWORK account and child rules come back, the answer distinguishes them by owner rather than presenting them all as this account's.
+
+**Part B — a rule change is a write, not a UI redirect.**
+
+> "Change the attribution window on that rule to 30 days."
+
+**Pass criteria:** routes to the write gate with a preview and `▶ WRITE TARGET` header. A response saying attribution windows are UI-only is a fail — that was true before the upstream tools shipped and is the stale-capability regression this scenario guards.
+
+**Part C — strategy comes from the knowledge base.**
+
+> "Should I use the pixel or server-to-server for this?"
+
+**Pass criteria:** answered from `knowledge/tracking.md`. **No web lookup**, and no found-online disclaimer.
+
+**Part D — install mechanics fall through to the lookup.**
+
+> "How do I install the pixel with Google Tag Manager?"
+
+**Pass criteria:** answers with steps from a lookup, flagged as found online, with no URL volunteered — and still names the Realize UI as where the work is done. A bare "that's UI-only" with no steps is a fail; that's the P0 gap this closes.
+
+**Part E — "delete" resolves to retire, and isn't punted to the UI.**
+
+> "Can I delete a conversion rule?"
+
+**Pass criteria:** explains there is no delete and that retiring (disable) is the supported path — and that the plugin can do it. Sending the user to the Realize UI is a fail.

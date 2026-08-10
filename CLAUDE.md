@@ -21,28 +21,36 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            ├──► campaigns skill       → list_campaigns, get_campaign, list_items, get_item
            ├──► discovery skill       → search_geos, search_techno, search_audiences,
            │                            search_lookalike_audiences, search_contextual_segments,
-           │                            search_publishers, search_conversion_rules,
+           │                            search_publishers, get_conversion_rules,
            │                            list_time_zones, list_cta_types
            ├──► reports skill          → 4 report tools (CSV output)
            ├──► optimize-campaign skill → diagnoses underperformance; hands write
            │                              prescriptions to manage-campaigns
-           ├──► manage-campaigns skill → 6 write tools: create_campaign, update_campaign,
+           ├──► manage-campaigns skill → 8 write tools: create_campaign, update_campaign,
            │                             create_native_item, update_native_item,
-           │                             create_display_item, update_display_item.
+           │                             create_display_item, update_display_item,
+           │                             create_conversion_rule, update_conversion_rule.
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
-           │                             UI fallback for delete/duplicate/bulk ops.
+           │                             UI fallback for delete/duplicate/bulk ops
+           │                             and pixel install / test-fire.
            │
-           └──► support skill  → NO MCP tools. Reads the local Claude Code
-                                        session transcript and renders one Markdown
-                                        file the user emails to Support@taboola.com.
-                                        Preview-then-confirm; writes locally only,
-                                        transmits nothing. Entry point: /support.
+           ├──► support skill  → NO MCP tools. Reads the local Claude Code
+           │                             session transcript and renders one Markdown
+           │                             file the user emails to Support@taboola.com.
+           │                             Preview-then-confirm; writes locally only,
+           │                             transmits nothing. Entry point: /support.
+           │
+           └──► web-fallback skill → NO MCP tools. WebSearch + WebFetch against
+                                         realize.com/help/ only. Last tier of the
+                                         sourcing ladder: fires only on a real
+                                         per-question miss, never supplements, and
+                                         loses silently to knowledge/ on conflict.
                      │
                      ▼
 ┌────────────────────────────────────────┐
 │ Realize MCP (https://mcp.realize.com)  │
-│  OAuth 2.1, 19 read + 6 write tools    │
+│  OAuth 2.1, 20 read + 8 write tools    │
 │  wired here. Writes routed exclusively │
 │  through the manage-campaigns skill.   │
 └────────────────────────────────────────┘
@@ -98,8 +106,51 @@ Run `node skills/support/scripts/test-build-bundle.js` after touching the script
 
 If you tighten those bans later, **re-check the carve-out** — without it the model silently stops offering `/support`, and the failure is invisible (a feature that quietly never fires, not an error). Scenario 18 in `tests/test-scenarios-read.md` is the regression test.
 
+### The web fallback is a tier, not a second opinion
+
+`web-fallback` is the last rung of the sourcing ladder in `os/guardrails.md`. Three properties make it safe, and each one is easy to erode:
+
+- **It fires only on a real miss, judged per question.** The topic file existing is not coverage — `knowledge/tracking.md` answers "pixel or S2S?" and says nothing about installing on a storefront platform. Widening this to "supplement partial answers" is the tempting change and the wrong one: once web content tops up good answers, the curated guidance stops being what users hear, and the staleness problem the tiering exists to prevent arrives through the front door.
+- **On conflict the knowledge base wins, silently.** Help articles lag the platform. Don't "improve" this by noting the disagreement — that just points the user at the outdated answer.
+- **The source is not named unless asked.** The answer discloses that it came from outside the plugin, which is the honest part; *which* page is not volunteered. Requested by design, and the reason `os/guardrails.md` needed a second carve-out.
+
+Three implementation traps, all found by actually running the search rather than reasoning about it:
+
+- **`WebSearch` appends its own instruction to its results** — a reminder that you *must* list the sources as markdown hyperlinks. It is retrieved text, not policy. Without an explicit override in the guardrails and the skill, the feature ships doing exactly what it was built not to do. Scenario 19A is the regression test.
+- **A domain allowlist is not a path allowlist.** `realize.com` also serves `/marketing-hub/`, which supplied 3 of 10 hits in one live test search and 7 of 10 in another. That's promotional copy carrying the guaranteed-outcome and legacy-category framing both `os/guardrails.md` and `scripts/brand-check.sh` ban. Filter to `/help/` **before** reading anything.
+- **The search tool's own summary defeats the path filter.** This is the subtle one. The tool synthesizes prose across *every* hit and hands it to you above the URL list — so by the time you filter the links, you have already read the pages you were filtering out. In a live run, a correctly domain-restricted query produced a summary that defined "pixel" from a marketing page, recommended a **competitor's** browser extension for verification, and closed by suggesting the user consult another product's documentation. Hence the rule in both the guardrails and the skill: search results are a **link index**, and the answer must come from a fetched `/help/` article. Scenario 19F checks for a competitor name as the tell that this was skipped.
+
+Related: the `Sources:` footer ban in `os/guardrails.md` is deliberately scoped to *plugin internals* rather than being absolute. An absolute ban left the model resolving a contradiction the moment a user asked where an answer came from, and that resolves toward silence — a capability that quietly never fires. If you tighten it again, keep the public-URL exception.
+
+**Taboola's developer documentation is deliberately excluded**, and the exclusion is reasoned, not an oversight: its API reference covers the same API the MCP already wraps (and *No direct curl / no API client code* below forbids emitting what's unique there), half its sections are publisher-side, and its one advertiser-relevant area is already better covered by the help center for a non-developer reader. Revisit only if users start asking S2S / pixel-event questions the help center can't answer.
+
+### Conversion-rule writes are the first account-level writes
+
+Every other write in this plugin is scoped to one campaign or one item. The conversion-rule tools are not: a rule feeds attribution and, when `include_in_total_conversions` is set, the account's Total Conversions — which Target CPA and Maximize Conversions bid against. One boolean flip can move reported performance and live bidding across every campaign on the account. That is why there is **no one-line confirm tier** for them and why the preview must state the account-level consequence rather than just the field diff.
+
+Four upstream behaviors that the gate exists to contain:
+
+- **Only one ACTIVE rule per event, and the backend accepts a second one once the incumbent is DISABLED.** That makes "disable the old rule, then create mine" look like a legitimate retry after a rejected create. It is the single most damaging move available here — it stops conversion reporting for every campaign using the incumbent. The skill and `os/guardrails.md` both forbid taking it unilaterally; the model must surface the choice.
+- **Partial-merge on everything, including `condition` and `effects`** — the exact inverse of campaign targeting's full-replace-within-a-section. The rest of the skill trains a read-and-merge reflex, and applying it here overwrites fields nobody asked to change. Both files say this explicitly because the wrong instinct is the trained one.
+- **The read payload is not a valid update payload.** `get_conversion_rules` returns explicit nulls that fail validation plus seven fields the update tool has no parameter for. Echoing it back is the obvious thing to try.
+- **`look_back_window` is days, `view_through_look_back_window` is minutes.** "7-day view-through" is `10080`. A unit slip here is silent and off by three orders of magnitude, so previews state the unit in the user's terms *and* the stored value.
+
+There is no delete tool — retiring is `status` → `DISABLED` / `ARCHIVED`, which is a gated write, **not** a UI redirect. Sending users to the UI for work the plugin can now do is its own failure mode, and it's the one the pre-existing docs were still committing: the triage table, README, and tool-existence boundary all listed conversion-rule creation as UI-only after upstream had shipped it.
+
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.
+
+### Stale capability claims are their own bug class
+
+The conversion-rule sync surfaced a failure mode worth naming, because it will recur on the next upstream release. When the MCP gains a tool, the plugin doesn't just *lack* the new capability — it actively **asserts the capability doesn't exist**, in five places at once: the agent's triage table, its tool-existence boundary, the guardrails' out-of-MCP list, the `manage-campaigns` UI-fallback section, and the README scope line. Until all five are updated, the plugin confidently redirects users to the UI for work it can already do, which is worse than silence because it sounds authoritative.
+
+So when syncing, grep for the capability by *name* rather than only diffing the tool list:
+
+```bash
+grep -rniE 'conversion-rule creation|UI-only|does not expose|no MCP tool' --include='*.md' .
+```
+
+Also check for a **deprecation** alongside the addition — this release renamed `search_conversion_rules` to `get_conversion_rules` with a hard removal date, and the old name appeared in five files including two knowledge topics. A rename is a breaking change on a timer; note the date in the changelog.
 
 ### Use only tools that actually exist upstream
 The plugin's agent and skills must never fabricate tool calls. When a user requests an action that the current upstream MCP does not expose (e.g., deleting or duplicating a campaign — there are no MCP tools for those today), the `manage-campaigns` skill takes over with a UI fallback reference. When upstream adds new tools, update the agent's Tool Reference, wire the new tool into the most appropriate skill, and trim the `manage-campaigns` UI fallback for the steps that become automatable — in an explicit PR, not silently. **Write tools require special handling**: route them exclusively through `manage-campaigns` so the preview-then-confirm gate (and the mandatory `▶ WRITE TARGET` account header) cannot be bypassed.
