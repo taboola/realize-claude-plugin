@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **19 read tools + 6 write tools** from the upstream MCP:
+This plugin wires **20 read tools + 8 write tools** from the upstream MCP (conversion-rule create / update / read were added upstream after this analysis was first written):
 
 | Area | Tools |
 |---|---|
@@ -41,13 +41,13 @@ This plugin wires **19 read tools + 6 write tools** from the upstream MCP:
 | Items | `list_items`, `get_item` |
 | Discovery — targeting | `search_geos`, `search_techno` |
 | Discovery — audiences | `search_audiences`, `search_lookalike_audiences`, `search_contextual_segments` |
-| Discovery — publishers / conversion | `search_publishers`, `search_conversion_rules` |
+| Discovery — publishers / conversion | `search_publishers`, `get_conversion_rules` |
 | Resources | `list_time_zones`, `list_cta_types` |
 | Reports (CSV) | `get_top_campaign_content_report`, `get_campaign_breakdown_report`, `get_campaign_history_report`, `get_campaign_site_day_breakdown_report` |
 | Reach estimation | `get_campaign_reach_estimate` |
 | Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item` |
 
-Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI fallback section for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, conversion-rule creation, CRM uploads, lookalike seeds) — see Part 3 for that catalog.
+Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI fallback section for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, CRM uploads, lookalike seeds, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Conversion-rule creation has since moved out of that list** and is now an MCP write.
 
 ---
 

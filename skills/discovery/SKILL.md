@@ -6,7 +6,7 @@ allowed-tools: ["Read", "Bash", "AskUserQuestion"]
 
 # Discovery
 
-Resolve opaque IDs and enumerate the catalogs that Realize's targeting / audience / publisher / conversion settings draw from. This skill wraps the nine read-only "look it up" tools the MCP exposes, so the user does not have to guess country codes, audience IDs, publisher IDs, segment IDs, CTA enum values, or IANA time zone names.
+Resolve opaque IDs and enumerate the catalogs that Realize's targeting / audience / publisher / conversion settings draw from. This skill wraps the nine read-only "look it up" tools the MCP exposes, so the user does not have to guess country codes, audience IDs, publisher IDs, segment IDs, conversion-rule IDs, CTA enum values, or IANA time zone names.
 
 ## When to use
 
@@ -37,7 +37,7 @@ For pulling **performance numbers**, route to the `reports` skill instead. For c
 | `mcp__realize-mcp__search_lookalike_audiences` | `account_id` | `country_code` (ISO-2) | Lookalike rules with `rule_id`, ... |
 | `mcp__realize-mcp__search_contextual_segments` | `account_id` | `country_codes`, `country_targeting_type` | Segments with `segment_id`, ... |
 | `mcp__realize-mcp__search_publishers` | `account_id`, `query` (use `"*"` for all) | `publisher_ids` (array of int), `page` (default 1), `page_size` (max **50**, default 10) | Paginated publisher list `{id, name, account_id, country, is_active}` |
-| `mcp__realize-mcp__search_conversion_rules` | `account_id` | — | Conversion rules with `id`, ... |
+| `mcp__realize-mcp__get_conversion_rules` | `account_id` | `rule_id` (numeric id **as a string**, narrows to one rule) | `{account_id, values: [...]}` — each rule in full, with `condition` and `effects`. Not paginated. |
 | `mcp__realize-mcp__list_time_zones` | — | — | Array of IANA time zone names (e.g., `America/New_York`) |
 | `mcp__realize-mcp__list_cta_types` | — | — | Array of valid `cta_type` enum values |
 
@@ -51,7 +51,8 @@ For pulling **performance numbers**, route to the `reports` skill instead. For c
 - *"Contextual segments for account X."* → `search_contextual_segments(account_id="...")`.
 - *"Publishers matching 'news' on account X."* → `search_publishers(account_id="...", query="news")`.
 - *"All publishers on account X."* → `search_publishers(account_id="...", query="*")`. Paginate if needed — `page_size` is hard-capped at 50.
-- *"Conversion rules on account X."* → `search_conversion_rules(account_id="...")`.
+- *"Conversion rules on account X."* → `get_conversion_rules(account_id="...")`.
+- *"Show me conversion rule 3312."* → `get_conversion_rules(account_id="...", rule_id="3312")`.
 - *"What time zones does Realize accept?"* → `list_time_zones()`.
 - *"What CTA button types exist?"* → `list_cta_types()`.
 
@@ -72,4 +73,9 @@ For pulling **performance numbers**, route to the `reports` skill instead. For c
 - **`query="*"` lists all** publishers, but the result is still paginated — don't assume page 1 is the full set.
 - **Audience country filters are passthrough.** `country_codes` and `country_targeting_type` are forwarded to the upstream API; verify the result actually narrowed by checking the row count.
 - **Catalogs change.** Time zones and CTA types are versioned upstream — don't cache them across sessions; re-pull when starting a new campaign-creation flow.
+- **`search_conversion_rules` is deprecated.** It was renamed to `get_conversion_rules`, and the old name is removed after **2026-11-01**. Behavior is identical and the old name also accepts `rule_id` now, but use `get_conversion_rules` everywhere.
+- **`get_conversion_rules` returns ACTION rules only.** Pixel *audience* rules are not in the response, so an empty result doesn't mean the account has no pixel activity.
+- **The account you query is often not the account that owns the rules.** Each rule's `advertiser_id` names its owner, and it runs both directions: a parent / NETWORK account returns its children's rules, **and a child account returns the network's rules**. Observed on a real account — querying a child returned 62 rules, all 62 owned by the parent network and none by the account queried. Always report ownership rather than presenting everything as "this account's rules", and check `advertiser_id` before handing an ID downstream to a write.
+- **Not everything readable here is writable.** The response includes `type: "ENGAGEMENT"` rules with `SESSION_DEPTH` / `TIME_ON_SITE` conditions; the create and update tools accept neither (`type` is `BASIC` / `EVENT_BASED` only). Surface them when listing, but route edit requests for them to the Realize UI.
+- **The read payload is not a valid update payload.** If the user wants a rule changed, hand off to `manage-campaigns` with the rule ID and the intended edits, not the object you just read.
 - **Pass IDs verbatim downstream — and respect their underlying type.** `account_id`, `campaign_id`, `item_id`, and publisher `id` are **opaque strings** returned by the API; do not coerce to int. `audience_id`, `segment_id`, lookalike `rule_id`, and conversion-rule `id` are **integers** — pass them as numbers, not stringified. In all cases, do not strip or re-case the value returned by the search / list tool.

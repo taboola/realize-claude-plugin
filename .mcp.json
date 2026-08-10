@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://mcp.realize.com/mcp",
       "headers": {
-        "X-Realize-Client": "realize-mcp-plugin/0.3.0"
+        "X-Realize-Client": "realize-mcp-plugin/0.4.0"
       },
       "oauth": {
         "callbackPort": 3000

@@ -1,8 +1,8 @@
 {
   "name": "realize-plugin",
   "displayName": "Realize Plugin",
-  "version": "0.3.0",
-  "description": "Query Realize campaigns, pull performance reports, and create/update campaigns and ad items through natural language — powered by the Realize remote MCP.",
+  "version": "0.4.0",
+  "description": "Query Realize campaigns, pull performance reports, and create/update campaigns, ad items, and conversion rules through natural language — powered by the Realize remote MCP.",
   "author": {
     "name": "Taboola"
   },

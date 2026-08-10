@@ -42,7 +42,7 @@ ONLINE_PURCHASES / LEADS_GENERATION / MOBILE_APP_INSTALL **typically** require a
 
 1. Stage the campaign with `marketing_objective=ONLINE_PURCHASES` (or LEADS_GENERATION for lead-generation campaigns), `bid_strategy=MAX_CONVERSIONS`. Omit `cpc` (algorithm decides). Set a reasonable daily_cap to give the algo room (rule of thumb: daily_cap ≥ 10× expected CPA).
 2. If the goal is ROAS-driven AND value reporting will land later, use `MAX_VALUE` instead of MAX_CONVERSIONS — same shape, value-weighted optimisation.
-3. If the API rejects the create call because no conversion rule is attached, attach a placeholder rule from the account (any active rule resolved via `search_conversion_rules`) and note that it is a placeholder — swap for the real purchase rule once the pixel is installed.
+3. If the API rejects the create call because no conversion rule is attached, attach a placeholder rule from the account (any active rule resolved via `get_conversion_rules`) and note that it is a placeholder — swap for the real purchase rule once the pixel is installed. If the account has no usable rule at all, one can now be created via `create_conversion_rule` through the `manage-campaigns` write gate — but the pixel still has to be installed in the UI before the rule records anything.
 4. After the real conversion rule is created (Realize UI today; MCP write tool when available), call `update_campaign` to detach the placeholder and attach the real one. Bid strategy stays MAX_CONVERSIONS (or upgrades to MAX_VALUE).
 
 NEVER ship a campaign as BRAND_AWARENESS + FIXED CPC just because the pixel is missing — that's a worse setup than MAX_CONVERSIONS on a performance objective with no rule attached.

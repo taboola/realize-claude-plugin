@@ -80,7 +80,7 @@ All optional; populate where the request specifies. Item-level targeting does no
 
 | Field | Shape | Notes |
 |---|---|---|
-| `conversion_rules` | `{"rules": [{"id": <integer_rule_id>}, ...]}` (object containing a `rules` list; key is `id` and value is an **integer**, not `rule_id` / string) | Use `search_conversion_rules` to resolve. Required for performance objectives (ONLINE_PURCHASES / LEADS_GENERATION / MOBILE_APP_INSTALL) — see `knowledge/bidding.md` "When the conversion rule isn't ready yet" for the placeholder-rule recipe. |
+| `conversion_rules` | `{"rules": [{"id": <integer_rule_id>}, ...]}` (object containing a `rules` list; key is `id` and value is an **integer**, not `rule_id` / string) | Use `get_conversion_rules` to resolve, or `create_conversion_rule` to make one. Required for performance objectives (ONLINE_PURCHASES / LEADS_GENERATION / MOBILE_APP_INSTALL) — see `knowledge/bidding.md` "When the conversion rule isn't ready yet" for the placeholder-rule recipe. Note the type split: the rule `id` is an **integer** here, but `update_conversion_rule`'s own `rule_id` parameter is that same id **as a string**. |
 | `activity_schedule` | `{time_zone, days: [{day, hours}]}` | Dayparting. `time_zone` resolved via `list_time_zones`. Don't apply at launch without data (per `knowledge/campaign-structure.md`). |
 
 ## 3. Item-level write tools
@@ -188,7 +188,7 @@ The canonical matrix lives in `knowledge/bidding.md` ("Bid Levers — What's Pos
 | `search_lookalike_audiences(account_id, query)` | Account-resident lookalike seeds | Pixel-based predictive, CRM lookalike, etc. |
 | `search_contextual_segments(query)` | Network-wide marketplace catalogue | Demographics, interests, 3P data partner segments. NEVER expected empty for a US-targeted campaign. |
 | `search_publishers(query)` | Publisher list | Allow / block list resolution. |
-| `search_conversion_rules(account_id, query)` | Account conversion rules | Required for performance objectives. |
+| `get_conversion_rules(account_id, [rule_id])` | Account conversion rules — all, or one by id | Required for performance objectives. Replaces the deprecated `search_conversion_rules` (removed after 2026-11-01). Also the mandatory pre-read before any conversion-rule write. |
 | `search_techno(dimension, query)` | Techno entities | OS / browser / connection types. |
 | `list_cta_types()` | CTA enum values | Native item `cta.cta_type`. |
 | `list_time_zones()` | Time zone enum values | Dayparting `activity_schedule.time_zone`. |
@@ -319,7 +319,10 @@ update_campaign(
 |---|---|---|
 | `400 Unsupported tag` from `create_display_item` | 3P vendor not configured for this account — cannot self-correct | Route the user to their Account Manager (or `support@taboola.com`) for vendor enablement. **Do not retry**; do not strip the wrapper (it won't help). |
 | `400 Invalid html tag structure` from `create_display_item` | Markup is wrapped or malformed | Strip everything before the first ad-tag element (no `<!DOCTYPE>`, no `<html>` / `<body>` / `<div>`, no leading whitespace), then retry. |
-| `create_campaign` rejected — "conversion rule required" | Performance objective without an attached rule | Either attach an existing rule (`search_conversion_rules`) or stage with a placeholder per `knowledge/bidding.md` "When the conversion rule isn't ready yet" recipe. |
+| `create_campaign` rejected — "conversion rule required" | Performance objective without an attached rule | Attach an existing rule (`get_conversion_rules`), create one (`create_conversion_rule`, through the write gate), or stage with a placeholder per `knowledge/bidding.md` "When the conversion rule isn't ready yet" recipe. |
+| `create_conversion_rule` rejected — duplicate event | An ACTIVE rule already holds that `event_name` | Update the incumbent instead. Do **not** disable it to force the create through — that stops reporting for every campaign using it. Surface the choice to the user. |
+| `update_conversion_rule` rejected — unknown parameter | A `get_conversion_rules` payload was echoed back | Build a minimal payload of only the changed fields. `id`, `advertiser_id`, `pixel_id`, `exclude_from_campaigns`, `external_id`, `partner`, `tracked_elements` have no parameter on the update tool. |
+| `update_conversion_rule` returns READONLY, naming `eventName` | An immutable field changed — `type`, `category`, or `event_name` | The error may name `eventName` even when `type` was what you changed, so don't chase the named field. Resending an immutable field *unchanged* is fine; changing it requires a new rule. |
 | Item creation succeeds but item shows wrong campaign type in UI | Created a Native item on a campaign destined for Display (or vice versa) | Item locks campaign type irreversibly. Pause the wrong-type campaign and create a fresh one with the intended type. See `knowledge/creative.md` "If a Native campaign was created by mistake when Display was wanted". |
 | `cpc` field accepted but ignored on Maximize Conversions / Target CPA / Maximize Value | The algorithm sets the bid on fully-automated strategies — `cpc` is silently dropped | Don't set `cpc` on these strategies. If a ceiling is needed, use `cpc_cap` (last-resort). |
 | `update_campaign` rejected with "marketing objective cannot change" | Trying to switch objective on a live campaign | Create a new campaign instead. Objective is locked at create. |
