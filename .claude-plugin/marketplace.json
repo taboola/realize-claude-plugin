@@ -1,0 +1,20 @@
+{
+  "name": "realize",
+  "owner": {
+    "name": "Taboola"
+  },
+  "metadata": {
+    "description": "Taboola Realize plugins for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "realize-plugin",
+      "source": "./",
+      "description": "Query Realize campaigns, pull performance reports, and create/update campaigns, ad items, and conversion rules through natural language — powered by the Realize remote MCP.",
+      "author": {
+        "name": "Taboola"
+      }
+    }
+  ]
+}

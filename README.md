@@ -18,13 +18,16 @@ Choose the path that matches how you consume Claude Code plugins:
 
 ### Option A — Install from a marketplace *(recommended)*
 
-```bash
-claude plugin i realize-plugin
+The repo is its own marketplace (named `realize`). Inside a Claude Code session, run:
+
+```
+/plugin marketplace add taboola/realize-claude-plugin
+/plugin install realize-plugin@realize
 ```
 
-That single command installs everything — the `realize-analyst` agent, the skills, and the Realize MCP wiring. On the first tool call, Claude Code opens a browser for Taboola SSO to complete OAuth 2.1; after that you're ready to run prompts like *"List my Realize accounts"*.
+That installs everything — the `realize-analyst` agent, the skills, and the Realize MCP wiring. On the first tool call, Claude Code opens a browser for Taboola SSO to complete OAuth 2.1; after that you're ready to run prompts like *"List my Realize accounts"*.
 
-> Requires the plugin to be registered with a Claude Code plugin marketplace your CLI has access to. See [Claude Code plugin docs](https://code.claude.com/docs/en/plugins) for the marketplace configuration specific to your Taboola distribution.
+> If installing reports the old pre-release name **`realize-ads-api`**, you have a stale marketplace registration from an early install — see the cleanup steps in [INSTALL.md](INSTALL.md).
 
 ### Option B — Local development / custom loading
 
