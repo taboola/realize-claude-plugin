@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **20 read tools + 8 write tools** from the upstream MCP (conversion-rule create / update / read were added upstream after this analysis was first written):
+This plugin wires **20 read tools + 8 write tools** from the upstream MCP:
 
 | Area | Tools |
 |---|---|
@@ -47,7 +47,7 @@ This plugin wires **20 read tools + 8 write tools** from the upstream MCP (conve
 | Reach estimation | `get_campaign_reach_estimate` |
 | Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item` |
 
-Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI fallback section for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, CRM uploads, lookalike seeds, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Conversion-rule creation has since moved out of that list** and is now an MCP write.
+Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI fallback section for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, CRM uploads, lookalike seeds, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog.
 
 ---
 
