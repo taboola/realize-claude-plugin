@@ -137,6 +137,8 @@ Four upstream behaviors that the gate exists to contain:
 
 There is no delete tool — retiring is `status` → `DISABLED` / `ARCHIVED`, which is a gated write, **not** a UI redirect. Sending users to the UI for work the plugin can now do is its own failure mode, and it's the one the pre-existing docs were still committing: the triage table, README, and tool-existence boundary all listed conversion-rule creation as UI-only after upstream had shipped it.
 
+**The read overflows on rule-heavy accounts — and two deliberate choices contain it.** `get_conversion_rules` is unpaginated with no status filter (field repro: 278 rules / ~270 KB, only 102 ACTIVE); past the tool-result cap the model receives an error plus a dumped-file path, and `rule_id` can't rescue it because the listing is the only source of IDs. The two tempting wrong moves are a retry loop (same overflow every time) and skipping the mandatory pre-read before a write — the agent, `discovery`, and `manage-campaigns` forbid both (the guardrails additionally pin the pre-read gate), and all route recovery through reading the dumped file. Listings default to ACTIVE rules **with a mandatory one-line skipped-count disclosure** — the disclosure is the point; filtering silently would hide account state from the user. This whole block is interim: when upstream ships pagination/status filtering, treat it as stale-capability-claims class (grep for "overflow" and "no status filter") and rewrite rather than layering on top.
+
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.
 

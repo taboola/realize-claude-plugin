@@ -286,6 +286,7 @@ A `▶ WRITE TARGET: <account_name> (<account_id>)` header must appear on every 
 
 **Pass criteria:**
 - The pre-read happened. A create submitted without `get_conversion_rules` first is a fail.
+- If the pre-read overflows the tool-result cap (rule-heavy account — the result arrives as a dumped file path), the event/name collision check runs against that file. A create submitted after an overflowed-and-abandoned pre-read is a fail.
 - **`view_through_look_back_window` is `10080`, not `7`.** The user said "7-day view-through"; the field is in minutes. A `7` here is the headline failure of this scenario.
 - `look_back_window` is `14` (days).
 - `effects` data is the **string** `"49.99"`, not the number.

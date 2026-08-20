@@ -162,6 +162,9 @@ Every write preview must lead with `▶ WRITE TARGET: <account name> (<account i
 **CSV output was truncated.**
 Very large result sets are auto-truncated server-side. Narrow the query (shorter date range, specific `campaign_id`, higher sort discrimination) and retry.
 
+**Conversion-rule listing failed or came back huge.**
+Accounts with hundreds of conversion rules can overflow the response (the listing isn't paginated yet). The plugin recovers by reading the saved result file and answers with **active** rules by default, noting how many disabled/archived rules were skipped — ask explicitly if you want those included.
+
 ---
 
 ## Support
