@@ -29,10 +29,27 @@ Use this to iterate on skills, run test scenarios, or work in a restricted/air-g
 
 ```bash
 git clone https://github.com/taboola/realize-claude-plugin
-claude --plugin-dir ./realize-claude-plugin
+cd realize-claude-plugin
+claude --plugin-dir .
 ```
 
 `--plugin-dir` loads the plugin (skills, agent, and MCP wiring) directly from the local directory — no marketplace required.
+
+> **The path is relative to where you launch `claude`.** From *inside* the repo use `--plugin-dir .`; from the parent folder use `--plugin-dir ./realize-claude-plugin`. A path that doesn't exist loads **nothing and prints no error** — the session starts normally and every plugin command comes back as `Unknown command`.
+>
+> Check it loaded before doing anything else:
+>
+> ```bash
+> claude --plugin-dir . plugin list
+> ```
+>
+> You want a `realize-plugin@inline … Status: ✔ loaded` entry. To see which skills and commands registered:
+>
+> ```bash
+> claude --plugin-dir . plugin details realize-plugin@inline
+> ```
+
+**Invoking commands:** plugin components are namespaced by plugin name, so the support command is `/realize-plugin:support`, not `/support`. Typing `/` lists everything available in the session.
 
 **Picking up code changes:** after `git pull`, run `/reload-plugins` inside the session to refresh without restarting the CLI.
 

@@ -6,6 +6,10 @@
 .agent-mail/
 .a5c/
 
+# Fetched service-config cache. Carries internal Taboola infrastructure
+# hostnames and datasource credentials — this repo is public.
+.claude/transcript-uploader/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -24,7 +28,20 @@ venv/
 .vscode/
 *.swp
 
-# Local PR / review / reply drafts at repo root (not for upstream)
+# Local PR / review / reply drafts at repo root (not for upstream).
+# Patterns are deliberately loose on the tail: the earlier
+# /pr*-comment-*.txt and /reply-to-*.txt required a trailing segment and
+# so missed pr2-readme-comment.txt and reply-mcp-*-feedback.txt.
 /pr-description-*.txt
-/pr*-comment-*.txt
-/reply-to-*.txt
+/pr*-comment*.txt
+/reply-*.txt
+
+# Local working data — eval inputs, hypothesis verdicts, dataset scratch.
+# Routinely holds real customer campaign data (account and campaign IDs,
+# spend, performance). This repo is public, so one `git add -A` turns a
+# messy working tree into a disclosure. Keep it untracked.
+/inputs/
+
+# Support bundles, wherever they land. build-bundle.js already refuses to
+# write inside a git work tree; this is the second line, not the first.
+realize-support-*.md

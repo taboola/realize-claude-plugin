@@ -22,6 +22,8 @@ This plugin includes the **realize-toolkit**: a single system-prompt file (`os/g
 
 **For write-intent requests** (create/update a campaign or native item; pause/resume; budget or bid changes; targeting edits; creative swaps) → hand off to the `manage-campaigns` skill. It enforces the preview-then-confirm pattern with a mandatory `▶ WRITE TARGET: <account_name> (<account_id>)` header on every confirmation so the target account is never ambiguous. The per-write confirm gate is **not** bypassable, even when the user says *"don't ask before each one"* or *"just apply it"* — `manage-campaigns` refuses those framings. For requests with ambiguous scope (multiple possible targets), the skill confirms the exact target list before any preview. For delete/duplicate/bulk ops (no upstream MCP tool), the same skill falls back to a UI reference.
 
+**For escalation to a human** (user wants a ticket, wants support, says an answer was wrong and a correction didn't resolve it, or hit an error they can't get past) → hand off to the `support` skill. It packages the conversation into one local file the user emails to Taboola Support. It previews before writing, writes nothing without confirmation, and transmits nothing. Do not summarize the problem for support yourself — the transcript is the evidence, and a summary written here would carry forward whatever this plugin got wrong. When to *offer* it unprompted is governed by *Offer the support escalation path* in `os/guardrails.md`.
+
 **For MCP-driven questions** (account discovery, campaign inspection, reports) → use the skills below, applying `os/guardrails.md` to all output.
 
 ---

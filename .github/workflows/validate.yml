@@ -88,5 +88,8 @@ jobs:
           print("All frontmatter valid.")
           PY
 
+      - name: Support-bundle unit tests
+        run: node skills/support/scripts/test-build-bundle.js
+
       - name: Brand and guardrail lint
         run: bash scripts/brand-check.sh

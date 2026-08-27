@@ -260,3 +260,60 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 3. Returns the enum values verbatim.
 
 **Pass criteria:** No `account_id` is sent; values are presented as the exact enum strings the user would paste into a campaign setup.
+
+---
+
+## 17. Support bundle — capture a session for Professional Services
+
+**Setup:** run at least one real Realize action first (e.g. scenario 5) so the bundle has actions to report.
+
+**User prompt:**
+> `/realize-plugin:support the CPA showed $12.40 but the Realize UI shows $18.90 for the same range`
+
+The currency amounts are the point of this scenario, not decoration — see the pass criteria.
+
+**Expected behavior:**
+1. The `support` skill activates.
+2. Runs the builder with `--preview`. **Nothing is written yet.**
+3. Reports back in plain language: turn count, approximate file size, the account IDs involved, and that local folder paths are included. States that credentials are stripped and nothing is transmitted.
+4. Asks for explicit confirmation via `AskUserQuestion`.
+5. On confirm, writes the file and reports the path, the suggested case title, and `Support@taboola.com` as the destination.
+
+**Pass criteria:**
+- No file exists on disk before the user confirms.
+- The text after the command appears **verbatim** in the bundle's "What the user reported" section — not paraphrased, not "improved".
+- **`$12.40` and `$18.90` appear intact.** If they render as `2.40` / `8.90`, the complaint was passed as a quoted shell argument and the shell ate `$1` — the skill must write it to a file and use `--complaint-file`. Regression test for silent corruption of the exact figures the case is about.
+- The counts are the conversation, not the log: "Messages from the user" matches what the human actually typed (a 7-message exchange reads 7, not 60+); tool results are counted separately.
+- **Section 5's table is not broken.** Every row renders as one row. A creative title or description containing a newline must not split a row — that corrupts the table from that point down.
+- **The email subject is the user's own sentence**, not a title written about it — `$12.40` / `$18.90` intact, one line, account ID appended. It appears in a copy-ready fenced block under "How to send this to Support".
+- **Section 1 (Summary) opens with** *"This case has been created by the Realize Plugin…"* and lists the Realize tools called, skills invoked, and knowledge files read (e.g. `os/guardrails.md`, `skills/reports/SKILL.md`).
+- **Section 1 contains no narrative** — no sentence describing what the plugin thought, intended, or got wrong. Counts, tool names, and file paths only, closing with the line stating it is mechanically extracted. A prose account here is a fail even if accurate: it's the one thing the bundle must not carry.
+- **Ad copy survives redaction.** If the session touched a creative headed *"Secret: Summer Sale"* or similar, it appears intact. Redaction targets credentials, and mangling creative text defeats the purpose of the bundle.
+- Re-running the command does not overwrite an earlier bundle; the second run either picks a new timestamped name or refuses.
+- The suggested title names the symptom and includes the account ID; it does **not** assert a cause.
+- Section 5 lists every Realize action attempted in order with its result.
+- `grep -iE '"(access_token|refresh_token|password|client_secret)"\s*:\s*"[^<]' <file>` returns nothing.
+- `account_id` / `campaign_id` values **are** present (PS needs them to reproduce).
+- The file is written outside the plugin repo — it contains customer data and must never land in a git working tree.
+- The preview reports match confidence `exact`. If it reports `guessed`, the skill must say so and offer to cancel.
+
+---
+
+## 18. Support escalation is offered on a failed action — but not otherwise
+
+**Part A — offered.** Trigger a failing action (scenario 10's invalid `account_id` works).
+
+**Expected behavior:** after explaining the failure and the retry path, the answer ends with a single italic line offering `/realize-plugin:support`.
+
+**Pass criteria:**
+- Exactly one sentence, offered **once**. Not repeated on the next answer.
+- The scope footer is not also present on that answer — one or the other, never both.
+- It does not describe what the bundle contains or list its sections.
+
+**Part B — not offered.** Run a normal successful report (scenario 5) with no complaint.
+
+**Pass criteria:** no support line appears. Offering escalation on an answer the user hasn't questioned reads as low confidence and is a fail.
+
+**Part C — implicit intent.** After any answer, say *"can I talk to a real person about this?"*
+
+**Pass criteria:** routes to `support` rather than replying that it can't connect the user to a human.
