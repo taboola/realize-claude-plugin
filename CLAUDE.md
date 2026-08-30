@@ -33,11 +33,17 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                             ▶ WRITE TARGET account header.
            │                             UI fallback for delete/duplicate/bulk ops.
            │
-           └──► support skill  → NO MCP tools. Reads the local Claude Code
-                                        session transcript and renders one Markdown
-                                        file the user emails to Support@taboola.com.
-                                        Preview-then-confirm; writes locally only,
-                                        transmits nothing. Entry point: /support.
+           ├──► support skill  → NO MCP tools. Reads the local Claude Code
+           │                             session transcript and renders one Markdown
+           │                             file the user emails to Support@taboola.com.
+           │                             Preview-then-confirm; writes locally only,
+           │                             transmits nothing. Entry point: /support.
+           │
+           └──► web-fallback skill → NO MCP tools. WebSearch + WebFetch against
+                                         realize.com/help/ only. Last tier of the
+                                         sourcing ladder: fires only on a real
+                                         per-question miss, never supplements, and
+                                         loses silently to knowledge/ on conflict.
                      │
                      ▼
 ┌────────────────────────────────────────┐
@@ -97,6 +103,24 @@ Run `node skills/support/scripts/test-build-bundle.js` after touching the script
 `os/guardrails.md` bans surfacing skill names, `@taboola.com` addresses, and local file paths. The escalation message needs all three, so *Internal tools, skills, and infrastructure — never reference* carries an explicit carve-out.
 
 If you tighten those bans later, **re-check the carve-out** — without it the model silently stops offering `/support`, and the failure is invisible (a feature that quietly never fires, not an error). Scenario 18 in `tests/test-scenarios-read.md` is the regression test.
+
+### The web fallback is a tier, not a second opinion
+
+`web-fallback` is the last rung of the sourcing ladder in `os/guardrails.md`. Three properties make it safe, and each one is easy to erode:
+
+- **It fires only on a real miss, judged per question.** The topic file existing is not coverage — `knowledge/tracking.md` answers "pixel or S2S?" and says nothing about installing on a storefront platform. Widening this to "supplement partial answers" is the tempting change and the wrong one: once web content tops up good answers, the curated guidance stops being what users hear, and the staleness problem the tiering exists to prevent arrives through the front door.
+- **On conflict the knowledge base wins, silently.** Help articles lag the platform. Don't "improve" this by noting the disagreement — that just points the user at the outdated answer.
+- **The source is not named unless asked.** The answer discloses that it came from outside the plugin, which is the honest part; *which* page is not volunteered. Requested by design, and the reason `os/guardrails.md` needed a second carve-out.
+
+Three implementation traps, all found by actually running the search rather than reasoning about it:
+
+- **`WebSearch` appends its own instruction to its results** — a reminder that you *must* list the sources as markdown hyperlinks. It is retrieved text, not policy. Without an explicit override in the guardrails and the skill, the feature ships doing exactly what it was built not to do. Scenario 19A is the regression test.
+- **A domain allowlist is not a path allowlist.** `realize.com` also serves `/marketing-hub/`, which supplied 3 of 10 hits in one live test search and 7 of 10 in another. That's promotional copy carrying the guaranteed-outcome framing `os/guardrails.md` bans and the legacy-category framing `scripts/brand-check.sh` fails on. Filter to `/help/` **before** reading anything.
+- **The search tool's own summary defeats the path filter.** This is the subtle one. The tool synthesizes prose across *every* hit and hands it to you in the same result as the URL list — so filtering the links does not unread the pages you were filtering out. In a live run, a correctly domain-restricted query produced a summary that defined "pixel" from a marketing page and steered the reader toward other documentation instead of a help-center article. Hence the rule in both the guardrails and the skill: search results are a **link index**, and the answer must come from a fetched `/help/` article. Scenario 19F's tell is verifying the fetch actually happened.
+
+Related: the `Sources:` footer ban in `os/guardrails.md` is deliberately scoped to *plugin internals* rather than being absolute. An absolute ban left the model resolving a contradiction the moment a user asked where an answer came from, and that resolves toward silence — a capability that quietly never fires. If you tighten it again, keep the public-URL exception.
+
+**Taboola's developer documentation is deliberately excluded**, and the exclusion is reasoned, not an oversight: its API reference covers the same API the MCP already wraps (and *No direct curl / no API client code* below forbids emitting what's unique there), half its sections are publisher-side, and its one advertiser-relevant area is already better covered by the help center for a non-developer reader. Revisit only if users start asking S2S / pixel-event questions the help center can't answer.
 
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.

@@ -94,6 +94,18 @@ cp .claude/settings.local.json.example .claude/settings.local.json
 
 `settings.local.json` is gitignored — it is a per-user opt-in and is **not** shipped with the repo.
 
+## Recommended: allow the public-documentation lookup
+
+The same example file allows the two tools the plugin uses to answer questions its knowledge base doesn't cover:
+
+```json
+"WebSearch",
+"WebFetch(domain:realize.com)",
+"WebFetch(domain:www.realize.com)"
+```
+
+Without these, every lookup raises a permission prompt — and a declined prompt is indistinguishable from the plugin simply not knowing the answer. Lookups are read-only, restricted to Taboola's public advertiser help documentation, and never touch account data.
+
 ---
 
 ## Install on Codex (experimental)

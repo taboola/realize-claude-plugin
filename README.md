@@ -2,7 +2,7 @@
 
 Query Taboola **Realize** campaigns and pull performance reports through natural language, straight from Claude Code. Powered by the [Realize remote MCP](https://github.com/taboola/realize-mcp).
 
-> **Scope today:** account discovery, campaign and item inspection, targeting / audience / publisher / conversion-rule lookup, performance reports, and **create + update for campaigns and Native + Display items** — each write gated behind a preview-then-confirm that prominently surfaces the target account. A trimmed UI fallback remains for the few actions still not supported here (delete, duplicate, bulk operations, Custom Rules, conversion-rule creation, CRM uploads).
+> **Scope today:** account discovery, campaign and item inspection, targeting / audience / publisher / conversion-rule lookup, performance reports, and **create + update for campaigns and Native + Display items** — each write gated behind a preview-then-confirm that prominently surfaces the target account. A trimmed UI fallback remains for the few actions still not supported here (delete, duplicate, bulk operations, Custom Rules, conversion-rule creation, CRM uploads). For advertising questions outside the plugin's own knowledge base, answers fall back to Taboola's public advertiser help documentation, flagged as coming from online sources.
 
 ## Prerequisites
 
@@ -73,6 +73,7 @@ This plugin wraps the remote [realize-mcp](https://github.com/taboola/realize-mc
 | [`optimize-campaign`](skills/optimize-campaign/SKILL.md) | Diagnose underperforming campaigns against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal, 7–14 day learning phase) and prescribe concrete actions (most now applied via `manage-campaigns`) |
 | [`manage-campaigns`](skills/manage-campaigns/SKILL.md) | Create and update campaigns and Native + Display items. Tiered preview-and-confirm pattern surfaces the target account on every write. Falls back to a UI reference for actions not supported here (delete, duplicate, bulk ops, Custom Rules, conversion-rule creation, CRM uploads) |
 | [`support`](skills/support/SKILL.md) | Package the conversation into one file you can email to Taboola Support — see [`/realize-plugin:support`](#getting-help-with-a-problem) |
+| [`web-fallback`](skills/web-fallback/SKILL.md) | Answer in-scope questions the plugin's own knowledge base doesn't cover, by looking the topic up in Taboola's public advertiser help documentation. Fires only on a real miss, flags the answer as coming from online sources, and always yields to the plugin's own guidance when the two disagree |
 
 **Start with a skill, not the MCP** — the skills carry the account-resolution rules, CSV conventions, optimization playbook, and write-preview gate that raw MCP calls bypass. The [`realize-analyst`](agents/realize-analyst.md) agent auto-routes natural-language questions to the right skill, or you can invoke one explicitly (e.g. `/realize-plugin:optimize-campaign`). The most common miss: treating "performance review" or "insights" as ad-hoc analysis when it belongs in `optimize-campaign`.
 
@@ -104,6 +105,12 @@ This plugin wraps the remote [realize-mcp](https://github.com/taboola/realize-mc
 "Bump the daily budget on campaign 12345 to $500."
 "Also target Canada on campaign 12345."
 "Pause item 887003."
+
+# help / how-to (falls back to public docs when not covered locally)
+"How do I install the pixel on Shopify?"
+"What are the image size requirements for ads?"
+"How long does creative review take?"
+"Where did that answer come from?"
 ```
 
 ## Configuration Reference
