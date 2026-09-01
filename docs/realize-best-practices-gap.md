@@ -43,7 +43,7 @@ This plugin wires **19 read tools + 8 write tools** from the upstream MCP:
 | Discovery — audiences | `search_audiences`, `search_lookalike_audiences`, `search_contextual_segments` |
 | Discovery — publishers / conversion | `search_publishers`, `get_conversion_rules` |
 | Resources | `list_time_zones`, `list_cta_types` |
-| Reports (CSV) | `get_top_campaign_content_report`, `get_campaign_breakdown_report`, `get_campaign_history_report`, `get_campaign_site_day_breakdown_report` |
+| Reports (CSV) | `get_dynamic_report_settings`, `get_dynamic_report_data` (metamodel-driven performance), `get_campaign_history_report` (change log) |
 | Reach estimation | `get_campaign_reach_estimate` |
 | Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule` |
 
@@ -70,7 +70,7 @@ Write tools are routed exclusively through the `manage-campaigns` skill (preview
 
 | Best practice | Where it lives |
 |---|---|
-| Real-time data review via CSV reports | `reports` (wraps all 4 report tools) |
+| Real-time data review via CSV reports | `reports` (dynamic report + change log) |
 | Device / Location / Content-type comparisons | `optimize-campaign` Step 3 |
 | Daily spend ≥ 8× CPA goal threshold (sourced from realize-toolkit operational guidance, Apr 2026) | `optimize-campaign` Prerequisites + Prescription rules |
 | 100+ clicks per item threshold (sourced from realize-toolkit operational guidance, Apr 2026) | `optimize-campaign` Prerequisites + agent responsibility #7 |

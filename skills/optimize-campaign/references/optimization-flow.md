@@ -14,13 +14,15 @@ Shared by both the RCA and Optimization paths. Identifying outlier segments and 
 
 Pull each dimension and rank by spend contribution:
 
-| Dimension | MCP source | What to look for |
+All performance dimensions come from the dynamic report (`get_dynamic_report_settings` first, then `get_dynamic_report_data` at the stated grain — see the `reports` skill for the workflow):
+
+| Dimension | Dynamic-report grain | What to look for |
 |---|---|---|
-| Campaign | `get_campaign_breakdown_report` | Which campaigns are above goal CPA? Which are below? |
-| Ad / Item | `get_top_campaign_content_report` | Which ads carry the spend? Outlier CTR / CVR? |
-| Site / Publisher | `get_campaign_site_day_breakdown_report` | Top spenders with no conversions? Sites with CPA > 2× campaign average? |
-| Platform | `get_campaign_breakdown_report` (platform dimension) | Desktop vs Mobile vs Tablet — any one platform dragging? |
-| OS | Same | If platform-level looks fine, drill into OS (Android vs iOS often diverge sharply). |
+| Campaign | campaign dimensions + metrics | Which campaigns are above goal CPA? Which are below? |
+| Ad / Item | ad/item dimensions + metrics, sort by spend DESC | Which ads carry the spend? Outlier CTR / CVR? |
+| Site / Publisher | site dimension (readable name via the site description column), filtered to the campaign | Top spenders with no conversions? Sites with CPA > 2× campaign average? |
+| Platform | platform dimension | Desktop vs Mobile vs Tablet — any one platform dragging? |
+| OS | OS dimension | If platform-level looks fine, drill into OS (Android vs iOS often diverge sharply). |
 | Daypart | Realize UI (out of MCP scope today) | Surface as a UI navigation path. |
 
 **Aggregation discipline:** Always paginate the full result set (see `knowledge/reporting-aggregation.md` for the mandatory `Total` read + sum-reconciliation gate). Page-1-only aggregations silently understate spend on long-tail breakdowns.

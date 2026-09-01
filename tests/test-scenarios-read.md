@@ -74,38 +74,39 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 > "Which pieces of content drove the most spend in the last 7 days?"
 
 **Expected behavior:**
-1. Claude translates "last 7 days" to explicit ISO dates and echoes the range back.
-2. Calls `get_top_campaign_content_report` with `sort_field="spent"`, `sort_direction="DESC"`, appropriate date params.
-3. Parses the CSV, cites `Total` in the summary, lists the top 3–5 items with spend, clicks, CTR.
+1. Claude calls `get_dynamic_report_settings` **before** the data call and copies fully-qualified column names from it (no guessed names).
+2. Calls `get_dynamic_report_data` at ad/item grain with a spend column, `sort=[{column: <spent>, direction: "DESC"}]`, and `date_preset="LAST_7_DAYS"` (or an explicit ISO range) — echoing the resolved window back.
+3. Parses the CSV, lists the top 3–5 items with spend, clicks, CTR, and states fetched scope honestly ("top N by spend" — the dynamic banner has no grand `Total`).
 
-**Pass criteria:** Date window is explicit; output is prose with numbers (not CSV dumped verbatim); `Total` is cited.
+**Pass criteria:** Settings called first; no fabricated field names; date window explicit; output is prose with numbers (not CSV dumped verbatim); scope stated without implying completeness.
 
 ---
 
-## 6. Campaign breakdown report with filters
+## 6. Campaign-grain dynamic report with a status filter
 
 **User prompt:**
 > "Break down spend by campaign for the last 30 days, only running campaigns."
 
 **Expected behavior:**
-1. `get_campaign_breakdown_report` with `account_id`, date range, and `filters={"campaign_status": "RUNNING"}` (or whatever key the upstream API uses for status — Claude may try a couple and verify `Total` changes).
-2. Returns CSV, summarized as a ranked list with spend per campaign.
+1. `get_dynamic_report_settings` first — Claude finds the campaign-status filter field and its allowed operators in the metamodel (no guessed filter names).
+2. `get_dynamic_report_data` at campaign grain with a structured filter (e.g. `{"name": <campaign status field>, "operator": "IN", "values": ["RUNNING"]}`) and the 30-day range.
+3. Returns CSV, summarized as a ranked list with spend per campaign.
 
-**Pass criteria:** `filters` param is used in the tool call (not post-hoc filtering alone) and `Total` reflects a narrowed scope vs. an unfiltered call. If upstream silently ignores the filter key, Claude falls back to post-processing and discloses the fallback to the user.
+**Pass criteria:** The structured `filters` parameter is used in the tool call (not post-hoc filtering alone), with the field name taken from the metamodel; Claude sanity-checks that returned rows actually carry the filtered status.
 
 ---
 
-## 7. Campaign history report — no sort/filter
+## 7. "History" is ambiguous — change log vs performance trend
 
 **User prompt:**
 > "Give me campaign <ID>'s history for the last 2 weeks, sorted by spend descending."
 
 **Expected behavior:**
-1. Claude recognizes `get_campaign_history_report` does **not** accept sort/filter.
-2. Calls the tool without sort, returns API default order (usually ascending by date).
-3. Explains the limitation: "History comes back in date order — I can't sort it server-side. Would you like me to re-pull via the breakdown report, or reorder the rows locally in my summary?"
+1. Claude recognizes the ambiguity: `get_campaign_history_report` is the **change/audit log** (no sort, no filters, not performance data), while "sorted by spend" implies a performance trend.
+2. For the performance reading, runs the dynamic report at Day grain filtered to the campaign (settings first), where server-side sort **is** supported.
+3. If configuration changes matter to the question, additionally offers the change log and explains what it is.
 
-**Pass criteria:** Claude does not attempt an unsupported sort; it explains the limitation and offers an alternative.
+**Pass criteria:** Claude does not present the audit log as performance data (or vice versa); the performance pull goes through the dynamic report; no unsupported sort is attempted on the history tool.
 
 ---
 
@@ -115,11 +116,11 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 > "Show me the top 50 site/day rows for campaign <ID> this week."
 
 **Expected behavior:**
-1. `get_campaign_site_day_breakdown_report` with `page_size=50`, `sort_field="spent"`.
-2. Summary cites `Total` and pages correctly if needed.
-3. If further pages needed, `page_size` stays at 50 (not changed mid-flow).
+1. `get_dynamic_report_settings` first, then `get_dynamic_report_data` at site + day grain, filtered to the campaign, `page_size=50`, sorted by spend DESC.
+2. Presents the result as "top 50 by spend" — the dynamic banner has no grand `Total`, so scope is stated as what was fetched.
+3. If more pages are pulled, `page_size` stays at 50 (not changed mid-flow), stopping at a short page.
 
-**Pass criteria:** `page_size` is constant across pages; total scope is cited.
+**Pass criteria:** Settings called first; `page_size` constant across pages; scope stated honestly without a fabricated total.
 
 ---
 
@@ -132,7 +133,7 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 **Expected behavior:**
 1. The `optimize-campaign` skill activates.
-2. Claude resolves `account_id`, then pulls `get_campaign_breakdown_report` and `get_campaign_site_day_breakdown_report` for the campaign, plus `get_top_campaign_content_report` at the account level for context. Date window is echoed in the summary.
+2. Claude resolves `account_id`, then pulls dynamic reports (settings first) at campaign grain and site grain for the campaign, plus ad/item grain at the account level for context. Date window is echoed in the summary.
 3. Checks thresholds before prescribing: confirms daily spend ≥ 8× CPA goal and at least one item has ≥100 clicks. If either is missing, says so explicitly and does not prescribe.
 4. Classifies the failure mode against the prescription rules (CTR × CVR × CPA) and names it (e.g., "High CTR, low conversion rate — this is typically a landing-page or creative-honesty issue, not a bid issue").
 5. Prescribes a concrete UI action with the exact UI path (e.g., "Pause item 887003: Campaigns → open 12345 → Campaign Inventory → toggle item status").

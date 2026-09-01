@@ -63,7 +63,7 @@ order, and do not skip step 1:
    rule or a name mismatch is the finding — fix via the write path (gated) or fix the pushed name (site-side).
 2. **Is anything spending?** Conversions in Realize are attributed to Taboola-driven traffic. **A campaign
    with no active spend produces zero conversions by design — that is expected, not broken.** Pull a
-   spend/breakdown report before calling anything a tracking failure. No spend → report the pixel and rule
+   campaign-grain spend report (dynamic report) before calling anything a tracking failure. No spend → report the pixel and rule
    as healthy and stop.
 3. **Rule live + campaigns spending + still zero?** Check the attribution windows on the rule
    (`look_back_window` in days; `view_through_look_back_window` in minutes) — a very short window explains
