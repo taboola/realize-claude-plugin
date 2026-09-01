@@ -155,7 +155,7 @@ Field reference for the two account-scoped writes. The workflow, tiers, and acco
 |---|---|---|
 | `display_name` | string | Unique per account across **all** statuses; must not contain `^`. |
 | `type` | `BASIC` / `EVENT_BASED` | **Immutable after create.** `BASIC` pairs with `event_name="page_view"`. (The read also returns `ENGAGEMENT` rules; the write surface cannot create or edit those.) |
-| `category` | platform conversion category enum (e.g. `PURCHASE`, `LEAD`) | **Immutable after create.** |
+| `category` | one of `VIEW_CONTENT`, `SEARCH`, `ADD_TO_CART`, `ADD_TO_WISHLIST`, `START_CHECKOUT`, `ADD_PAYMENT_INFO`, `MAKE_PURCHASE`, `LEAD`, `COMPLETE_REGISTRATION`, `APP_INSTALL`, `SIGNUP`, `CONTACT`, `SUBSCRIBE`, `ENGAGEMENT`, `OTHER` | **Immutable after create.** |
 | `event_name` | string | **Immutable after create.** Only one ACTIVE rule may hold an event — pre-read and check before create. |
 | `condition` | nested tree (`URL_*` / `EVENT_PARAM_*` operators) | **Partial-merge on update** — omitted = kept. Never echo the read payload back. |
 | `look_back_window` | integer, **days** (1–30) | Click-through window. |
