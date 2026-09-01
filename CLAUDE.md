@@ -23,7 +23,9 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                            search_lookalike_audiences, search_contextual_segments,
            │                            search_publishers, get_conversion_rules,
            │                            list_time_zones, list_cta_types
-           ├──► reports skill          → 4 report tools (CSV output)
+           ├──► reports skill          → get_dynamic_report_settings + get_dynamic_report_data
+           │                            (metamodel-driven performance reports, CSV)
+           │                            + get_campaign_history_report (change log)
            ├──► optimize-campaign skill → diagnoses underperformance; hands write
            │                              prescriptions to manage-campaigns
            ├──► diagnose-tracking skill → pixel-health diagnosis. ONE non-MCP fetch:
@@ -56,7 +58,7 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
                      ▼
 ┌────────────────────────────────────────┐
 │ Realize MCP (https://mcp.realize.com)  │
-│  OAuth 2.1, 19 read + 8 write tools    │
+│  OAuth 2.1, 18 read + 8 write tools    │
 │  wired here. Writes routed exclusively │
 │  through the manage-campaigns skill.   │
 └────────────────────────────────────────┘
@@ -196,7 +198,10 @@ Also check for a **deprecation** alongside the addition — this release renamed
 The plugin's agent and skills must never fabricate tool calls. When a user requests an action that the current upstream MCP does not expose (e.g., deleting or duplicating a campaign — there are no MCP tools for those today), the `manage-campaigns` skill takes over with a UI fallback reference. When upstream adds new tools, update the agent's Tool Reference, wire the new tool into the most appropriate skill, and trim the `manage-campaigns` UI fallback for the steps that become automatable — in an explicit PR, not silently. **Write tools require special handling**: route them exclusively through `manage-campaigns` so the preview-then-confirm gate (and the mandatory `▶ WRITE TARGET` account header) cannot be bypassed.
 
 ### CSV, not JSON
-Report tools return CSV. The leading metadata line (`Records: N | Total: M | Page: X | Size: Y`) is the primary pagination signal. Skills must cite `Total` in their summaries.
+Report tools return CSV. The dynamic report's metadata line carries `Records`, the row `Grain`, and pagination — **no grand `Total`**, so the pagination signal is a short page (fewer rows than `page_size`), and skills must state fetched scope instead of implying completeness. `get_campaign_history_report` keeps the legacy `Records | Total | Page | Size` line — there, skills cite `Total`.
+
+### The dynamic report replaced three fixed report tools — and the plugin ships that swap only when production does
+Upstream retired `get_top_campaign_content_report`, `get_campaign_breakdown_report`, and `get_campaign_site_day_breakdown_report` from the live surface (handlers kept server-side for re-enable) in favor of the metamodel pair `get_dynamic_report_settings` / `get_dynamic_report_data`. `get_campaign_history_report` survives because it's a change/audit log, not PERFORMANCE data — the docs must keep that distinction, or trend questions get routed to an audit log. The two-step is load-bearing: settings-first is the only source of valid fully-qualified field names, and every doc that mentions the data tool repeats it because guessing names is the observed failure mode. The staging-validated behavior quirks (visible-impressions CTR, Sunday weeks, `SITE.DESCRIPTION` over `SITE.NAME`, unaggregated entity-attribute dimensions) are recorded in the skill and `knowledge/reporting-aggregation.md` as *staging-observed* — re-verify them against the shipped release before treating one as permanent, and remove any that upstream fixed (stale-capability-claims class, in the flattering direction). The missing grand `Total` is **not** on that list — it's the upstream banner contract, and the short-page pagination rule that replaces the `Total` read stays.
 
 ### All IDs are opaque strings from the API
 Users often type numeric IDs in natural language. The MCP expects opaque string identifiers (e.g., `advertiser_12345_prod` for `account_id`) returned by its own tools. Every skill and the agent must route account lookups through `search_accounts` first and pass returned IDs through verbatim — no coercion to numbers, no re-casing, no stripping. This applies to `account_id`, `campaign_id`, and `item_id` alike.

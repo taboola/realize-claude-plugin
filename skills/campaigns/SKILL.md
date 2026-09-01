@@ -39,7 +39,7 @@ None of these tools accept pagination or filter parameters. If a campaign has hu
 3. Summarize: objective, budget, targeting, creative count, any items flagged paused/rejected.
 
 **"Show me the creatives for my top-spending campaign."**
-1. Combine with the `reports` skill: run `get_top_campaign_content_report`, pick the top campaign.
+1. Combine with the `reports` skill: run a campaign-grain dynamic report sorted by spend DESC (`get_dynamic_report_settings` → `get_dynamic_report_data`), pick the top campaign.
 2. `list_items(account_id=..., campaign_id=<top>)` and list creatives with IDs, names, status.
 
 ## Interpretation guidelines

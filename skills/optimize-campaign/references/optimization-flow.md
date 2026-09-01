@@ -14,16 +14,18 @@ Shared by both the RCA and Optimization paths. Identifying outlier segments and 
 
 Pull each dimension and rank by spend contribution:
 
-| Dimension | MCP source | What to look for |
+All performance dimensions come from the dynamic report (`get_dynamic_report_settings` first, then `get_dynamic_report_data` at the stated grain — see the `reports` skill for the workflow):
+
+| Dimension | Dynamic-report grain | What to look for |
 |---|---|---|
-| Campaign | `get_campaign_breakdown_report` | Which campaigns are above goal CPA? Which are below? |
-| Ad / Item | `get_top_campaign_content_report` | Which ads carry the spend? Outlier CTR / CVR? |
-| Site / Publisher | `get_campaign_site_day_breakdown_report` | Top spenders with no conversions? Sites with CPA > 2× campaign average? |
-| Platform | `get_campaign_breakdown_report` (platform dimension) | Desktop vs Mobile vs Tablet — any one platform dragging? |
-| OS | Same | If platform-level looks fine, drill into OS (Android vs iOS often diverge sharply). |
+| Campaign | campaign dimensions + metrics | Which campaigns are above goal CPA? Which are below? |
+| Ad / Item | ad/item dimensions + metrics, sort by spend DESC | Which ads carry the spend? Outlier CTR / CVR? |
+| Site / Publisher | site dimension (readable name via the site description column), filtered to the campaign | Top spenders with no conversions? Sites with CPA > 2× campaign average? |
+| Platform | platform dimension | Desktop vs Mobile vs Tablet — any one platform dragging? |
+| OS | OS dimension | If platform-level looks fine, drill into OS (Android vs iOS often diverge sharply). |
 | Daypart | Realize UI (out of MCP scope today) | Surface as a UI navigation path. |
 
-**Aggregation discipline:** Always paginate the full result set (see `knowledge/reporting-aggregation.md` for the mandatory `Total` read + sum-reconciliation gate). Page-1-only aggregations silently understate spend on long-tail breakdowns.
+**Aggregation discipline:** Always paginate the full result set (see `knowledge/reporting-aggregation.md` for the short-page stop rule + sum-reconciliation gate). Page-1-only aggregations silently understate spend on long-tail breakdowns.
 
 ### Data-sufficiency gates — verify before recommending action
 
@@ -39,6 +41,8 @@ A statistical-volume floor on the dimension item, plus a specific threshold for 
 | **Standard** | 50+ conversions | 500+ clicks | Recommendations with caveats |
 | **Minimum** | 20+ conversions | 100+ clicks | Directional signals only — flag as low confidence |
 | **Insufficient** | < 20 conversions | < 100 clicks | Exclude from analysis — do not recommend actions |
+
+**Daily-spend floor:** daily budget ≥ **8× the CPA goal** (realize-toolkit operational guidance, Apr 2026). Below that the campaign cannot generate enough daily conversion signal to judge performance or feed the algorithm — the first prescription is raising the daily budget (or resetting the CPA expectation), not tuning other levers.
 
 ### Site-blocking threshold
 
@@ -63,6 +67,8 @@ Shared by both paths. Verify the campaign is reaching the supply it expects to. 
 
 Is the campaign winning the auctions it enters, or losing on bid?
 
+**Source: Realize UI only — no MCP tool exposes auction data.** Ask the user to open Auction Insights in the UI and read you the loss %; never estimate or fabricate it. If the user can't supply it, skip this check and say so explicitly rather than guessing.
+
 | Bid Strategy | Loss interpretation | Action |
 |---|---|---|
 | Maximize Conversions / Target CPA / Maximize Value | Structural levers only — the algorithm sets the bid | Increase budget if CPA is good; widen targeting; check learning state |
@@ -80,7 +86,7 @@ Is the campaign winning the auctions it enters, or losing on bid?
 
 ### 2.2 Site / publisher blockers
 
-Re-read the campaign's site exclusions, SpendGuard state, custom-rule history, and brand-safety filters. A publisher that's been blocked or paused will look identical to a supply shift if not checked. Use the block-attribution framework in `knowledge/site-management.md` (rule fired / targeting eligibility loss / bid loss).
+Re-read the campaign's site exclusions (`get_campaign`), plus SpendGuard state, custom-rule history, and brand-safety filters — those three are **UI-visible only**; ask the user rather than guessing. A publisher that's been blocked or paused will look identical to a supply shift if not checked. Use the block-attribution framework in `knowledge/site-management.md` (rule fired / targeting eligibility loss / bid loss).
 
 ### 2.3 Targeting restrictions — narrow-targeting diagnostic
 
