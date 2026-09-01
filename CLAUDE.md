@@ -206,6 +206,7 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 ```
 .
 ├── .claude-plugin/plugin.json     # plugin manifest
+├── .claude-plugin/marketplace.json# marketplace catalog — the repo is its own marketplace; keep version in sync with plugin.json
 ├── .mcp.json                      # remote Realize MCP wiring
 ├── .github/workflows/validate.yml # CI: JSON + YAML frontmatter checks
 ├── agents/                        # orchestrator(s)
