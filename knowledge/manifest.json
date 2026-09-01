@@ -46,7 +46,7 @@
         "Google Tag Manager",
         "attribution"
       ],
-      "description": "Pixel setup, S2S integration, conversion events, ROAS tracking, parameters, and debugging."
+      "description": "Tracking-method selection (pixel vs S2S), conversion-event strategy, ROAS tracking, parameters, and debugging. Does not cover platform install steps (web-fallback lookup) or live rule state (MCP)."
     },
     {
       "slug": "targeting",

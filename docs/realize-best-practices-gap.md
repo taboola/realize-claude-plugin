@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **19 read tools + 6 write tools** from the upstream MCP:
+This plugin wires **19 read tools + 8 write tools** from the upstream MCP:
 
 | Area | Tools |
 |---|---|
@@ -41,13 +41,13 @@ This plugin wires **19 read tools + 6 write tools** from the upstream MCP:
 | Items | `list_items`, `get_item` |
 | Discovery — targeting | `search_geos`, `search_techno` |
 | Discovery — audiences | `search_audiences`, `search_lookalike_audiences`, `search_contextual_segments` |
-| Discovery — publishers / conversion | `search_publishers`, `search_conversion_rules` |
+| Discovery — publishers / conversion | `search_publishers`, `get_conversion_rules` |
 | Resources | `list_time_zones`, `list_cta_types` |
 | Reports (CSV) | `get_top_campaign_content_report`, `get_campaign_breakdown_report`, `get_campaign_history_report`, `get_campaign_site_day_breakdown_report` |
 | Reach estimation | `get_campaign_reach_estimate` |
-| Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item` |
+| Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule` |
 
-Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI fallback section for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, conversion-rule creation, CRM uploads, lookalike seeds) — see Part 3 for that catalog.
+Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI fallback section for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, CRM uploads, lookalike seeds, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog.
 
 ---
 
@@ -145,15 +145,11 @@ Listed with the source article, a one-line description of what the ability would
 
 ### 3.E — Conversion tracking
 
-This is the single largest capability gap. The plugin cannot advise on conversion-tracking setup because it has no visibility into it; users hitting "my conversion count is zero" cannot be served by the MCP today.
+**Closed gaps in this section (upstream 20260806.1):** `list_conversions` → `get_conversion_rules`, `create_conversion` → `create_conversion_rule`, `update_conversion_attribution_windows` and `toggle_total_conversions_flag` → `update_conversion_rule` — all wired via `skills/manage-campaigns/SKILL.md` → *Conversion rules — account-level writes*. What remains open below is pixel-side visibility (install status, health) and the conversion-events report.
 
 | Future ability | Does what | Today's UI path | Source |
 |---|---|---|---|
 | `get_pixel_status` | Read pixel health indicator (`Active` / `No Recent Activity` / `No Activity` / `Waiting for Pixel` / `Not Installed`) and last-event timestamp | `Tracking` top bar | [Taboola Pixel Overview](https://www.taboola.com/help/en/articles/6248618-taboola-pixel-overview) |
-| `list_conversions` | List URL-based / event-based / codeless conversions defined on the account | `Tracking → Conversions` | [Defining and Creating Conversions](https://developers.taboola.com/pixel/docs/defining-conversions) |
-| `create_conversion` | Define a new URL-based or event-based conversion | `Tracking → Conversions → +New Conversion` | Defining Conversions |
-| `update_conversion_attribution_windows` | Adjust click-through (1–30 days, default 30) or view-through (1–24 hours, default 24) | Conversion settings | Defining Conversions |
-| `toggle_total_conversions_flag` | Control which conversions feed SmartBid / Maximize Conversions — changing this retroactively affects the past 30 days of reports | Conversion form | Defining Conversions |
 | `get_conversion_events_report` | Breakdown of conversion events by type (Purchase / Lead / AddToCart / etc.) — distinct from the existing campaign reports | Conversions reporting view | Implied |
 | `list_url_parameter_macros` / `apply_tracking_code` | Programmatic management of the 16+ Realize macros (`{campaign_id}`, `{site}`, `{platform}`, `{cachebuster}`, `${GDPR}`, etc.) at campaign-level or per-ad — with the policy that both levels cannot be used simultaneously | Edit campaign → Tracking Code, **or** per-ad → Landing Page URL | [URL Parameters](https://developers.taboola.com/pixel/docs/url-params-for-tracking) |
 
@@ -190,7 +186,7 @@ The Landing Page Best Practices article is largely infographic-based and thin on
 ### When a Part 3 ability is added upstream
 
 1. Record the new tool in the agent's Tool Reference (`agents/realize-analyst.md`).
-2. Route it into the most appropriate skill (or create a new skill if the capability is its own concern — e.g., a new `conversion-tracking` skill would be the natural home if `get_pixel_status` and `list_conversions` land together).
+2. Route it into the most appropriate skill (or create a new skill if the capability is its own concern — e.g., a dedicated tracking skill would be the natural home if `get_pixel_status` lands).
 3. Move the row out of Part 3 and into Part 1 ("What we took"), noting the release that added it.
 4. Add a scenario to `tests/test-scenarios-read.md` (read-only paths) or `tests/test-scenarios-write.md` (destructive paths) exercising the new path.
 5. Open a dedicated PR — never silently add a write path.

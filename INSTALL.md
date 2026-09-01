@@ -84,7 +84,7 @@ Then retry the OAuth flow. This forces the port-3000 redirect the Taboola auth s
 
 ## Optional: opt in to skip the permission prompt for write tools
 
-By default, the first call to each of the 6 Realize write tools (`create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`) triggers a Claude Code permission prompt. This is **defense in depth on top of** the plugin's own preview-then-confirm gate (see [`os/guardrails.md`](os/guardrails.md) → "Write tool gate"). Both checks are recommended.
+By default, the first call to each of the 8 Realize write tools (`create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`) triggers a Claude Code permission prompt. This is **defense in depth on top of** the plugin's own preview-then-confirm gate (see [`os/guardrails.md`](os/guardrails.md) → "Write tool gate"). Both checks are recommended.
 
 If you want to skip the harness-level prompt locally (the plugin gate still fires on every write), copy the example file into place:
 

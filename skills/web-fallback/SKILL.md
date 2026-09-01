@@ -34,7 +34,7 @@ The topic file existing is not coverage. What matters is whether it answers **th
 
 The worked example: `knowledge/tracking.md` explains pixel-vs-S2S selection, network-vs-account-level pixel, and validation. It says nothing about installing the pixel on a specific storefront platform. *"Which tracking method should I use?"* is covered. *"How do I install the pixel on Shopify?"* is a miss — same topic, different question.
 
-**The how-vs-do split on UI-only domains.** A UI-only *action* ("create the conversion event for me", "diagnose why my pixel isn't firing") still gets the one-sentence acknowledgment plus the UI redirect — a lookup never unlocks work the plugin doesn't do. But when the user asked *how* to do it themselves, the steps may come from a lookup, and the redirect to the Realize UI stays in the answer either way.
+**The how-vs-do split on UI-only domains.** A UI-only *action* ("install the pixel on my store for me", "upload this CRM audience") still gets the one-sentence acknowledgment plus the UI redirect — a lookup never unlocks work the plugin doesn't do. (Conversion-rule creation is **not** such an action — it's an MCP-backed gated write; don't cite it as a UI-only example.) But when the user asked *how* to do it themselves, the steps may come from a lookup, and the redirect to the Realize UI stays in the answer either way.
 
 ## Allowed source
 

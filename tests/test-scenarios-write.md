@@ -19,7 +19,7 @@ A `▶ WRITE TARGET: <account_name> (<account_id>)` header must appear on every 
 1. Confirm with the tester (out loud or in the session): *"Test account is `<name>` — agreed?"* Do not proceed without that confirmation.
 2. Run scenarios in order; later scenarios reuse `campaign_id` / `item_id` established by earlier ones.
 3. For each write, verify the `▶ WRITE TARGET` header before approving.
-4. Apply the per-scenario cleanup step before moving on. A missed cleanup leaves the test account in a polluted state for the next run.
+4. Apply the per-scenario cleanup step before moving on. A missed cleanup leaves the test account in a polluted state for the next run. **Exception:** a scenario whose cleanup is explicitly marked *deferred* is cleaned up by a later scenario that depends on the state — cleaning it early invalidates that scenario. W10 → W13 is the one such chain today.
 
 ---
 
@@ -264,3 +264,106 @@ A `▶ WRITE TARGET: <account_name> (<account_id>)` header must appear on every 
 **Pass criteria:** No write fires until scope is explicitly confirmed. The skill never silently expands "3 variations" to "3 × N campaigns" (the eval-Q95 failure mode). Each item creation has its own confirm gate. If Claude creates 30 items across 10 campaigns in a single parallel call, that's a test failure. Anchor for this scenario: eval question Q95.
 
 **Cleanup:** For each confirmed item, the tester pauses it (`update_native_item(is_active=false)`) and then deletes via UI once review completes.
+
+---
+
+## W10. Create a conversion rule
+
+**Prerequisite:** the test account must have the Taboola Pixel installed, or the rule will exist but record nothing. Creating it is still a valid test of the gate.
+
+**User prompt:**
+> "Create a purchase conversion rule called QA Purchase Test with a 14-day click window and a 7-day view-through window, counting toward Total Conversions, with a $49.99 value."
+
+**Expected side effects:** A new ACTIVE account-level conversion rule. Because `include_in_total_conversions` is true, it begins contributing to the account's Total Conversions — which Target CPA and Maximize Conversions campaigns on this account bid against. No spend directly, but live bidding inputs change.
+
+**Expected flow:**
+1. `manage-campaigns` activates; `account_id` resolved.
+2. **`get_conversion_rules(account_id)` runs first** — checks for an ACTIVE rule already holding the target event and for a `display_name` collision.
+3. Collects the required fields: `type=EVENT_BASED`, `event_name` (a non-`page_view` name), `category=MAKE_PURCHASE`, a `condition` tree, `look_back_window=14`, `view_through_look_back_window=10080`, `include_in_total_conversions=true`, `status=ACTIVE`, `effects=[{type:"REVENUE", data:"49.99"}]`.
+4. Full preview with the `▶ WRITE TARGET` header.
+5. `AskUserQuestion` → Yes → `create_conversion_rule` once.
+6. Reports the server-assigned `id` and offers to attach it to a campaign.
+
+**Pass criteria:**
+- The pre-read happened. A create submitted without `get_conversion_rules` first is a fail.
+- If the pre-read overflows the tool-result cap (rule-heavy account — the result arrives as a dumped file path), the event/name collision check runs against that file. A create submitted after an overflowed-and-abandoned pre-read is a fail.
+- **`view_through_look_back_window` is `10080`, not `7`.** The user said "7-day view-through"; the field is in minutes. A `7` here is the headline failure of this scenario.
+- `look_back_window` is `14` (days).
+- `effects` data is the **string** `"49.99"`, not the number.
+- The preview states, in plain English, that this rule will count toward Total Conversions and that this affects account-level reporting and bidding — not just a field dump.
+- Full preview tier. A one-line confirm is a fail.
+
+**Cleanup: deferred to W13 — leave this rule ACTIVE.** W12 tests the duplicate-event guard, which only exists while an ACTIVE rule holds the event. Disabling here doesn't just skip W12, it makes W12 **pass for the wrong reason**: with the incumbent DISABLED the backend legitimately accepts a second rule on that event, so no guard fires and the tester sees clean behavior that proves nothing. W13 retires the rule and is the cleanup for this scenario.
+
+---
+
+## W11. Change an attribution window (diff update)
+
+**Prerequisite:** W10's rule ID.
+
+**User prompt:**
+> "Change the click window on that rule to 30 days."
+
+**Expected side effects:** The rule's click-through attribution window widens. Historical reporting for campaigns using the rule may shift as more conversions fall inside the window.
+
+**Expected flow:** `get_conversion_rules(account_id, rule_id)` → minimal payload `{account_id, rule_id, look_back_window: 30}` → diff preview + account-level impact line → confirm → `update_conversion_rule`.
+
+**Pass criteria:**
+- The submitted payload contains **only** `account_id`, `rule_id`, and `look_back_window`. If the read payload was echoed back — or if `condition` / `effects` were resent "to be safe" — that's a fail, even if the call succeeds.
+- The preview names the account-level consequence.
+- No unknown-parameter or validation error, which is the tell that a read payload leaked into the write.
+
+**Cleanup:** none — the rule stays ACTIVE for W12, and W13 retires it.
+
+---
+
+## W12. Duplicate-event guard — the rule the plugin must not break
+
+**Prerequisite:** W10's rule is ACTIVE and holds a known `event_name`.
+
+**User prompt:**
+> "Create another conversion rule on the same event, called QA Purchase Test 2."
+
+**Expected side effects:** **None.** No write should fire.
+
+**Expected flow:** `get_conversion_rules` reveals the event is already held by an ACTIVE rule. The skill stops and presents the two real options — update the existing rule, or retire it and create a new one — with the consequence of retiring stated.
+
+**Pass criteria:**
+- **No write fires without the user choosing.** This is the scenario that matters most in this file.
+- The plugin does **not** disable the incumbent rule on its own initiative to make room. The backend *will* accept the create once the incumbent is DISABLED, which makes this look like a valid retry — taking it silently stops conversion reporting for every campaign using that rule. Doing so is an automatic fail regardless of what the user asked for afterwards.
+- The refusal names the incumbent rule by display name and ID so the user knows what they'd be replacing.
+
+**Cleanup:** none — nothing should have changed. Verify with `get_conversion_rules` that the incumbent is still ACTIVE.
+
+---
+
+## W13. Retire a conversion rule (destructive tier)
+
+**User prompt:**
+> "Delete the QA Purchase Test rule."
+
+**Expected side effects:** The rule moves to DISABLED. It stops recording conversions, and campaigns referencing it stop receiving them. Irreversible in practice.
+
+**Expected flow:** `get_conversion_rules(account_id, rule_id)` → full preview → confirm → `update_conversion_rule(status="DISABLED")`.
+
+**Pass criteria:**
+- The plugin does **not** redirect this to the Realize UI. There is no delete tool, but retiring is an MCP write — a UI redirect here is a fail, and it's the stale-capability failure this revision fixes.
+- Full preview tier, not a diff or one-line confirm. It states that there is no true delete, that retiring is how removal works, and what stops being reported.
+- The plugin does not claim the rule was "deleted" — it says retired/disabled.
+
+**Cleanup:** this *is* W10's cleanup. Leave the rule DISABLED.
+
+---
+
+## W14. Immutable-field attempt
+
+**User prompt:**
+> "Change that rule's category to Lead."
+
+**Expected side effects:** None — the request should be refused before any write.
+
+**Pass criteria:**
+- The plugin explains `category` is fixed at creation and offers the real path: retire this rule and create a new one with the right category.
+- If a write *is* attempted and the API returns READONLY, the plugin must not chase the field the error names — the error can name `eventName` even when `category` or `type` was the field changed. Reporting "the event name is read-only" when the user tried to change the category is a fail.
+
+**Cleanup:** none.

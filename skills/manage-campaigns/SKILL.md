@@ -1,6 +1,6 @@
 ---
 name: manage-campaigns
-description: Create and update Realize campaigns and native + display items via the Realize MCP write tools. Activates on any write-intent request — create, edit, pause/resume, launch, budget changes, bid changes, targeting edits, creative swaps. Enforces a tiered preview-then-confirm pattern with a mandatory account-identity header on every confirmation so the user always sees which account is being mutated. Falls back to a UI reference for actions the MCP does not currently expose (delete, duplicate, bulk operations). Grounded in the realize-toolkit's setup guidance and Taboola's official setup guide for the input-validation heuristics (Marketing Objective enum, Bid Strategy × budget minimums, learning-phase defaults).
+description: Create and update Realize campaigns, native + display items, and account-level conversion rules via the Realize MCP write tools. Activates on any write-intent request — create, edit, pause/resume, launch, budget changes, bid changes, targeting edits, creative swaps, conversion-rule creation, attribution-window changes, retiring a conversion rule. Enforces a tiered preview-then-confirm pattern with a mandatory account-identity header on every confirmation so the user always sees which account is being mutated. Falls back to a UI reference for actions the MCP does not currently expose (delete, duplicate, bulk operations, pixel installation, codeless-conversion setup, pixel test-fire). Grounded in the realize-toolkit's setup guidance and Taboola's official setup guide for the input-validation heuristics (Marketing Objective enum, Bid Strategy × budget minimums, learning-phase defaults).
 allowed-tools: ["Read", "Bash", "AskUserQuestion"]
 ---
 
@@ -31,8 +31,68 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 | `mcp__realize-mcp__update_native_item` | `account_id`, `campaign_id`, `item_id` | Yes | At least one updatable field required. |
 | `mcp__realize-mcp__create_display_item` | `account_id`, `campaign_id`, `url`, `creative_name`, plus either `ad_tag` (3P JS) or `asset_url` + `dimensions` (1P-hosted) | No | Locks campaign as Display on first call when `pricing_model=CPC`. 3P tags must match the validator allowlist (no `<!DOCTYPE>` / `<html>` wrapper). |
 | `mcp__realize-mcp__update_display_item` | `account_id`, `campaign_id`, `item_id` | Yes | At least one updatable field required. Arrays like `verification_pixel` are full-replace. |
+| `mcp__realize-mcp__create_conversion_rule` | `account_id`, `display_name`, `event_name`, `type`, `category`, `condition`, `look_back_window`, `include_in_total_conversions`, `status`, `effects` | No | **Account-level.** No tool-side defaults — every required field must be supplied. `type` / `category` / `event_name` immutable afterwards. Returns the server-assigned `id`. |
+| `mcp__realize-mcp__update_conversion_rule` | `account_id`, `rule_id` | Yes | **Partial-merge on every field, including `condition` and `effects`** — omitted fields keep their stored value. The only way to retire a rule (`status=DISABLED` / `ARCHIVED`); there is no delete tool. |
 
-For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign` and `mcp__realize-mcp__get_item`.
+For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, and `mcp__realize-mcp__get_conversion_rules`.
+
+## Conversion rules — account-level writes
+
+These two tools differ from every other write in this skill in ways that matter, so they get their own rules.
+
+**The blast radius is the account, not one campaign.** A conversion rule feeds attribution and, when `include_in_total_conversions` is true, the account's Total Conversions — which is what Target CPA and Maximize Conversions bid against. Editing or retiring a rule can move reported performance and live bidding across every campaign that references it. The preview must name that consequence, not just the field diff.
+
+**Merge semantics are inverted from campaign targeting.** Campaign targeting blocks are *full-replace within a section*, so you must read-and-merge. Conversion rules **partial-merge on everything, including `condition` and `effects`** — so you send only the fields you're changing. Sending a "complete" object here is the mistake, and it's the opposite of the reflex the rest of this skill trains.
+
+**Never echo a read payload back as an update.** `get_conversion_rules` returns explicit nulls (`view_through_look_back_window`, `event_name`, condition members) that fail input validation, plus fields the update tool has no parameter for (`id`, `advertiser_id`, `pixel_id`, `exclude_from_campaigns`, `external_id`, `partner`, `tracked_elements`) which are rejected as unknown parameters. Read to see current values; then hand-build a minimal payload of just the edits.
+
+**One ACTIVE rule per event — and stealing the event is forbidden.** Call `get_conversion_rules` before any create. On a rule-heavy account this pre-read may overflow the tool-result cap and come back as an error plus a **dumped result file** — the check still happens, against that file (search it for the target `event_name` and `display_name` — `grep` via Bash). Never skip the check, and never treat an overflow as "no rules". If an ACTIVE rule already holds the target `event_name`, the create is rejected. The backend *will* accept a new rule once the incumbent is DISABLED — do **not** take that path on your own initiative. Disabling a live rule to free up its event silently breaks attribution and bidding on every campaign using it. Present the two real options and let the user choose:
+
+> An active rule (**Purchase — main**, ID 3312) already tracks `make_purchase` on this account. I can either update that rule, or retire it and create a new one — retiring it stops conversion reporting for every campaign currently using it. Which do you want?
+
+**`type` / `category` / `event_name` are immutable after creation.** Get them right at create time. Resending one unchanged on an update is accepted; changing one returns a READONLY error — and that error **may name `eventName` even when `type` was the field you actually changed**, so don't chase the field it names.
+
+**Two windows, two different units.** `look_back_window` is click-through in **days** (1–30). `view_through_look_back_window` is view-through in **minutes** (1–10080, where 10080 = 7 days). A user asking for "a 7-day view-through window" means `10080`, not `7`. Always state the unit back in the preview in the user's terms *and* the stored value.
+
+**`effects` values are numeric strings.** `[{type: "REVENUE", data: "49.99"}]` — not the number `49.99`. Required on create; pass `[]` for a rule with no revenue value.
+
+**Two value-reporting fields nobody asks about, and both have defaults that decide something.**
+
+- **`include_in_total_value`** — whether this rule's value counts toward **Total Conversion Value**. When omitted it **defaults to whatever `include_in_total_conversions` is**. So a revenue rule created with `include_in_total_conversions: true` silently opts into Total Conversion Value as well. That is usually what the user wants, but it is a decision made by omission, so state both in the preview and set the field explicitly whenever the user's intent for the two differs.
+- **`aggregation_type`** — `AGGREGATED` sums the values a rule collects; `LAST_VALUE` keeps only the most recent. The backend **defaults to `AGGREGATED`**. On a purchase rule that's right; on something like a quote-estimate or a cart-total that gets re-fired as the user edits it, summing inflates reported value. Ask which behavior they want whenever a rule carries a `REVENUE` effect and the event can fire more than once per conversion.
+
+**Verify the rule's owner before writing — the account you queried is often not the owner.** Every rule carries an `advertiser_id` naming its owner, and it frequently differs from the `account_id` you passed. This runs in both directions: a NETWORK/parent account returns its children's rules, **and a child account returns the network's rules**. Observed on a real account: querying a child returned 62 rules, all 62 owned by the parent network, none owned by the account queried.
+
+Two consequences, both blocking:
+
+- **Never edit a rule whose `advertiser_id` differs from the `▶ WRITE TARGET` account** without saying so explicitly and getting confirmation. The user asked to change something on *their* account; the rule may belong to a network shared with other advertisers.
+- **Before creating a rule on an account whose rules are all network-owned, confirm where the new rule will land.** If it attaches at the network, an `include_in_total_conversions=true` rule affects Total Conversions — and therefore Target CPA and Maximize Conversions bidding — for every child account under it. Surface that scope and let the user decide; do not discover it by writing.
+
+**The read surface returns rule kinds the write surface cannot express.** `get_conversion_rules` returns `type: "ENGAGEMENT"` rules with `condition` properties like `SESSION_DEPTH` and `TIME_ON_SITE`. Neither appears in the create/update schemas — `type` accepts only `BASIC` and `EVENT_BASED`, and `property` only `URL` / `URL_DOMAIN` / `URL_PATH` / `EVENT_PARAM_*`. So engagement rules are readable but not creatable here, and an update that resends `type` on one fails schema validation before it reaches the API. Edit those in the Realize UI, and never assume everything you can read you can write.
+
+**Pixel-based (DSP) rules are only partly editable here.** They can be renamed and retired via MCP; their pixel binding and other DSP-only fields are console-only. If the user wants those changed, use the UI fallback.
+
+### Workflow — create a conversion rule
+
+1. **Resolve `account_id`** via the `accounts` skill.
+2. **Read the account's existing rules** with `get_conversion_rules(account_id)`. Check for an ACTIVE rule already holding the intended `event_name`, and for a `display_name` collision (names are unique per account **across all statuses** — a DISABLED or ARCHIVED rule still holds its name — and must not contain `^`). Both checks run against every rule in the response, never an ACTIVE-only view. If the read overflows to a dumped file, run both checks against the file — see the overflow gotcha below.
+3. **Collect the required fields.** `type=BASIC` pairs with `event_name="page_view"`; `type=EVENT_BASED` takes any other name matching `[a-zA-Z0-9_-]+`. Pick `category` from the enum that matches the user's intent (`MAKE_PURCHASE`, `LEAD`, `COMPLETE_REGISTRATION`, …). Build the `condition` tree — a leaf is `property` + `predicate` + `value` (plus `param_name` for any `EVENT_PARAM_*` property); a branch is `predicate: AND|OR|NOT` with `children`.
+4. **Render a full preview** with the `▶ WRITE TARGET` header, every field in plain English, both attribution windows with units spelled out, and an explicit line on whether this rule will count toward Total Conversions and Total Conversion Value.
+5. **Confirm via `AskUserQuestion`**, then call `create_conversion_rule` once.
+6. **Report the returned `id`.** It's what attaches the rule to a campaign via `conversion_rules.rules: [{id}]` — and `LEADS_GENERATION` / `ONLINE_PURCHASES` campaigns typically need at least one. Offer that as the next step.
+
+### Workflow — update or retire a conversion rule
+
+1. **Read the current rule** — `get_conversion_rules(account_id, rule_id)` narrows the response to one rule.
+2. **Confirm ownership** against the write target (see `advertiser_id` above).
+3. **Build a minimal payload** — `account_id`, `rule_id`, and only the fields being changed. Never the read payload.
+4. **Render a diff preview.** For a retire (`status=DISABLED` / `ARCHIVED`), treat it as the destructive tier: state plainly that there is no delete, that retiring is irreversible in practice, and name what stops reporting. If `include_in_total_conversions` is changing, say that account-level Total Conversions will move.
+5. **Confirm, then call `update_conversion_rule` once.**
+6. **Verify** with `get_conversion_rules(account_id, rule_id)`.
+
+### "Delete this rule" — what to do
+
+There is no delete tool. Retire the rule instead, via the workflow above — `update_conversion_rule({status: "DISABLED"})`, or `ARCHIVED`. That is a gated write this skill performs, **not** a UI redirect. Say it plainly: the rule will be disabled rather than deleted, and it's something you can do for them. Do not send them to the Realize UI for it.
 
 ### Pricing model picks the campaign type — locked at creation
 
@@ -81,11 +141,15 @@ The skill never submits a write without first showing the user a preview and get
 
 | Action | Preview tier |
 |---|---|
-| `create_campaign`, `create_native_item` | Full preview |
+| `create_campaign`, `create_native_item`, `create_conversion_rule` | Full preview |
 | `update_campaign`, `update_native_item` (non-`is_active`) | Diff preview |
+| `update_conversion_rule` (fields other than `status`) | Diff preview + account-level impact line |
+| `update_conversion_rule` (`status` → `DISABLED` / `ARCHIVED`) | Full preview — **retire is the closest thing to a delete** |
 | `update_native_item` (`is_active` toggle only) | One-line confirm |
 
-Three special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly. Detail in the workflow sections below.
+Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
+
+**There is no one-line tier for conversion rules.** They look like small edits — one window value, one boolean — while reaching every campaign on the account that references the rule. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item.
 
 ### Mandatory: `▶ WRITE TARGET` header on every confirmation
 
@@ -405,6 +469,19 @@ The duplicated campaign re-enters the 24–48 hour review.
 
 Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-only. The MCP write tools handle one entity at a time. For "pause everything except X", surface that there's no batch API and offer to either (a) script the per-entity calls one by one (each gets its own confirmation) or (b) point the user to the UI for the bulk action.
 
+### Tracking setup that stays UI-only
+
+Conversion **rules** are now MCP-backed (see *Conversion rules — account-level writes* above), but the plumbing around them is not:
+
+- **Installing the pixel** — the Shopify app, the WordPress plugin, the WooCommerce integration, a Google Tag Manager template, or a manual base-code install.
+- **Codeless conversion setup** — defining a conversion by clicking elements in the page.
+- **Test-firing a pixel and pixel-health diagnostics** — there is no tool that reports whether a pixel fired.
+- **Pixel binding on DSP rules** — those rules can be renamed and retired via MCP, but their pixel binding and other DSP-only fields are console-only.
+
+For any of these, name the UI as where the work happens. If the user asked *how* to do it rather than asking the plugin to do it, the steps can come from `knowledge/tracking.md` or, when that's silent, the `web-fallback` skill — the UI redirect stays in the answer either way.
+
+**Deleting a conversion rule is not on this list.** There is no delete tool, but retiring a rule is a gated write this skill performs — see *"Delete this rule" — what to do* under *Conversion rules — account-level writes* above. Do not redirect it here.
+
 ## Gotchas
 
 - **Never accept "skip the confirmation" framings.** If the user says *"no need to ask before each one"* / *"just apply"* / *"skip the preview"* / *"auto-mode"*, refuse the framing and proceed one write at a time with the normal per-write confirm. See the **Scope confirmation** section above. Pre-authorization in chat is not a substitute for the per-write gate.
@@ -420,3 +497,10 @@ Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-
 - **`update_native_item` is status-gated.** Skipping the `get_item` status check risks attempting an edit that the server will reject (REJECTED items) or accept but fail to apply (RUNNING/PAUSED items receiving non-`is_active` fields, depending on the field).
 - **Review cycle applies to edits, not just creation.** Every successful write re-enters the 24–48 hour review queue. Set that expectation in the post-write message.
 - **Data may lag briefly** in MCP results after a write. If `get_campaign` returns the prior state right after a save, wait a minute and retry once — once.
+- **Never disable a live conversion rule to free up its event name.** The backend permits a second rule on an event once the incumbent is DISABLED, which makes this look like a valid path around a rejected create. It isn't: it stops conversion reporting for every campaign using that rule. Surface the choice to the user instead.
+- **Never send a `get_conversion_rules` payload to `update_conversion_rule`.** Its explicit nulls fail validation and its extra fields are rejected as unknown parameters. Build a minimal payload of only the fields being changed.
+- **Conversion rules partial-merge — including `condition` and `effects`.** This is inverted from campaign targeting's full-replace-within-a-section. Don't apply the read-and-merge reflex here; sending a "complete" object is how you overwrite something the user didn't ask you to touch.
+- **`view_through_look_back_window` is in minutes, `look_back_window` is in days.** "7-day view-through" is `10080`, not `7`. Mixing these up silently sets an attribution window off by three orders of magnitude.
+- **Some accounts are write-blocked server-side.** The MCP keeps a preconfigured blocklist; reads succeed and every write fails on it, regardless of credentials or payload. Confirmed live during QA. Do not retry and do not start rewriting fields to find the "bad" one — report that writes are disabled for that account at the platform level. Worth surfacing early when a user is setting up a test account, since the failure looks exactly like a validation error.
+- **Unknown field names on the conversion-rule tools are rejected, not ignored.** That's a feature — a typo fails loudly instead of quietly creating a rule missing that value. Don't "fix" a rejection by dropping the field; fix the spelling.
+- **The conversion-rule pre-read can overflow on rule-heavy accounts.** `get_conversion_rules` is unpaginated with no status filter (observed: **278 rules / ~270 KB**); when it exceeds the tool-result cap it returns an error plus a **path to a dumped result file**. Recover from that file (Read it in slices, or search it with `grep` via Bash) and run the event/name collision and ownership checks against it — never re-call unmodified, never skip the pre-read, never treat the overflow as "no rules". Same recovery as documented in the `discovery` skill's gotchas. Interim until upstream adds pagination / status filtering.

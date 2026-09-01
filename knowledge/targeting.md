@@ -17,7 +17,7 @@ A given Realize account does NOT need to "contain" demographic, interest, intent
 | `search_audiences` | Account-RESIDENT custom audiences only — pixel-built segments, CRM uploads, "All Website Visits", combined audiences saved on the account. | ✅ Yes — a brand-new account has no pixel data + no CRM uploads yet. |
 | `search_contextual_segments` | Network-wide marketplace catalogue — demographics (age / gender), interest verticals (health-conscious, weight management, immune health, energy / focus, etc.), 3P data partners (Audience One, Bombora, Connexity, Eyeota), MRT bundles. | ❌ Never expected to be empty for a US-targeted campaign. |
 | `search_lookalike_audiences` | Account-RESIDENT lookalike seeds (pixel-based predictive, CRM lookalike, PBP). | ✅ Yes — these require a seed (pixel data or CRM upload) which a fresh account won't have. Mark "seed pending" rather than failing. |
-| `search_conversion_rules` | Account-RESIDENT conversion rules (Taboola Pixel events, S2S events, engagement rules). | ✅ Yes — fresh accounts have no pixel installed yet. |
+| `get_conversion_rules` | Account-RESIDENT conversion rules (Taboola Pixel events, S2S events, engagement rules). Returns ACTION rules only — pixel audience rules are excluded. | ✅ Yes — fresh accounts have no pixel installed yet. |
 
 **Operating rule:** If the user calls for "Women 35-64, health-conscious, weight-management interest," resolve those via `search_contextual_segments`. Do NOT expect them in `search_audiences`. If `search_audiences` is empty for a fresh activation account, proceed and note: "no account-resident custom audiences yet — using marketplace segments + targeting will broaden once pixel/CRM seeds land." NEVER raise this as a blocking error.
 

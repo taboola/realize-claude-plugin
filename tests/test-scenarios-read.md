@@ -375,8 +375,76 @@ Covers the `web-fallback` skill and the `os/guardrails.md` → *Public-documenta
 
 **Part G — UI-only how-vs-do split.**
 
-> "Create a conversion event for my checkout page." then "OK, how do I create one myself?"
+> "Install the pixel on my site for me." then "OK, how do I install it myself?"
 
 **Pass criteria:** the first gets the UI-only acknowledgment plus the UI redirect and **no lookup**. The second may answer with steps from a lookup, and still names the Realize UI as where the work happens.
 
 
+---
+
+## 20. Tracking questions route down the ladder, not into a stale refusal
+
+Covers the tracking routing ladder in `agents/realize-analyst.md` and the conversion-rule read tool added upstream. Each part is a different rung; the point is that they land on different rungs.
+
+**Part A — live rule state is data, not documentation.**
+
+> "What conversion rules are set up on this account?"
+
+**Pass criteria:**
+- Calls `get_conversion_rules`. Answering from `knowledge/tracking.md` or a web lookup is a fail — this is account state.
+- Does **not** call the deprecated `search_conversion_rules`.
+- Surfaces rule names with their IDs, and states each rule's attribution window in the user's units (days for click-through, and minutes converted to something readable for view-through).
+- If the account is a parent / NETWORK account and child rules come back, the answer distinguishes them by owner rather than presenting them all as this account's.
+- If the account has DISABLED / ARCHIVED rules, the answer defaults to ACTIVE rules and carries the one-line disclosure with both counts ("showing N active — M disabled/archived skipped"). Silently omitting the skipped rules, or dumping all statuses unasked, is a fail.
+
+**Part B — a rule change is a write, not a UI redirect.**
+
+> "Change the attribution window on that rule to 30 days."
+
+**Pass criteria:** routes to the write gate with a preview and `▶ WRITE TARGET` header. A response saying attribution windows are UI-only is a fail — that was true before the upstream tools shipped and is the stale-capability regression this scenario guards.
+
+**Part C — strategy comes from the knowledge base.**
+
+> "Should I use the pixel or server-to-server for this?"
+
+**Pass criteria:** answered from `knowledge/tracking.md`. **No web lookup**, and no found-online disclaimer.
+
+**Part D — install mechanics fall through to the lookup.**
+
+> "How do I install the pixel with Google Tag Manager?"
+
+**Pass criteria:** answers with steps from a lookup, flagged as found online, with no URL volunteered — and still names the Realize UI as where the work is done. A bare "that's UI-only" with no steps is a fail; that's the P0 gap this closes.
+
+**Part E — "delete" resolves to retire, and isn't punted to the UI.**
+
+> "Can I delete a conversion rule?"
+
+**Pass criteria:** explains there is no delete and that retiring (disable) is the supported path — and that the plugin can do it. Sending the user to the Realize UI is a fail.
+
+---
+
+## 21. Rule-heavy account: overflow recovery and ACTIVE-by-default
+
+Covers the `get_conversion_rules` overflow gotcha in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is unpaginated with no status filter, so a rule-heavy account exceeds the tool-result cap and the result arrives as an error plus a path to a dumped result file.
+
+**Prerequisite:** an account with 200+ conversion rules, the majority DISABLED / ARCHIVED (maintainers know a reproducing account; any large NETWORK account with a long rule history works).
+
+**User prompt:**
+
+> "What conversion rules are set up on this account?"
+
+**Expected behavior:**
+
+1. Calls `get_conversion_rules(account_id)`; the call overflows and returns an error plus a dumped-file path.
+2. Reads the dumped file in slices (Read tool, or `grep` via Bash) instead of re-calling the tool unmodified or giving up.
+3. Builds a slim per-rule projection (`id`, `display_name`, `event_name`, `status`, `advertiser_id`) and answers from it.
+4. Answer covers ACTIVE rules only, and carries the one-line disclosure with both exact counts ("showing N active rules — M disabled/archived skipped, say if you want them").
+5. States that the full list was recovered from an oversized response, so the user knows the scope of what was read — phrased without file paths or tool names (the guardrails' internals bans still apply).
+
+**Pass criteria:**
+
+- No unmodified retry loop on the overflowing call.
+- No "this account has no conversion rules" — treating the overflow as an empty result is the worst failure here.
+- The disclosure line is present with both counts; silently omitting the skipped rules is a fail.
+- A partial read presented as the account's complete rule set (without saying what was read) is a fail.
+- Abandoning the question ("the list is too large to retrieve") is a fail — the dumped file is the answer's source.
