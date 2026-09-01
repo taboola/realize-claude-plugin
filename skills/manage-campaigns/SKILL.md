@@ -475,12 +475,14 @@ Conversion **rules** are now MCP-backed (see *Conversion rules — account-level
 
 - **Installing the pixel** — the Shopify app, the WordPress plugin, the WooCommerce integration, a Google Tag Manager template, or a manual base-code install.
 - **Codeless conversion setup** — defining a conversion by clicking elements in the page.
-- **Test-firing a pixel and pixel-health diagnostics** — there is no tool that reports whether a pixel fired.
+- **Test-firing a pixel** — there is no tool that fires a test event.
 - **Pixel binding on DSP rules** — those rules can be renamed and retired via MCP, but their pixel binding and other DSP-only fields are console-only.
 
 For any of these, name the UI as where the work happens. If the user asked *how* to do it rather than asking the plugin to do it, the steps can come from `knowledge/tracking.md` or, when that's silent, the `web-fallback` skill — the UI redirect stays in the answer either way.
 
 **Deleting a conversion rule is not on this list.** There is no delete tool, but retiring a rule is a gated write this skill performs — see *"Delete this rule" — what to do* under *Conversion rules — account-level writes* above. Do not redirect it here.
+
+**Pixel-health diagnostics is not on this list either.** "Is my pixel firing / why aren't conversions tracking" is the `diagnose-tracking` skill's workflow — evidence-based from the user's page and captured browser data, with no MCP pixel tool involved. When its diagnosis lands on a rule fix (re-enable, rename the event, change a window), it hands off *here* for the gated write. Do not redirect diagnosis requests to the UI.
 
 ## Gotchas
 
@@ -501,6 +503,6 @@ For any of these, name the UI as where the work happens. If the user asked *how*
 - **Never send a `get_conversion_rules` payload to `update_conversion_rule`.** Its explicit nulls fail validation and its extra fields are rejected as unknown parameters. Build a minimal payload of only the fields being changed.
 - **Conversion rules partial-merge — including `condition` and `effects`.** This is inverted from campaign targeting's full-replace-within-a-section. Don't apply the read-and-merge reflex here; sending a "complete" object is how you overwrite something the user didn't ask you to touch.
 - **`view_through_look_back_window` is in minutes, `look_back_window` is in days.** "7-day view-through" is `10080`, not `7`. Mixing these up silently sets an attribution window off by three orders of magnitude.
-- **Some accounts are write-blocked server-side.** The MCP keeps a preconfigured blocklist; reads succeed and every write fails on it, regardless of credentials or payload. Confirmed live during QA. Do not retry and do not start rewriting fields to find the "bad" one — report that writes are disabled for that account at the platform level. Worth surfacing early when a user is setting up a test account, since the failure looks exactly like a validation error.
+- **Writes can be blocked server-side by policy — and the block follows the *user*, not just the account.** The rejection message speaks of "accounts for which writes are blocked", but the operative policy (per the account team, 2026-08-22) is that **internal Taboola users are excluded from writes** — a client user on the same account can succeed where an internal user always fails. Reads keep working either way, which makes the failure look exactly like a validation error. Do not retry and do not start rewriting fields to find the "bad" one — report that writes are disabled for this login at the platform level. Worth surfacing early when a user is setting up a test account.
 - **Unknown field names on the conversion-rule tools are rejected, not ignored.** That's a feature — a typo fails loudly instead of quietly creating a rule missing that value. Don't "fix" a rejection by dropping the field; fix the spelling.
 - **The conversion-rule pre-read can overflow on rule-heavy accounts.** `get_conversion_rules` is unpaginated with no status filter (observed: **278 rules / ~270 KB**); when it exceeds the tool-result cap it returns an error plus a **path to a dumped result file**. Recover from that file (Read it in slices, or search it with `grep` via Bash) and run the event/name collision and ownership checks against it — never re-call unmodified, never skip the pre-read, never treat the overflow as "no rules". Same recovery as documented in the `discovery` skill's gotchas. Interim until upstream adds pagination / status filtering.

@@ -15,7 +15,7 @@ jobs:
       - name: Validate JSON files
         run: |
           set -euo pipefail
-          for f in .claude-plugin/plugin.json .mcp.json; do
+          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json .codex-plugin/plugin.json .mcp.json; do
             echo "Checking $f"
             python3 -m json.tool "$f" > /dev/null
           done

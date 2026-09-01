@@ -12,6 +12,7 @@ This file is the **strategy and interpretation** layer: which tracking method to
 
 - **Live rule state and rule changes go through the MCP.** Reading an account's conversion rules, creating one, changing an attribution window, or retiring a rule are tool-backed operations, not documentation questions. Never answer "what rules do I have?" or "what's my attribution window?" from this file — read the account.
 - **Platform install mechanics are not here.** Installing the pixel via the Shopify app, the WordPress plugin, the WooCommerce integration, a Google Tag Manager template, or manual base code — plus codeless-conversion setup and pixel test-firing — are Realize-UI operations, and the step-by-step lives in Taboola's public help documentation rather than in this file. Those questions are a genuine gap here, not something to improvise around.
+- **Live pixel diagnosis is not here either.** "Is my pixel firing on this page?", "why aren't conversions tracking?", "purchases are double-counted" — those are answered from the user's actual page and browser evidence by the `diagnose-tracking` skill, not from documentation. This file's debugging sections cover *interpreting* statuses and mismatches; the skill owns the evidence-gathering workflow.
 
 The exception worth stating: this file **does** cover the Funnelish edge case, network- vs account-level pixel choice, and validation, because those are decisions rather than button-clicking.
 

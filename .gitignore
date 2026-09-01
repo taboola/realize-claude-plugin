@@ -45,3 +45,8 @@ venv/
 # Support bundles, wherever they land. build-bundle.js already refuses to
 # write inside a git work tree; this is the second line, not the first.
 realize-support-*.md
+
+# Local working drafts (Slack messages, PR links/descriptions) — never ship
+/slack-*.txt
+/pr*-link*.txt
+/pr-link-*.txt

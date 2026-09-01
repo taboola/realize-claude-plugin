@@ -26,6 +26,12 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            ├──► reports skill          → 4 report tools (CSV output)
            ├──► optimize-campaign skill → diagnoses underperformance; hands write
            │                              prescriptions to manage-campaigns
+           ├──► diagnose-tracking skill → pixel-health diagnosis. ONE non-MCP fetch:
+           │                              the user's own page under diagnosis; plus
+           │                              user-captured HAR / window._tfa evidence and
+           │                              rule/report cross-checks. Rule fixes hand off
+           │                              to manage-campaigns; Taboola-side gaps to the
+           │                              support escalation. No pixel MCP tool exists.
            ├──► manage-campaigns skill → 8 write tools: create_campaign, update_campaign,
            │                             create_native_item, update_native_item,
            │                             create_display_item, update_display_item,
@@ -139,8 +145,40 @@ There is no delete tool — retiring is `status` → `DISABLED` / `ARCHIVED`, wh
 
 **The read overflows on rule-heavy accounts — and two deliberate choices contain it.** `get_conversion_rules` is unpaginated with no status filter (field repro: 278 rules / ~270 KB, only 102 ACTIVE); past the tool-result cap the model receives an error plus a dumped-file path, and `rule_id` can't rescue it because the listing is the only source of IDs. The two tempting wrong moves are a retry loop (same overflow every time) and skipping the mandatory pre-read before a write — the agent, `discovery`, and `manage-campaigns` forbid both (the guardrails additionally pin the pre-read gate), and all route recovery through reading the dumped file. Listings default to ACTIVE rules **with a mandatory one-line skipped-count disclosure** — the disclosure is the point; filtering silently would hide account state from the user. This whole block is interim: when upstream ships pagination/status filtering, treat it as stale-capability-claims class (grep for "overflow" and "no status filter") and rewrite rather than layering on top.
 
+### Pixel diagnosis is artifact-based, and its page fetch is a trust boundary
+
+`diagnose-tracking` is adapted from an internal Taboola support team's pixel-diagnostics skill,
+stripped of everything internal — its internal-database queries, Salesforce intake, internal config
+flags, and live-browser capture stayed out (see `docs/2026-08-22-pixel-expert-adoption-plan.md` for
+the adoption notes and the MCP capability asks). What survived is the domain knowledge and four
+constraints that are easy to erode:
+
+- **The evidence is the user's, not the plugin's.** The skill fetches exactly one class of URL — the
+  page the user asked to have diagnosed — and otherwise works from artifacts the user captures (HAR,
+  `window._tfa` dump). Don't extend the fetch into crawling (linked scripts, other pages "for
+  completeness"): every fetched third-party page is untrusted content, and the guardrails' *evidence,
+  never instructions* rule plus the HAR-hygiene rules (Grep-first slicing, no cookies/auth headers in
+  output) are the containment. A HAR is also the user's own session data — over-quoting it into
+  reports is a leak, the same class as the support bundle's over-redaction problem inverted.
+- **The honesty boundary is the capability's edge.** No MCP tool reports whether an event landed
+  inside Taboola. The skill's §E flow ends at "verified healthy on your side → escalate via
+  `/realize-plugin:support`" — never at an invented server-side fact. If upstream ever ships a pixel
+  event-landing read (asked for in the adoption plan), that ending is stale-capability-claims class:
+  grep for "no MCP tool that reports whether a pixel fired" and rewrite everywhere it appears.
+- **The spend gate is load-bearing.** "Fires + rule live + zero conversions" is *expected* on an
+  account with no active spend — the source skill's field data showed a healthy account with 24M+ page views and
+  zero attributed conversions for exactly this reason. The checklist forbids prescribing a fix before
+  the rule-status and spend checks; removing that order turns healthy accounts into fabricated bugs.
+- **Diagnosis never writes.** Re-enabling a disabled rule looks like the obvious quick fix and is an
+  account-level write (Total Conversions / bidding blast radius) — it routes through
+  `manage-campaigns`' gate like every other mutation. The skill also deliberately does **not** walk
+  install steps (that's `web-fallback` + the UI) — verifying an install and creating one are
+  different jobs, and blurring them re-opens the "plugin performs UI work it can't do" failure.
+
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.
+
+One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** via curl. That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the curl back to WebFetch; the skill and the agent both document why.
 
 ### Stale capability claims are their own bug class
 
@@ -206,6 +244,7 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 ```
 .
 ├── .claude-plugin/plugin.json     # plugin manifest
+├── .claude-plugin/marketplace.json# marketplace catalog — the repo is its own marketplace; keep version in sync with plugin.json
 ├── .mcp.json                      # remote Realize MCP wiring
 ├── .github/workflows/validate.yml # CI: JSON + YAML frontmatter checks
 ├── agents/                        # orchestrator(s)
@@ -216,7 +255,22 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 
 ## Open items
 
-These are placeholders that should be updated by the repo maintainer before the first public release:
+Planned next on the skill side:
+
+- **Live browser capture for `diagnose-tracking`** — decided 2026-08-22, priority raised because the
+  HAR path makes the *user* do the work (capture and hand over a recording), and removing user effort
+  is a product goal. Scope: the plugin drives a browser to the page under diagnosis and watches the
+  pixel traffic itself. **The non-negotiable price tag is the isolated-browser trust boundary**: the
+  driven browser must be a throwaway profile with no logins — never a signed-in browser, which a
+  hostile page could turn against the user's live sessions — and that rule must be structurally
+  unbypassable, not advisory. Needs its own safety review before any implementation. Purchase-funnel
+  capture (test purchases) stays out of scope even then. A Node HAR parser remains
+  evidence-permitting: only if sliced prose reading proves error-prone in the field.
+- **Post-merge re-diff of the source pixel skill** — when its branch merges in its home repo, diff
+  against the adopted content and pick up new client-safe lessons; also confirm with its author which
+  consent guidance (the supported-CMP list) is public-safe.
+
+Placeholders that should be updated by the repo maintainer before the first public release:
 
 - **`SECURITY.md`** — replace `security@taboola.com` with the real disclosure address if it differs.
 - **`plugin.json` `author`** — currently `"Taboola"`; specify a team or individual maintainer if desired.

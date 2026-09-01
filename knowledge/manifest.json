@@ -46,7 +46,7 @@
         "Google Tag Manager",
         "attribution"
       ],
-      "description": "Tracking-method selection (pixel vs S2S), conversion-event strategy, ROAS tracking, parameters, and debugging. Does not cover platform install steps (web-fallback lookup) or live rule state (MCP)."
+      "description": "Tracking-method selection (pixel vs S2S), conversion-event strategy, ROAS tracking, parameters, and debugging. Does not cover platform install steps (web-fallback lookup) or live rule state (MCP). Live pixel diagnosis (is it firing on a page, why aren’t conversions tracking) routes to the diagnose-tracking skill, not this file."
     },
     {
       "slug": "targeting",

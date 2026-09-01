@@ -10,16 +10,25 @@
 
 ## Install — marketplace path *(recommended)*
 
-Run these **inside a Claude Code session at the prompt** (they are slash commands, not shell commands):
+The repo ships its own marketplace manifest (`.claude-plugin/marketplace.json`), so it installs directly from GitHub. Run these **inside a Claude Code session at the prompt** (they are slash commands, not shell commands):
 
 ```
-/plugin marketplace add anthropic/claude-plugins-community
-/plugin install realize-plugin@claude-community
+/plugin marketplace add taboola/realize-claude-plugin
+/plugin install realize-plugin@realize
 ```
 
-The first command registers the community marketplace with your CLI; the second installs the plugin from it. Installing the plugin brings its skills, the `realize-analyst` agent, and the Realize MCP wiring — no separate MCP setup required.
+The first command registers this repo as a marketplace named `realize`; the second installs the plugin from it. Installing the plugin brings its skills, the `realize-analyst` agent, and the Realize MCP wiring — no separate MCP setup required.
 
 On your first Realize tool call, your browser opens for Taboola SSO. After sign-in, you can run prompts.
+
+> **Upgrading from an early install?** If installing still reports the plugin as **`realize-ads-api`** (the pre-release name, retired July 2026), your machine has a stale marketplace registration whose cached catalog predates the rename — reinstalling from it re-serves the old name forever. Clean it up once, then install fresh:
+>
+> ```
+> /plugin uninstall realize-ads-api
+> /plugin marketplace remove realize
+> /plugin marketplace add taboola/realize-claude-plugin
+> /plugin install realize-plugin@realize
+> ```
 
 ---
 
@@ -106,6 +115,10 @@ The same example file allows the two tools the plugin uses to answer questions i
 
 Without these, every lookup raises a permission prompt — and a declined prompt is indistinguishable from the plugin simply not knowing the answer. Lookups are read-only, restricted to Taboola's public advertiser help documentation, and never touch account data.
 
+## Recommended: allow the pixel-diagnosis page fetch
+
+The pixel-health diagnosis downloads the raw HTML of **the page you ask to have checked** (a `curl` of your own site — the readable-view fetch tool strips the code the check needs). The example file allows it via `"Bash(curl:*)"`. Same trade-off as above: without it, every diagnosis raises a prompt. The fetch is read-only, goes only to the URL you supply, and never touches account data. (The permission entry itself is curl-wide — the harness cannot scope a shell permission to a URL — so the per-URL restraint is enforced by the skill's rules, not the grant; skip this opt-in if that trade-off isn't acceptable.)
+
 ---
 
 ## Install on Codex (experimental)
@@ -134,7 +147,8 @@ If a write is attempted on Codex, the preview-then-confirm gate from `os/guardra
 - **Browser didn't open / OAuth failed on the wrong port** → free port `3000` and re-register the MCP with `--callback-port 3000` (see [OAuth & the callback port](#oauth--the-callback-port)), then retry.
 - **`search_accounts` returns nothing** → wrong SSO realm; check your Taboola login.
 - **Wrong account in a write preview** → re-run the `accounts` skill before retrying.
-- **`/plugin install` says "unknown marketplace"** → run `/plugin marketplace add anthropic/claude-plugins-community` first, then install.
+- **`/plugin install` says "unknown marketplace"** → run `/plugin marketplace add taboola/realize-claude-plugin` first, then install.
+- **Install reports `realize-ads-api` instead of `realize-plugin`** → stale marketplace registration from a pre-release install; see the cleanup steps under [Install — marketplace path](#install--marketplace-path-recommended).
 - **Changes to a local plugin aren't visible** → run `/reload-plugins` inside the session.
 
 Full docs: [README.md](README.md) · Claude Code plugin docs: https://code.claude.com/docs/en/plugins

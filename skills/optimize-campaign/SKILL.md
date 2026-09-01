@@ -52,7 +52,7 @@ Before any analysis, run all five. Skipping leads to wrong conclusions.
 
 | # | Pre-check | Action | Why |
 |---|---|---|---|
-| **P1** | **Tracking health** | Pull `get_campaign_history_report` over the date window. Confirm conversions > 0 if clicks > 0. | A broken pixel makes every downstream metric meaningless. |
+| **P1** | **Tracking health** | Pull `get_campaign_history_report` over the date window. Confirm conversions > 0 if clicks > 0. If tracking looks broken, hand off to `diagnose-tracking` — it verifies the pixel from the user's page and captured browser evidence and routes the fix. | A broken pixel makes every downstream metric meaningless. |
 | **P2** | **Campaign-level conversion goal verified** | Use `get_campaign` to read the campaign's `conversion_rules` / goal mapping. If no campaign-level goal is set, the campaign is **inheriting the account default** — the optimizer targets the most frequent conversion marked "include in total" at the account level. This is a **valid configuration when the include-in-total settings are sensible**, not a failure mode. Surface to the user what the campaign is actually optimizing toward (read it from the account's conversion-rules list) — don't assume the KPI from spend volume. | Wrong KPI = wrong diagnosis. Account-default routing is fine when configured deliberately; only flag it as a problem if the account's include-in-total events don't match what the user is trying to optimize for. |
 | **P3** | **Active conversion events only** | Filter out archived / disabled conversions when reading conversion data. | Dead events inflate the apparent drop and produce phantom CPA values. |
 | **P4** | **Bid-strategy cross-check** | Read the campaign's `bid_strategy` + `pricing_model`. Map every proposed action against the bid-lever matrix in `references/optimization-flow.md`. If the action is not valid for the strategy, reframe before delivering. | Per-publisher bid moves don't exist on Maximize Conversions / Target CPA / Maximize Value. Per-item bids don't exist on any strategy. Recommending them is a credibility failure. |
@@ -83,7 +83,7 @@ If the guard fires:
 - A campaign re-launched after > 14 days of no spend is effectively learning again — treat as Learning even if `start_date` is old.
 - A conversion-goal swap restarts learning even on a mature campaign.
 
-**Exit criteria from pre-checks:** Do not advance past the pre-checks if tracking is broken (P1) or the campaign is in Learning period (P5).
+**Exit criteria from pre-checks:** Do not advance past the pre-checks if tracking is broken (P1 — route to `diagnose-tracking` first) or the campaign is in Learning period (P5).
 
 ## Two paths — pick by user framing
 
@@ -150,7 +150,7 @@ After the 7-point walk, the symptom usually maps to one of these branches — fu
 
 ## Common action prescriptions
 
-For each prescription below, hand off to `manage-campaigns` for application (it owns the MCP write tools and the preview-then-confirm gate). After the user confirms the write completed, re-verify via the MCP read tools (`get_campaign` / `list_items` / `get_campaign_history_report`) and re-pull the relevant report after a data window (typically 3–7 days, accounting for the change-class lag in `references/optimization-flow.md`). For prescriptions still UI-only (Custom Rules, audience uploads, pixel installation, codeless-conversion setup, pixel test-fire), `manage-campaigns` walks the user through the Realize UI fallback. **Conversion-rule changes are no longer UI-only** — creating a rule, adjusting an attribution window, or retiring a rule are MCP writes that go through the same gate.
+For each prescription below, hand off to `manage-campaigns` for application (it owns the MCP write tools and the preview-then-confirm gate). After the user confirms the write completed, re-verify via the MCP read tools (`get_campaign` / `list_items` / `get_campaign_history_report`) and re-pull the relevant report after a data window (typically 3–7 days, accounting for the change-class lag in `references/optimization-flow.md`). For prescriptions still UI-only (Custom Rules, audience uploads, pixel installation, codeless-conversion setup, pixel test-fire), `manage-campaigns` walks the user through the Realize UI fallback. **Conversion-rule changes are no longer UI-only** — creating a rule, adjusting an attribution window, or retiring a rule are MCP writes that go through the same gate. **Pixel-health diagnosis is no longer UI-only either** — when the prescription is "figure out why the pixel/conversions are broken", hand off to `diagnose-tracking`.
 
 - **Pause an underperforming item** — Campaigns → open campaign → Campaign Inventory → toggle item status.
 - **Block a site** — Campaigns → open campaign → Advanced Options → Block Sites. Run the historical-top-N guard (in `knowledge/site-management.md`) before recommending.

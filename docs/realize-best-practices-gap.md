@@ -145,7 +145,7 @@ Listed with the source article, a one-line description of what the ability would
 
 ### 3.E — Conversion tracking
 
-**Closed gaps in this section (upstream 20260806.1):** `list_conversions` → `get_conversion_rules`, `create_conversion` → `create_conversion_rule`, `update_conversion_attribution_windows` and `toggle_total_conversions_flag` → `update_conversion_rule` — all wired via `skills/manage-campaigns/SKILL.md` → *Conversion rules — account-level writes*. What remains open below is pixel-side visibility (install status, health) and the conversion-events report.
+**Closed gaps in this section (upstream 20260806.1):** `list_conversions` → `get_conversion_rules`, `create_conversion` → `create_conversion_rule`, `update_conversion_attribution_windows` and `toggle_total_conversions_flag` → `update_conversion_rule` — all wired via `skills/manage-campaigns/SKILL.md` → *Conversion rules — account-level writes*. Client-side pixel health is now served by the `diagnose-tracking` skill (page fetch + user-captured browser evidence); what remains open below is **Taboola-side** visibility — the install-status read (`get_pixel_status`, mirrored as an MCP ask in `docs/2026-08-22-pixel-expert-adoption-plan.md`) and the conversion-events report.
 
 | Future ability | Does what | Today's UI path | Source |
 |---|---|---|---|
@@ -186,7 +186,7 @@ The Landing Page Best Practices article is largely infographic-based and thin on
 ### When a Part 3 ability is added upstream
 
 1. Record the new tool in the agent's Tool Reference (`agents/realize-analyst.md`).
-2. Route it into the most appropriate skill (or create a new skill if the capability is its own concern — e.g., a dedicated tracking skill would be the natural home if `get_pixel_status` lands).
+2. Route it into the most appropriate skill (or create a new skill if the capability is its own concern — e.g., `skills/diagnose-tracking/` is the natural home if `get_pixel_status` lands).
 3. Move the row out of Part 3 and into Part 1 ("What we took"), noting the release that added it.
 4. Add a scenario to `tests/test-scenarios-read.md` (read-only paths) or `tests/test-scenarios-write.md` (destructive paths) exercising the new path.
 5. Open a dedicated PR — never silently add a write path.
