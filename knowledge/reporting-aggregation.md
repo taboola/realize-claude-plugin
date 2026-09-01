@@ -30,7 +30,7 @@ The dynamic report aggregates to whatever grain you request. **Ask for the grain
 Two caveats:
 
 - **Entity-attribute dimensions have returned unaggregated rows** (staging-observed: bidding strategy, Ad CTA — the same dimension pair repeated across hundreds of rows). If the row count is implausibly large for the requested grain, check for repeated dimension values; if present, fetch all pages and roll up client-side using the rules below.
-- **Week buckets start Sunday**, and the first bucket's label can precede the requested range. Echo real bucket boundaries.
+- **Week buckets start Sunday** (staging-observed — re-verify at release), and the first bucket's label can precede the requested range. Echo real bucket boundaries.
 
 ---
 
@@ -39,7 +39,7 @@ Two caveats:
 - **Sum columns:** `impressions`, `clicks`, `spent`, `conversions`, `conversions_value`.
 - **Never sum or average rate columns** (`ctr`, `cpc`, `cvr`, `cpa`, `roas`). `mean(ctr)` across rows is wrong — rows have different denominators.
 - After any client-side slice or roll-up, **re-derive weighted**: `CTR = Σclicks / Σimpressions`, `CPC = Σspent / Σclicks`, `CVR = Σconversions / Σclicks`.
-- **The dynamic report's CTR = clicks / *visible* impressions** — a different definition from some other Taboola surfaces. Raw counters reconcile exactly across surfaces; rates may not. When a user compares rates against the UI or an old export and sees a gap, name the definition difference instead of calling either number wrong.
+- **The dynamic report's CTR = clicks / *visible* impressions** (staging-observed — re-verify at release) — a different definition from some other Taboola surfaces. Raw counters reconcile exactly across surfaces; rates may not. When a user compares rates against the UI or an old export and sees a gap, name the definition difference instead of calling either number wrong.
 
 ---
 

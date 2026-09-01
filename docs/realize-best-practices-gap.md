@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **19 read tools + 8 write tools** from the upstream MCP:
+This plugin wires **18 read tools + 8 write tools** from the upstream MCP:
 
 | Area | Tools |
 |---|---|

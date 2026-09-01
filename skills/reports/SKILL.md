@@ -1,6 +1,6 @@
 ---
 name: reports
-description: Pull Realize performance reports (CSV) and interpret them. Covers the metamodel-driven dynamic report (any dimension × metric combination — campaign, ad, site, day/week, country, platform, browser, OS) plus the campaign-history change log, with the mandatory settings-first workflow, filter/sort rules, and pagination.
+description: Pull Realize performance reports (CSV) and interpret them. Covers the metamodel-driven dynamic report (any dimension × metric combination — e.g. campaign, ad, site, day/week, country, platform, browser, OS) plus the campaign-history change log, with the mandatory settings-first workflow, filter/sort rules, and pagination.
 allowed-tools: ["Read", "Bash", "AskUserQuestion"]
 ---
 
@@ -41,7 +41,7 @@ Skipping step 2 and guessing names is the tool's own documented failure mode —
 
 ## CSV output format
 
-`get_dynamic_report_data` returns CSV with a summary banner stating **Records, the row Grain, and pagination**, matching the retired report tools' format. Two differences from that legacy format matter:
+`get_dynamic_report_data` returns CSV with a summary banner in the same general shape as the retired tools' banner — stating **Records, the row Grain, and pagination**. Two differences from the legacy format matter:
 
 - **There is no grand `Total` in the metadata.** You cannot know the full row count without paging to the end. State the scope you actually fetched ("first 100 rows by spend") instead of implying completeness.
 - **The Grain line tells you what one row is.** Read it back before aggregating — it's the dimension combination you requested.

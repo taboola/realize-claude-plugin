@@ -25,7 +25,7 @@ All performance dimensions come from the dynamic report (`get_dynamic_report_set
 | OS | OS dimension | If platform-level looks fine, drill into OS (Android vs iOS often diverge sharply). |
 | Daypart | Realize UI (out of MCP scope today) | Surface as a UI navigation path. |
 
-**Aggregation discipline:** Always paginate the full result set (see `knowledge/reporting-aggregation.md` for the mandatory `Total` read + sum-reconciliation gate). Page-1-only aggregations silently understate spend on long-tail breakdowns.
+**Aggregation discipline:** Always paginate the full result set (see `knowledge/reporting-aggregation.md` for the short-page stop rule + sum-reconciliation gate). Page-1-only aggregations silently understate spend on long-tail breakdowns.
 
 ### Data-sufficiency gates — verify before recommending action
 

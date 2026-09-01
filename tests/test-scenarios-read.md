@@ -88,11 +88,11 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 > "Break down spend by campaign for the last 30 days, only running campaigns."
 
 **Expected behavior:**
-1. `get_dynamic_report_settings` first — Claude finds the campaign-status filter field and its allowed operators in the metamodel (no guessed filter names).
-2. `get_dynamic_report_data` at campaign grain with a structured filter (e.g. `{"name": <campaign status field>, "operator": "IN", "values": ["RUNNING"]}`) and the 30-day range.
+1. `get_dynamic_report_settings` first — Claude looks for a campaign-status filter field and its allowed operators in the metamodel (no guessed filter names).
+2. `get_dynamic_report_data` at campaign grain — including the status column in `columns` — with a structured filter (e.g. `{"name": <campaign status field>, "operator": "IN", "values": ["RUNNING"]}`) and the 30-day range. If the metamodel exposes no status filter field, Claude pulls unfiltered, post-filters, and **discloses the fallback**.
 3. Returns CSV, summarized as a ranked list with spend per campaign.
 
-**Pass criteria:** The structured `filters` parameter is used in the tool call (not post-hoc filtering alone), with the field name taken from the metamodel; Claude sanity-checks that returned rows actually carry the filtered status.
+**Pass criteria:** The structured `filters` parameter is used when the metamodel supports it (not post-hoc filtering alone), with the field name taken from the metamodel, and the returned rows are sanity-checked to carry the filtered status; if the field doesn't exist, the post-filter fallback is disclosed rather than silent.
 
 ---
 
@@ -136,10 +136,10 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 2. Claude resolves `account_id`, then pulls dynamic reports (settings first) at campaign grain and site grain for the campaign, plus ad/item grain at the account level for context. Date window is echoed in the summary.
 3. Checks thresholds before prescribing: confirms daily spend ≥ 8× CPA goal and at least one item has ≥100 clicks. If either is missing, says so explicitly and does not prescribe.
 4. Classifies the failure mode against the prescription rules (CTR × CVR × CPA) and names it (e.g., "High CTR, low conversion rate — this is typically a landing-page or creative-honesty issue, not a bid issue").
-5. Prescribes a concrete UI action with the exact UI path (e.g., "Pause item 887003: Campaigns → open 12345 → Campaign Inventory → toggle item status").
+5. Prescribes a concrete action: MCP-writable fixes (pausing an item, bid/budget changes) route through `manage-campaigns`' preview-then-confirm gate; genuinely UI-only actions come with the exact UI path (e.g., "Block site X: Campaigns → open 12345 → Site Management").
 6. Offers to re-verify via MCP after the user applies the change AND 3–7 days of fresh data have accrued.
 
-**Pass criteria:** Classification cites at least two of CTR / CVR / CPA with real numbers. Prescription includes a specific UI path. Claude does **not** recommend simply "raise the bid" as the first response to high CPA.
+**Pass criteria:** Classification cites at least two of CTR / CVR / CPA with real numbers. Prescription routes MCP-writable fixes through `manage-campaigns` (or gives a specific UI path for UI-only actions). Claude does **not** recommend simply "raise the bid" as the first response to high CPA.
 
 ---
 
@@ -152,7 +152,7 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 **Expected behavior:**
 1. The `optimize-campaign` skill activates.
-2. Claude pulls the campaign's history via MCP, sees the data is thin (either the age window or the click total is under threshold), and **refuses to prescribe**.
+2. Claude pulls a campaign/day-grain dynamic report (settings first), sees the data is thin (either the age window or the click total is under threshold), and **refuses to prescribe**.
 3. Surfaces the specific threshold that was missed: "the algorithm's learning phase is 7–10 days" or "the toolkit recommends at least 100 clicks per item before judging performance".
 4. If daily spend is below 8× CPA goal, recommends **increasing the daily budget** before drawing any further conclusions.
 5. Offers to revisit the diagnosis once the threshold is met.
@@ -181,7 +181,7 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 > "Show me top content from 2015."
 
 **Expected behavior:**
-1. CSV returns `Records: 0 | Total: 0 | ...`.
+1. CSV returns `Records: 0 | Grain: ... | ...` (the dynamic banner has no grand `Total`).
 2. Claude does **not** fabricate a narrative. Says explicitly: "No records found for 2015 — either no campaigns ran in that window or the account is newer than that."
 
 **Pass criteria:** Empty-result honesty; no hallucinated data.

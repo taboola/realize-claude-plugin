@@ -6,8 +6,8 @@ Quick lookup for what the Realize MCP reporting tools return. The dynamic report
 
 Returns a structured markdown menu of everything the account's `PERFORMANCE` report can express:
 
-- **Dimensions** — fully-qualified names like `PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME`. Cover campaign fields, ad/item fields (incl. Ad CTA), time buckets (Day / Week / Month / Quarter), and targeting dimensions (Country, Region, DMA, Site, Platform, Browser, OS).
-- **Metrics** — `PERFORMANCE_REPORT.METRICS.*`: Spent, Clicks, Impressions, CTR, CPM, Actual CPC, Conversions, Conversions Value, Actual CPA, Conversion Rate, ROAS, Served Ads. Accounts with conversion rules also expose **per-rule conversion metrics**, shown compactly as a naming pattern plus the rule list.
+- **Dimensions** — fully-qualified names like `PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME`. Per the Realize UI's dimension list these cover campaign fields, ad/item fields (incl. Ad CTA), time buckets (Day / Week / Month / Quarter), and targeting dimensions (Country, Region, DMA, Site, Platform, Browser, OS) — but the account's live metamodel is the authoritative list, and the UI's surface may not match the API's exactly.
+- **Metrics** — `PERFORMANCE_REPORT.METRICS.*`. Per the Realize UI's metric list: Spent, Clicks, Impressions, CTR, CPM, Actual CPC, Conversions, Conversions Value, Actual CPA, Conversion Rate, ROAS, Served Ads — same caveat: the metamodel is authoritative. Accounts with conversion rules also expose **per-rule conversion metrics**, shown compactly as a naming pattern plus the rule list.
 - **Filterable fields** — each with its allowed operators (`EQUALS`, `NOT_EQUALS`, `IN`, `NOT_IN`, `GREATER_THAN`, `LESS_THAN`, `BETWEEN`, `LIKE`).
 
 `name_filter` narrows every section to entries whose name or label contains the substring (case-insensitive) — use it to find one field or to shrink the menu on a rule-heavy account.

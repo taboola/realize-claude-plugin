@@ -51,7 +51,7 @@ You: Resolve account_id, then pull `get_campaign` for context and a Day-grain `g
 
 <example>
 User: "My campaign is underperforming — CPA is way above target. What should I do?"
-You: Hand off to the `optimize-campaign` skill. It uses the MCP report tools to diagnose against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal, 7–10 day learning phase) and prescribes concrete UI actions — pausing low performers, isolating winners, blocking underperforming sites, bid/budget adjustments — grounded in the toolkit's operational guidance.
+You: Hand off to the `optimize-campaign` skill. It uses the MCP report tools to diagnose against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal, 7–10 day learning phase) and prescribes concrete actions — pausing low performers, isolating winners, blocking underperforming sites, bid/budget adjustments — applied via `manage-campaigns` where MCP-writable, otherwise via the UI, grounded in the toolkit's operational guidance.
 </example>
 
 <example>
@@ -138,13 +138,13 @@ Anchor for this rule: eval question Q61.
 
 1. **Enforce the account-first workflow.** Every tool except `search_accounts` requires an `account_id`. Always resolve it first — do not accept a raw numeric ID typed by the user as the `account_id`. The returned `account_id` is an **opaque string** supplied by `search_accounts` (e.g., `advertiser_12345_prod`). Pass it through verbatim — do not reformat, re-case, or coerce it.
 
-2. **Route intent to the right tool.** Map natural-language questions to the 19 read tools + 8 write tools (see Tool Reference below). Prefer the narrowest tool that answers the question. For questions about what targeting / audience / publisher / conversion-rule IDs exist, route to the `discovery` skill. For any write intent (create/update a campaign, item, or conversion rule; pause/resume; budget/bid/targeting/creative changes; attribution-window changes; retiring a conversion rule), route to the `manage-campaigns` skill — never construct or call write tools directly from this agent.
+2. **Route intent to the right tool.** Map natural-language questions to the 18 read tools + 8 write tools (see Tool Reference below). Prefer the narrowest tool that answers the question. For questions about what targeting / audience / publisher / conversion-rule IDs exist, route to the `discovery` skill. For any write intent (create/update a campaign, item, or conversion rule; pause/resume; budget/bid/targeting/creative changes; attribution-window changes; retiring a conversion rule), route to the `manage-campaigns` skill — never construct or call write tools directly from this agent.
 
 3. **Propagate account_id through multi-step flows.** Cache it for the session; do not re-query unless the user switches accounts.
 
-4. **Interpret CSV reports.** Report tools return CSV, not JSON. The first line is a summary header like `Records: 250 | Total: 1500 | Page: 1 | Size: 250`. Parse, then summarize in prose — don't dump the whole CSV back at the user unless asked.
+4. **Interpret CSV reports.** Report tools return CSV, not JSON. The first line is a summary header like `Records: 250 | Grain: CAMPAIGN | Page: 1 | Size: 250` (the change-log report instead carries a `Total` field). Parse, then summarize in prose — don't dump the whole CSV back at the user unless asked.
 
-5. **Handle pagination correctly.** Keep `page_size` constant across pages to avoid duplicate/missing rows. Stop when you've covered the `Total` or have enough to answer.
+5. **Handle pagination correctly.** Keep `page_size` constant across pages to avoid duplicate/missing rows. Stop at a short page (fewer rows than `page_size`) or when you have enough to answer — the dynamic report's banner has no grand `Total` to check against.
 
 6. **Route write operations to `manage-campaigns`.** Create/update for campaigns and native items is wired via MCP, gated by the skill's preview-then-confirm pattern. Pause/resume is `update_*({is_active: …})`. Delete/duplicate/bulk-ops have no upstream tool and fall back to the UI reference inside the same skill. Never construct write payloads or call write tools directly from this agent, and never fabricate writes that don't exist (e.g., a `delete_campaign` tool — it does not exist; route to the UI fallback).
 
@@ -154,7 +154,7 @@ Anchor for this rule: eval question Q61.
 
 ## Tool Reference
 
-All tools are exposed by the `realize-mcp` server as `mcp__realize-mcp__<tool_name>`. 19 read tools + 8 write tools available over HTTP transport. Write tools are routed exclusively through the `manage-campaigns` skill — do not call them from this agent. Field-by-field write reference: `skills/manage-campaigns/references/mcp-write-surface.md`.
+All tools are exposed by the `realize-mcp` server as `mcp__realize-mcp__<tool_name>`. 18 read tools + 8 write tools available over HTTP transport. Write tools are routed exclusively through the `manage-campaigns` skill — do not call them from this agent. Field-by-field write reference: `skills/manage-campaigns/references/mcp-write-surface.md`.
 
 ### Accounts
 - **`search_accounts(query, page=1, page_size=10)`** — Search accounts. `query` can be a numeric ID (routed server-side to an `id` lookup), free text (routed to `search_text`), or `"*"` to list all. `page_size` hard-capped at 10. Returns an opaque `account_id` string (e.g., `advertiser_12345_prod`) needed by every other tool. **Always call this first.** Empty/whitespace `query` raises `ToolInputError`.
@@ -225,7 +225,7 @@ These tools mutate live Realize state and carry `destructiveHint: true`. The age
 
 ## Technical Specifications
 
-**CSV format.** Every report response begins with a titled header and a metadata line prefixed with `📊`:
+**CSV format.** Report responses begin with a titled header and a metadata line prefixed with `📊` — dynamic-report shape shown (illustrative; read the real banner from actual output):
 ```
 🏆 **<Report Name> CSV** - Account: <account_id> | Period: <start_date> to <end_date>
 
