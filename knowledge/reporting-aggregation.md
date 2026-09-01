@@ -16,7 +16,7 @@ This file codifies the discipline. Apply it to every report-based answer that qu
 
 1. Establish whether you have the full row set. The dynamic report's banner has **no grand `Total`** — you have everything only when a page returns fewer rows than `page_size`. (`get_campaign_history_report` keeps the legacy `Total` field — there, read it.)
 2. If more pages may exist, paginate until a short page before aggregating. Never aggregate from page 1 alone unless page 1 was short.
-3. After aggregation, run the **sum-reconciliation gate**: sum the per-row `spent` across all rows, compare against `get_campaign.spent` (campaign-scoped) or the summed spend of a fully-paginated campaign-grain dynamic report for the same window (account-scoped — campaign grain is coarse, so it's few rows). If they diverge by more than **2%**, suspect a missing page or a bad date window and re-pull.
+3. After aggregation, run the **sum-reconciliation gate**: sum the per-row `spent` across all rows, compare against the summed spend of a campaign-grain dynamic report **over the same date window** (few rows — campaign grain is coarse). `get_campaign.spent` is a lifetime/to-date figure — use it as the reference only when your window genuinely is lifetime/to-date; against any bounded historical window it fails the gate by construction. If the comparison diverges by more than **2%**, suspect a missing page or a bad date window and re-pull.
 4. Only after both checks pass, use the numbers in any answer.
 
 The 2% tolerance covers reasonable rounding across many rows (cents truncation, in-flight UTC-vs-local date-boundary settling). Anything larger means missing data or a bad date window.
@@ -39,6 +39,7 @@ Two caveats:
 - **Sum columns:** `impressions`, `clicks`, `spent`, `conversions`, `conversions_value`.
 - **Never sum or average rate columns** (`ctr`, `cpc`, `cvr`, `cpa`, `roas`). `mean(ctr)` across rows is wrong — rows have different denominators.
 - After any client-side slice or roll-up, **re-derive weighted**: `CTR = Σclicks / Σimpressions`, `CPC = Σspent / Σclicks`, `CVR = Σconversions / Σclicks`.
+- **Re-derived CTR will not match the report's own CTR column** — the re-derivation uses total impressions while the dynamic report's CTR uses *visible* impressions (no visible-impressions metric is exposed), so your weighted figure runs lower. Prefer server-grain CTR wherever possible, and never mix re-derived and server CTR in one comparison.
 - **The dynamic report's CTR = clicks / *visible* impressions** (staging-observed — re-verify at release) — a different definition from some other Taboola surfaces. Raw counters reconcile exactly across surfaces; rates may not. When a user compares rates against the UI or an old export and sees a gap, name the definition difference instead of calling either number wrong.
 
 ---
@@ -68,9 +69,9 @@ After paginating and aggregating, before quoting any per-site or per-day number 
 
 ```
 sum_rows_spent  = sum of `spent` across every fetched row
-expected_spent  = get_campaign.spent (campaign-scoped), or the summed
-                  spend of a fully-paginated campaign-grain dynamic
-                  report for the same window
+expected_spent  = summed spend of a campaign-grain dynamic report over
+                  the SAME date window (get_campaign.spent only when the
+                  window is lifetime/to-date — it is not window-scoped)
 diff_pct        = |sum_rows_spent - expected_spent| / expected_spent
 
 if diff_pct > 2%:

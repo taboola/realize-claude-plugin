@@ -16,7 +16,7 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 1. Pick **one** test account with real activity in July 2026 (spend on most days, 3+ campaigns, mixed bidding strategies, 20+ ads). All 10 questions run against this account. Record its `account_id`.
 2. For Q7, pick one campaign on that account and note its ID.
 3. All questions use **absolute dates** so both runs pull the identical window. Default window: **July 1–31, 2026**; the weekly questions use **June 29 – August 2, 2026** (five full Mon–Sun weeks).
-4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — a **test-protocol constraint for UI parity**, not a tool limit (`columns` is unbounded in the tool contract).
+4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — a **test-protocol constraint for UI parity**, not a tool limit (`columns` is unbounded in the tool contract). Note for the release re-run: staging showed Run B's Week buckets start **Sunday** — align Run A's client-side Mon–Sun weeks (or expect the Jun 28 first-bucket label) before comparing the weekly questions, otherwise the boundary mismatch will look like a data bug.
 
 ## What to record per question, per run
 

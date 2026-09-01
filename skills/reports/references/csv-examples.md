@@ -38,7 +38,7 @@ PERFORMANCE_REPORT.SITE.SITE_DESCRIPTION,PERFORMANCE_REPORT.METRICS.SPENT,PERFOR
 "Local Times",244.10,2077
 ```
 
-The top-N pattern: the ranking column is in `columns`, sorted DESC, `page_size=N`. Say "top 5 by spend" — not "the 5 sites" — since rows beyond page 1 exist.
+The top-N pattern: the ranking column is in `columns`, sorted DESC, `page_size=N`. Say "top 5 by spend" — not "the 5 sites" — since rows beyond page 1 may exist.
 
 ## `get_campaign_history_report` — change/audit log
 

@@ -89,7 +89,7 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 **Expected behavior:**
 1. `get_dynamic_report_settings` first — Claude looks for a campaign-status filter field and its allowed operators in the metamodel (no guessed filter names).
-2. `get_dynamic_report_data` at campaign grain — including the status column in `columns` — with a structured filter (e.g. `{"name": <campaign status field>, "operator": "IN", "values": ["RUNNING"]}`) and the 30-day range. If the metamodel exposes no status filter field, Claude pulls unfiltered, post-filters, and **discloses the fallback**.
+2. `get_dynamic_report_data` at campaign grain — including the status column in `columns` — with a structured filter (e.g. `{"name": <campaign status field>, "operator": "IN", "values": ["RUNNING"]}`) and the 30-day range. If the metamodel exposes no status filter field, Claude pulls unfiltered, post-filters (via the status column, or by joining status from `list_campaigns` if no status column exists either), and **discloses the fallback**.
 3. Returns CSV, summarized as a ranked list with spend per campaign.
 
 **Pass criteria:** The structured `filters` parameter is used when the metamodel supports it (not post-hoc filtering alone), with the field name taken from the metamodel, and the returned rows are sanity-checked to carry the filtered status; if the field doesn't exist, the post-filter fallback is disclosed rather than silent.

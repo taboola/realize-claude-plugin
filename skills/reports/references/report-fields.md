@@ -26,9 +26,9 @@ Known field-level traps (staging-observed; re-verify if they block an answer):
 
 ## `get_campaign_history_report` — change/audit log
 
-**Not performance data.** Returns the campaign change log: what was changed, when. No sort, no filters — API default order. Use it for "what changed on this campaign?", or to line configuration changes up against a metric inflection you found in the dynamic report. Keeps the legacy banner with a grand `Total` — cite it.
+**Not performance data.** Returns the campaign change log: what was changed, when. No sort, no filters — API default order, and **account-wide**: scoping to one campaign is client-side post-filtering on a campaign-identifier column. Takes the legacy `page`/`page_size` pair (default 20, cap 100) and keeps the legacy banner with a grand `Total` — cite it, and page further if `Total > Size`. Use it for "what changed on this campaign?", or to line configuration changes up against a metric inflection you found in the dynamic report.
 
-Exact columns should be verified against real output before quoting field names to a user.
+Exact columns — including the campaign-identifier column the client-side filter depends on — should be verified against real output before quoting field names to a user.
 
 ## Retired tools
 

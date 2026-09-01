@@ -42,6 +42,8 @@ A statistical-volume floor on the dimension item, plus a specific threshold for 
 | **Minimum** | 20+ conversions | 100+ clicks | Directional signals only — flag as low confidence |
 | **Insufficient** | < 20 conversions | < 100 clicks | Exclude from analysis — do not recommend actions |
 
+**Daily-spend floor:** daily budget ≥ **8× the CPA goal** (realize-toolkit operational guidance, Apr 2026). Below that the campaign cannot generate enough daily conversion signal to judge performance or feed the algorithm — the first prescription is raising the daily budget (or resetting the CPA expectation), not tuning other levers.
+
 ### Site-blocking threshold
 
 For "block this site" recommendations specifically, the operative threshold from `knowledge/site-management.md`:
@@ -65,6 +67,8 @@ Shared by both paths. Verify the campaign is reaching the supply it expects to. 
 
 Is the campaign winning the auctions it enters, or losing on bid?
 
+**Source: Realize UI only — no MCP tool exposes auction data.** Ask the user to open Auction Insights in the UI and read you the loss %; never estimate or fabricate it. If the user can't supply it, skip this check and say so explicitly rather than guessing.
+
 | Bid Strategy | Loss interpretation | Action |
 |---|---|---|
 | Maximize Conversions / Target CPA / Maximize Value | Structural levers only — the algorithm sets the bid | Increase budget if CPA is good; widen targeting; check learning state |
@@ -82,7 +86,7 @@ Is the campaign winning the auctions it enters, or losing on bid?
 
 ### 2.2 Site / publisher blockers
 
-Re-read the campaign's site exclusions, SpendGuard state, custom-rule history, and brand-safety filters. A publisher that's been blocked or paused will look identical to a supply shift if not checked. Use the block-attribution framework in `knowledge/site-management.md` (rule fired / targeting eligibility loss / bid loss).
+Re-read the campaign's site exclusions (`get_campaign`), plus SpendGuard state, custom-rule history, and brand-safety filters — those three are **UI-visible only**; ask the user rather than guessing. A publisher that's been blocked or paused will look identical to a supply shift if not checked. Use the block-attribution framework in `knowledge/site-management.md` (rule fired / targeting eligibility loss / bid loss).
 
 ### 2.3 Targeting restrictions — narrow-targeting diagnostic
 

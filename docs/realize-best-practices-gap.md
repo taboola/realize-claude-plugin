@@ -72,7 +72,7 @@ Write tools are routed exclusively through the `manage-campaigns` skill (preview
 |---|---|
 | Real-time data review via CSV reports | `reports` (dynamic report + change log) |
 | Device / Location / Content-type comparisons | `optimize-campaign` Step 3 |
-| Daily spend ≥ 8× CPA goal threshold (sourced from realize-toolkit operational guidance, Apr 2026) | `optimize-campaign` Prerequisites + Prescription rules |
+| Daily spend ≥ 8× CPA goal threshold (sourced from realize-toolkit operational guidance, Apr 2026) | `optimize-campaign` pre-check gates + `references/optimization-flow.md` data-sufficiency gates |
 | 100+ clicks per item threshold (sourced from realize-toolkit operational guidance, Apr 2026) | `optimize-campaign` Prerequisites + agent responsibility #7 |
 | CTR × CVR × CPA prescription rules | `optimize-campaign` Step 2 table |
 | Pause low / isolate high / duplicate rules | `optimize-campaign` Prescription rules |

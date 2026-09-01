@@ -60,7 +60,7 @@ Skipping step 2 and guessing names is the tool's own documented failure mode —
 *Observed on the 2026-08-20 staging validation (10-question comparison run). Re-verify any that block an answer — some may have been fixed before the production release.*
 
 - **Rate metrics may not match the UI or older exports: CTR here = clicks / *visible* impressions**, not all impressions. Same account, same weeks measured both ways: 0.56–0.63% vs 0.40–0.48%. If the user compares against another surface and sees a gap in rates while raw counters match, this definition difference is the first suspect — say so instead of calling either number wrong.
-- **Week buckets start on Sunday**, and the first bucket's label can be a date *before* your requested range (window starting Mon Jun 29 → first bucket labeled Jun 28). Echo the actual bucket boundaries in your summary.
+- **Week buckets start on Sunday**, and the first bucket's label can be a date *before* your requested range (window starting Mon Jun 29 → first bucket labeled Jun 28). For week-grain queries, **snap custom ranges to whole Sunday–Saturday weeks** — a mid-week edge produces partial first/last buckets whose rates look normal but aren't comparable week-over-week. Echo the actual bucket boundaries in your summary and flag any partial bucket.
 - **Entity-attribute dimensions may not aggregate.** Time dimensions (Day/Week), targeting dimensions (Platform, OS, Site, Country) and entity grains (Campaign, Ad) roll up correctly; attribute columns of an entity (e.g. campaign bidding strategy, Ad CTA) have returned raw per-entity rows with the attribute as a label — hundreds of rows for a two-column report, the same dimension pair repeated with different numbers. If row count explodes for a small dimension combination, check for repeated dimension values and aggregate client-side (per the aggregation knowledge file) rather than presenting duplicates.
 - **Site names**: `SITE.NAME` has returned 400 "Selectable conditions are not fit"; the working human-readable column is `SITE.DESCRIPTION`.
 - **Raw counters are trustworthy.** In the validation run every raw counter (spend, clicks, impressions, conversions) matched the legacy tools exactly; filters, server-side sort, and top-N paging all worked.
@@ -89,7 +89,8 @@ Skipping step 2 and guessing names is the tool's own documented failure mode —
 1. **Always translate relative dates.** "Last week" → an explicit preset or ISO range in the call, and echo the resolved range back in your summary.
 2. **Cite numbers, not adjectives.** "Top-performing" is meaningless without the spend/CTR figure next to it.
 3. **Zero rows** → say "no records for this query" explicitly; don't make up narrative from an empty report.
-4. **State fetched scope honestly.** Without a grand `Total`, say what you pulled ("top 50 rows by spend; more exist") rather than implying the full universe.
+4. **State fetched scope honestly.** Without a grand `Total`, say what you pulled ("top 50 rows by spend; more may exist") rather than implying the full universe.
+5. **Attribution basis is not declared by the report.** No doc yet states which basis (CT / VT / Total) the dynamic report's conversions metric carries — apply the guardrails' assumed-context rule (state the assumption and flag it) on every conversion figure until this is verified against the shipped release.
 
 *(Attribution + timeframe rules for CPA / CVR / Leads / ROAS are enforced globally by `os/guardrails.md` § "Metrics and attribution" — they apply to every report summary you produce.)*
 
