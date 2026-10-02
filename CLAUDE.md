@@ -151,7 +151,7 @@ There is no delete tool — retiring is `status` → `DISABLED` / `ARCHIVED`, wh
 
 Two correctness rules survive the change and must not be lost:
 
-- **Listings default to ACTIVE with a mandatory one-line skipped-count disclosure.** `status="ACTIVE"` now implements the default cheaply, but the disclosure is still the point — filtering silently would hide account state from the user, so the skipped count comes from comparing against an unfiltered `total`.
+- **Listings default to ACTIVE with a mandatory one-line skipped-count disclosure.** `status="ACTIVE"` now implements the default cheaply, but the disclosure is still the point — filtering silently would hide account state from the user. The skipped count comes from an unfiltered `total`, and that is **one `page_size=1` call with no `status`**, not a page-through: the response states the true total regardless of how few rows it returns.
 - **The pre-write collision check must not filter by `status`.** `display_name` is unique across *all* statuses, and `status=ARCHIVED` returns archived-and-disabled rules only — the three filtered counts need not sum to the unfiltered `total`. So an ACTIVE-only read, or a concatenation of the three statuses, is not a sound basis for a collision check. `search_text` is fine and is the cheap path for the name half (status-agnostic, matches `display_name`); the `event_name` half and the ownership check still need the full unfiltered listing.
 
 The ownership rule is unchanged: each rule's `advertiser_id` names its owner, and a parent/NETWORK account returns children's rules while a child returns the network's — report ownership rather than presenting everything as the queried account's.
