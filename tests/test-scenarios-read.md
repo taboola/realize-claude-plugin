@@ -426,7 +426,7 @@ Covers the tracking routing ladder in `agents/realize-analyst.md` and the conver
 
 ## 21. Rule-heavy account: overflow recovery and ACTIVE-by-default
 
-Covers the `get_conversion_rules` overflow gotcha in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is unpaginated with no status filter, so a rule-heavy account exceeds the tool-result cap and the result arrives as an error plus a path to a dumped result file.
+Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, unfiltered paging for a pre-write collision check. The overflow-to-file path remains only as a backstop when a single page is still too large.
 
 **Prerequisite:** an account with 200+ conversion rules, the majority DISABLED / ARCHIVED (maintainers know a reproducing account; any large NETWORK account with a long rule history works).
 
