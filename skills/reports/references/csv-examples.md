@@ -73,7 +73,8 @@ The real column list is much wider than this excerpt (traffic-allocation, demand
 
 Three things to read off this banner:
 
-- **`Total: 7` is the grand total** across all pages, and `More data available` says you are not done. Cite `Total`; never sum rows across pages to produce one.
+- **`Total: 7` is a record count** — seven campaigns matched — and `More data available` says you are not done. It tells you *how many rows exist*, never what they add up to. To report total spend you still page through and sum `spent` yourself.
+  > The tool's own description says "rely on the `Total` in the summary line (authoritative) — never sum rows across pages." That phrasing is about the **record count**, which `Total` genuinely is authoritative for. **It does not mean a spend total is available without paging — it isn't.** This is the one documented place the plugin deliberately reads the upstream wording more narrowly than it scans.
 - **`Row key: campaign`** states what makes a row unique — do not merge or dedupe on a subset of it.
 - **Rate columns are percentages already, not 0–1 fractions.** `ctr` of `0.020219` is **0.0202%** (207 ÷ 1,023,778), not 2.02%. Multiplying by 100 again overstates it by 100×. The same holds for `vctr` and the `cpa_conversion_rate*` columns.
 

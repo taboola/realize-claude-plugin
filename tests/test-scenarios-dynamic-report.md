@@ -1,13 +1,15 @@
 # Dynamic Report — Comparison Test Scenarios
 
-**Status: PARKED — the dynamic report tool is not live on mcp.realize.com yet** (verified 2026-08-20; live reporting is still only the 4 fixed report tools). These questions are prepared in advance so the test is execute-and-diff on release day.
+**Status: RUN A IS NO LONGER EXECUTABLE — kept as the record of the pre-migration comparison.** The dynamic report went live on production `mcp.realize.com` on 2026-09-01 and `get_top_campaign_content_report` / `get_campaign_site_day_breakdown_report` were removed from the live surface (verified 2026-10-02). Every "Run A path" below calls one of those two, so Run A cannot be re-run; the Run A column stands as the 2026-08-20 staging baseline only.
+
+For a fresh comparison today, the surviving classic report is `get_campaign_breakdown_report` (campaign grain, all account types) — Q1/Q2-style campaign-grain questions can still be diffed against it. Everything finer than campaign grain is dynamic-report-only now, so there is nothing to compare it against.
 
 ## Purpose
 
 When the Dynamic Report capability ships in the Realize MCP, run each question twice and compare:
 
-- **Run A — current tools only.** Tell Claude at the start of the run: *"Do not use any dynamic/custom report tool. Answer with the existing report and entity tools only."* (Before release, no instruction is needed — the tool doesn't exist.)
-- **Run B — dynamic report only.** Tell Claude: *"Answer using only the dynamic report tool. Do not use the fixed report tools (campaign breakdown, site/day breakdown, top content)."*
+- **Run A — classic tools only.** Tell Claude at the start of the run: *"Do not use any dynamic/custom report tool. Answer with the existing report and entity tools only."* **Historical: the two tools most Run A paths rely on are gone as of 2026-09-01.**
+- **Run B — dynamic report only.** Tell Claude: *"Answer using only the dynamic report tool. Do not use the classic report tools."* Run B is the live path today.
 
 `get_campaign_history_report` stays available in **both** runs and is out of comparison scope — the dynamic report has no change-history dimension.
 
@@ -16,7 +18,7 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 1. Pick **one** test account with real activity in July 2026 (spend on most days, 3+ campaigns, mixed bidding strategies, 20+ ads). All 10 questions run against this account. Record its `account_id`.
 2. For Q7, pick one campaign on that account and note its ID.
 3. All questions use **absolute dates** so both runs pull the identical window. Default window: **July 1–31, 2026**; the weekly questions use **June 29 – August 2, 2026** (five full Mon–Sun weeks).
-4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — a **test-protocol constraint for UI parity**, not a tool limit (`columns` is unbounded in the tool contract). Note for the release re-run: staging showed Run B's Week buckets start **Sunday** — align Run A's client-side Mon–Sun weeks (or expect the Jun 28 first-bucket label) before comparing the weekly questions, otherwise the boundary mismatch will look like a data bug.
+4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — this is **a real tool limit, not just a test-protocol choice**: `get_dynamic_report_data` accepts at most **2 targeting sub-groups** in `columns` (Country+Region is one pair of sub-groups and fine; Country+Platform+OS is three and is not served). Treat a failure or a dropped-column notice beyond two as expected behaviour, not a tool bug. Note for the release re-run: staging showed Run B's Week buckets start **Sunday** — align Run A's client-side Mon–Sun weeks (or expect the Jun 28 first-bucket label) before comparing the weekly questions, otherwise the boundary mismatch will look like a data bug.
 
 ## What to record per question, per run
 

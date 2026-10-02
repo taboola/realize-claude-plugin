@@ -39,8 +39,8 @@ Two caveats:
 - **Sum columns:** `impressions`, `clicks`, `spent`, `conversions`, `conversions_value`.
 - **Never sum or average rate columns** (`ctr`, `cpc`, `cvr`, `cpa`, `roas`). `mean(ctr)` across rows is wrong — rows have different denominators.
 - After any client-side slice or roll-up, **re-derive weighted**: `CTR = Σclicks / Σimpressions`, `CPC = Σspent / Σclicks`, `CVR = Σconversions / Σclicks`.
-- **Re-derived CTR will not match the report's own CTR column** — the re-derivation uses total impressions while the dynamic report's CTR uses *visible* impressions (no visible-impressions metric is exposed), so your weighted figure runs lower. Prefer server-grain CTR wherever possible, and never mix re-derived and server CTR in one comparison.
-- **The dynamic report's CTR = clicks / *visible* impressions** (staging-observed — re-verify at release) — a different definition from some other Taboola surfaces. Raw counters reconcile exactly across surfaces; rates may not. When a user compares rates against the UI or an old export and sees a gap, name the definition difference instead of calling either number wrong.
+- **Re-derive CTR against the right denominator.** The dynamic report's CTR is clicks ÷ *visible* impressions, and visible impressions **are** exposed — as `PERFORMANCE_REPORT.METRICS.VISIBLE_IMPRESSIONS`, which prints in the CSV under the header `Impressions`. (`METRICS.IMPRESSIONS` prints as `Served Ads` and is the larger number.) Dividing by Served Ads produces a CTR several times too low; request `VISIBLE_IMPRESSIONS` and divide by that if you must re-derive. Prefer the server-grain CTR wherever possible, and never mix re-derived and server CTR in one comparison.
+- **The dynamic report's CTR = clicks / *visible* impressions** — confirmed against live output, not just staging — a different definition from some other Taboola surfaces. Raw counters reconcile exactly across surfaces; rates may not. When a user compares rates against the UI or an old export and sees a gap, name the definition difference instead of calling either number wrong.
 
 ---
 
@@ -88,7 +88,7 @@ if diff_pct > 2%:
 
 Common causes of failure:
 - Missing pages (the page-1-only failure mode — now harder to detect because there is no `Total` to check against; the short-page stop rule is the only guard).
-- Date-window boundary mismatch between the report and `get_campaign.spent` (time-zone settling). Adjust the range by 1 day if the gap is small and consistent.
+- Date-window boundary mismatch between the detailed report and the campaign-grain reference pull (time-zone settling). Adjust the range by 1 day if the gap is small and consistent.
 - A filter that didn't narrow: verify returned rows actually carry the filtered value.
 - An item that ran during the period was deleted before the report was pulled.
 
@@ -99,7 +99,7 @@ Common causes of failure:
 | Failure mode | Example | What this rule does |
 |---|---|---|
 | Page-1-only aggregation | Aggregated 97 of 2,433 rows; top-site spend reported as €231.61 vs. actual €256.06, ~10% understated. | Forces full pagination via the short-page stop rule. |
-| Silent partial-data ship | No error or warning surfaced — the numbers looked plausible. | Sum-reconciliation gate against `get_campaign.spent` catches the gap before ship. |
+| Silent partial-data ship | No error or warning surfaced — the numbers looked plausible. | Sum-reconciliation gate against a campaign-grain report **over the same window** catches the gap before ship. (Not `get_campaign.spent` — that is a lifetime figure and fails the gate by construction on any bounded window.) |
 | Ranking shifts | Relative CTR ranking was directionally correct, but absolute spend / CTR per site was wrong; a different campaign could see ranking flip entirely. | Full data (or an honest server-side "top N by X") keeps rankings stable. |
 | Reconciliation mismatch with the Realize UI | The user reconciles against the UI and finds the mismatch. Credibility cost. | Counters match the UI within 2%; rate-definition gaps are named, not shipped as errors. |
 
@@ -107,7 +107,8 @@ Common causes of failure:
 
 ## Application checklist (silent, before answering any report-based question)
 
-- [ ] Pulled the metamodel (`get_dynamic_report_settings`) and requested the coarsest grain that answers the question.
+- [ ] **PARTNER / NETWORK account:** pulled the metamodel (`get_dynamic_report_settings`) and requested the coarsest grain that answers the question.
+- [ ] **GROUP / admin-network account:** skipped the metamodel (it 403s there) and used `get_campaign_breakdown_report`, stating that campaign grain is the finest cut available.
 - [ ] Read the banner's `Grain` line; it matches the intended roll-up.
 - [ ] Paginated until a short page (or bounded the claim to "top N" with a DESC sort).
 - [ ] Summed counter columns only; re-derived rates weighted.
