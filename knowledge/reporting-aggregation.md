@@ -14,9 +14,9 @@ This file codifies the discipline. Apply it to every report-based answer that qu
 
 **For any aggregated metric (sum / mean / ranking) sourced from an MCP report:**
 
-1. Establish whether you have the full row set. The dynamic report's banner has **no grand `Total`** — you have everything only when a page returns fewer rows than `page_size`. (`get_campaign_history_report` keeps the legacy `Total` field — there, read it.)
+1. Establish whether you have the full row set. **Which signal to read depends on the tool.** The dynamic report's banner has **no grand `Total`** — there you have everything only when a page returns fewer rows than `page_size`. **`get_campaign_breakdown_report` and `get_campaign_history_report` both carry a grand `Total`** — compare it against the rows you hold to know how many are still missing, and treat the `More data available` hint as confirmation that pages remain. **`Total` is a record count, never a sum** — it tells you *whether* you have every row, not what they add up to, so you still page and sum for any aggregate.
 2. If more pages may exist, paginate until a short page before aggregating. Never aggregate from page 1 alone unless page 1 was short.
-3. After aggregation, run the **sum-reconciliation gate**: sum the per-row `spent` across all rows, compare against the summed spend of a campaign-grain dynamic report **over the same date window** (few rows — campaign grain is coarse). `get_campaign.spent` is a lifetime/to-date figure — use it as the reference only when your window genuinely is lifetime/to-date; against any bounded historical window it fails the gate by construction. If the comparison diverges by more than **2%**, suspect a missing page or a bad date window and re-pull.
+3. After aggregation, run the **sum-reconciliation gate**: sum the per-row `spent` across all rows, compare against the summed spend of a campaign-grain report **over the same date window** (few rows — campaign grain is coarse). Use a campaign-grain **dynamic** report on PARTNER / NETWORK accounts; on a **GROUP or admin-network** account the dynamic reference query 403s, so use `get_campaign_breakdown_report` for the same window instead. (There, campaign grain is also the finest cut available, so the gate usually reduces to checking your own sum against the breakdown report's own rows.) `get_campaign.spent` is a lifetime/to-date figure — use it as the reference only when your window genuinely is lifetime/to-date; against any bounded historical window it fails the gate by construction. If the comparison diverges by more than **2%**, suspect a missing page or a bad date window and re-pull.
 4. Only after both checks pass, use the numbers in any answer.
 
 The 2% tolerance covers reasonable rounding across many rows (cents truncation, in-flight UTC-vs-local date-boundary settling). Anything larger means missing data or a bad date window.
@@ -52,6 +52,12 @@ Two caveats:
 - `page_size` max 100; keep it constant across pages of one query. Stop when a page returns fewer than `page_size` rows.
 - Fine grains (site × day, ad × country) on active accounts easily run to thousands of rows — this is the highest pagination risk. Prefer a coarser server-side grain, or filter to one campaign, before resorting to a full multi-page pull.
 - For "top N by X" you don't need the universe: sort DESC on X with `page_size=N` and present it as "top N", not as everything.
+
+### `get_campaign_breakdown_report`
+
+- Row grain is fixed: one row per campaign per requested window. Banner carries a grand `Total` — but that is the **campaign count**, not spend. Page until you hold `Total` rows, then sum `spent` yourself for any money figure.
+- `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are server-computed per row. Use as-is — never average them across campaigns. Sum only `clicks`, `impressions`, `spent`.
+- It is the only **performance** report available on GROUP / admin-network accounts, so on those accounts campaign grain is the finest performance cut you can honestly offer. Say so instead of implying a site or day breakdown is reachable. (`get_campaign_history_report` carries no account-type restriction, so the change log stays available there.)
 
 ### `get_campaign_history_report`
 

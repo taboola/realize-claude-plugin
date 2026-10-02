@@ -1,44 +1,86 @@
 # CSV Examples
 
-Illustrative (fictional) sample outputs. Column names in the dynamic-report examples are the fully-qualified form the metamodel returns — always copy real names from a live `get_dynamic_report_settings` call rather than from here. The banner's exact wording is also illustrative: upstream specifies it carries Records, the row Grain, and pagination, but the precise layout should be read from real output, not from this file.
+Sample outputs with **fictional data**, but the **shape is real** — banners, header rows and value formatting below were taken from live calls on 2026-10-02 and only the names and numbers were replaced. Column *names* you pass in `columns` must still come from a live `get_dynamic_report_settings` call, never from here.
+
+Two formatting facts that catch people out, both verified live:
+
+- **The header row uses friendly labels, not the fully-qualified names you requested.** You ask for `PERFORMANCE_REPORT.METRICS.CLICKS`; the CSV header says `Clicks`. Match columns by their label position in the header you got back.
+- **`Impressions` and `Served Ads` are swapped relative to intuition.** `PERFORMANCE_REPORT.METRICS.VISIBLE_IMPRESSIONS` prints as **`Impressions`**, and `PERFORMANCE_REPORT.METRICS.IMPRESSIONS` prints as **`Served Ads`**. So the dynamic report's "Impressions" *is* visible impressions — which is why its CTR differs from the classic report's `ctr`. Request `METRICS.IMPRESSIONS` expecting impressions and you silently get served ads.
 
 ## `get_dynamic_report_data` — campaign grain
 
-Query: `columns=[CAMPAIGN_NAME, SPENT, CLICKS, CTR]`, `date_preset="LAST_7_DAYS"`, sort by spend DESC.
+Query: `columns=[CAMPAIGN_NAME, CLICKS, IMPRESSIONS, VISIBLE_IMPRESSIONS, CTR]`, custom range, `page_size=3`.
 
 ```
-🏆 **Dynamic Report CSV** - Account: advertiser_12345_prod | Period: LAST_7_DAYS
+📊 **Dynamic Report Data** - Account: advertiser_12345_prod
 
-📊 Records: 2 | Grain: CAMPAIGN | Page: 1 | Size: 20
+Grain: (Campaign Name) | Records: 3 | Page: 1 | Size: 3
+Row key: (Campaign Name) — these columns together uniquely identify each row; the same value in one key column can recur across rows, so never merge or dedupe by a subset.
+metrics ctr/cpc/cpm/cpa/cvr/roas are pre-computed per row — do not recompute or average them across rows
+This page returned a full 3 rows (page 1) — more rows likely exist; request the next page (increment `page`) to continue.
 
-PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME,PERFORMANCE_REPORT.METRICS.SPENT,PERFORMANCE_REPORT.METRICS.CLICKS,PERFORMANCE_REPORT.METRICS.CTR
-"Headphones - Retargeting",3164.20,19770,0.0241
-"Sleep Products - Q2 Prospecting",2311.70,23117,0.0125
+Campaign Name,Clicks,Served Ads,Impressions,CTR
+Band Awareness 1,16,"105,898","27,066",0.06%
+Landing Page B,505,"361,544","35,088",1.44%
+Perf Video Desktop Test,0,"3,411",920,0.00%
 ```
 
-Interpretation pattern:
-> "Two campaigns spent in the last 7 days (Aug 24–30). *Headphones - Retargeting* leads at $3,164 on 19,770 clicks (2.41% CTR); *Sleep Products - Q2 Prospecting* spent $2,312 on more clicks but a lower 1.25% CTR."
+Four things to read off this:
 
-Note the banner: **Records + Grain + pagination, no grand `Total`.** Here `Records: 2 < Size: 20`, so this page is the full result. When `Records` equals `Size`, more pages may exist — page until a short page before quoting any aggregate.
+- **`CTR` arrives pre-formatted as a percentage string** — `1.44%`, `%` sign included. It is not a number; print it as-is rather than scaling it. *(This is the opposite of `get_campaign_breakdown_report`, whose `ctr` is a bare number already in percent units — see that example below. Never carry a convention from one tool to the other.)*
+- **CTR is computed on `Impressions`, i.e. visible impressions** — 505 ÷ 35,088 = 1.44%, not 505 ÷ 361,544 (Served Ads) = 0.14%. That single fact explains every "the dynamic report's CTR doesn't match" report.
+- **Large numbers are comma-grouped and quoted** — `"105,898"`. Strip the commas before any arithmetic; a naive parse yields `105`.
+- **No grand `Total` in the banner.** Here the page came back full (`Records: 3` = `Size: 3`) and the banner says so outright — page until a short page before quoting any aggregate.
 
 ## `get_dynamic_report_data` — top-N pattern (site grain, filtered to one campaign)
 
 Query: `columns=[SITE.DESCRIPTION, SPENT, CLICKS]`, campaign filter, sort by spend DESC, `page_size=5`.
 
 ```
-🏆 **Dynamic Report CSV** - Account: advertiser_12345_prod | Period: 2026-04-01 to 2026-04-23
+📊 **Dynamic Report Data** - Account: advertiser_12345_prod
 
-📊 Records: 5 | Grain: SITE | Page: 1 | Size: 5
+Grain: (Site) | Records: 5 | Page: 1 | Size: 5
+Row key: (Site) — these columns together uniquely identify each row; …
+metrics ctr/cpc/cpm/cpa/cvr/roas are pre-computed per row — do not recompute or average them across rows
 
-PERFORMANCE_REPORT.SITE.SITE_DESCRIPTION,PERFORMANCE_REPORT.METRICS.SPENT,PERFORMANCE_REPORT.METRICS.CLICKS
-"News Daily",812.40,8104
-"Sports Hub",620.30,6203
-"Weather Now",341.80,3010
-"Tech Review",298.55,2540
-"Local Times",244.10,2077
+Site,Spent,Clicks
+News Daily,812.40,"8,104"
+Sports Hub,620.30,"6,203"
+Weather Now,341.80,"3,010"
+Tech Review,298.55,"2,540"
+Local Times,244.10,"2,077"
 ```
 
 The top-N pattern: the ranking column is in `columns`, sorted DESC, `page_size=N`. Say "top 5 by spend" — not "the 5 sites" — since rows beyond page 1 may exist.
+
+## `get_campaign_breakdown_report` — campaign grain (GROUP / admin-network path)
+
+Query: `start_date="2026-08-24"`, `end_date="2026-08-30"`, `sort_field="spent"`, `sort_direction="DESC"`, `page_size=2`.
+
+```
+**Campaign Breakdown Report CSV** - Account: advertiser_12345_prod | Period: 2026-08-24 to 2026-08-30
+
+Grain: campaign | Records: 2 | Total: 7 | Page: 1 | Size: 2 | More data available - use pagination
+Row key: campaign — these columns together uniquely identify each row; the same value in one key column can recur across rows, so never merge or dedupe by a subset.
+metrics ctr/cpc/cpm/cpa/cvr/roas are pre-computed per row — do not recompute or average them across rows
+
+campaign_name,campaign,clicks,impressions,visible_impressions,spent,ctr,vctr,cpm,vcpm,cpc,cpa,currency,
+"Headphones - Retargeting",48054135,207,1023778,132465,54.86,0.020219,0.156268,0.05,0.41,0.265,18.287,USD,
+"Sleep Products - Q2 Prospecting",50011514,185,198519,36430,36.99,0.093190,0.507823,0.19,1.02,0.200,12.329,USD,
+```
+
+The real column list is much wider than this excerpt (traffic-allocation, demand type, learning state, the `roas_*` / `cpa_*` families). **Identify columns by name, never by position.**
+
+Three things to read off this banner:
+
+- **`Total: 7` is the grand total** across all pages, and `More data available` says you are not done. Cite `Total`; never sum rows across pages to produce one.
+- **`Row key: campaign`** states what makes a row unique — do not merge or dedupe on a subset of it.
+- **Rate columns are percentages already, not 0–1 fractions.** `ctr` of `0.020219` is **0.0202%** (207 ÷ 1,023,778), not 2.02%. Multiplying by 100 again overstates it by 100×. The same holds for `vctr` and the `cpa_conversion_rate*` columns.
+
+Note also that `ctr` and `vctr` are **separate columns** here — `ctr` is clicks ÷ impressions, `vctr` is clicks ÷ *visible* impressions. That is different from the dynamic report, whose single CTR is computed on visible impressions. If a user compares a CTR across the two reports, this is the first thing to check.
+
+Interpretation pattern:
+> "7 campaigns had spend in Aug 24–30; showing the top 2 by spend. *Headphones - Retargeting* leads at $54.86 on 207 clicks (0.020% CTR, $0.27 CPC, $18.29 CPA)."
 
 ## `get_campaign_history_report` — change/audit log
 

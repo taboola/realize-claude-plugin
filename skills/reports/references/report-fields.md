@@ -26,16 +26,36 @@ Known field-level traps (staging-observed; re-verify if they block an answer):
 
 ## `get_campaign_history_report` — change/audit log
 
-**Not performance data.** Returns the campaign change log: what was changed, when. No sort, no filters — API default order, and **account-wide**: scoping to one campaign is client-side post-filtering on a campaign-identifier column. Takes the legacy `page`/`page_size` pair (default 20, cap 100) and keeps the legacy banner with a grand `Total` — cite it, and page further if `Total > Size`. Use it for "what changed on this campaign?", or to line configuration changes up against a metric inflection you found in the dynamic report.
+**Not performance data.** Returns the campaign change log: what was changed, when. One row per change event; the row key is the triple `(campaign_id, change_time, id)`.
 
-Exact columns — including the campaign-identifier column the client-side filter depends on — should be verified against real output before quoting field names to a user.
+- Columns: `id`, `account_id`, `account_name`, `campaign_group_id`, `campaign_group_name`, `campaign_id`, `campaign_name`, `change_type`, `activity_code`, `activity_code_description`, `activity_details_code`, `activity_details_description`, `old_value`, `new_value`, `performer`, `change_time`, `parameters_details`. No impression/click/spend or rate metrics.
+- **`change_time` is formatted `MM/DD/YYYY`**, not ISO — don't parse it as `YYYY-MM-DD`, and don't assume a time-of-day component.
+- Campaign-level fields can be blank on account-level changes (a creative-description edit, say, carries no `campaign_id`) — so client-side filtering to one campaign silently drops those rows. Say what you filtered.
+- No sort, no filters — API default order, and **account-wide**: scoping to one campaign is client-side post-filtering on `campaign_id`.
+- `page`/`page_size` (default 20, cap 100). Banner carries `Grain`, a grand `Total`, a `Row key:` line and a `More data available` hint — page further while `Total` exceeds what you hold.
+
+Use it for "what changed on this campaign?", or to line configuration changes up against a metric inflection you found in the dynamic report.
+
+## `get_campaign_breakdown_report` (classic — still live)
+
+One row per campaign; the campaign id column is `campaign`. Not retired, and not a legacy leftover: it is **the only performance report that serves GROUP and admin-network accounts**, which the dynamic report answers with a 403. (`get_campaign_history_report` has no account-type restriction.)
+
+- Params: `account_id`, `start_date`, `end_date` (required); `filters` (**flat** key/value object), `page`, `page_size` (1–100, default 20), `sort_field` (`clicks` | `spent` | `impressions` only), `sort_direction` (`ASC`/`DESC`, default `DESC`; default is no sort).
+- Banner carries `Grain`, a grand `Total`, a `Row key:` line and a `More data available` hint. **`Total` is the record count** (campaigns matched), not a spend total — page until you hold `Total` rows, then sum `spent` yourself for any money figure.
+- `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are server-computed per row — use as-is; sum only `clicks`, `impressions`, `spent`. The banner repeats this warning on every response.
+- **Rate columns are already percentages, not 0–1 fractions.** A `ctr` of `0.0202` means **0.0202%**, not 2.02% — multiplying by 100 again overstates by 100×. Same for `vctr` and the `cpa_conversion_rate*` columns. *(Checked against a live account on 2026-10-02: clicks ÷ impressions reproduced the printed `ctr` only on the percent reading. Re-derive from the row's own clicks and impressions if a figure looks surprising.)*
+- **`ctr` and `vctr` are separate columns**: `ctr` = clicks ÷ impressions, `vctr` = clicks ÷ *visible* impressions. The dynamic report's single CTR is the visible-impressions one, so a CTR gap between the two reports is normally this definition difference, not bad data.
+- The column list is wide beyond the headline metrics (`traffic_allocation_*`, `demand_type`, `campaign_learning_state`, the `roas_*` and `cpa_*` families, `currency`). Identify by name, never by position.
+- Never merge or dedupe on a subset of the `Row key:` columns.
+- On timeout, retry with identical arguments — the report is cached upstream.
 
 ## Retired tools
 
-`get_top_campaign_content_report`, `get_campaign_breakdown_report`, and `get_campaign_site_day_breakdown_report` were removed from the live MCP surface — each was a fixed-grain PERFORMANCE cut the dynamic report expresses as dimensions + metrics:
+`get_top_campaign_content_report` and `get_campaign_site_day_breakdown_report` were removed from the live MCP surface — each was a fixed-grain PERFORMANCE cut the dynamic report expresses as dimensions + metrics:
 
 | Retired tool | Dynamic-report equivalent |
 |---|---|
 | top content | ad/item dimensions + metrics, sort by spend DESC |
-| campaign breakdown | campaign dimensions + metrics |
 | site/day breakdown | site + day dimensions + metrics |
+
+`get_campaign_breakdown_report` is **not** in this table — it survived the migration (see above).

@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **18 read tools + 8 write tools** from the upstream MCP:
+This plugin wires **19 read tools + 8 write tools** from the upstream MCP:
 
 | Area | Tools |
 |---|---|
@@ -43,7 +43,7 @@ This plugin wires **18 read tools + 8 write tools** from the upstream MCP:
 | Discovery — audiences | `search_audiences`, `search_lookalike_audiences`, `search_contextual_segments` |
 | Discovery — publishers / conversion | `search_publishers`, `get_conversion_rules` |
 | Resources | `list_time_zones`, `list_cta_types` |
-| Reports (CSV) | `get_dynamic_report_settings`, `get_dynamic_report_data` (metamodel-driven performance), `get_campaign_history_report` (change log) |
+| Reports (CSV) | `get_dynamic_report_settings`, `get_dynamic_report_data` (metamodel-driven performance), `get_campaign_breakdown_report` (campaign grain; the only report serving GROUP / admin-network accounts), `get_campaign_history_report` (change log) |
 | Reach estimation | `get_campaign_reach_estimate` |
 | Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule` |
 

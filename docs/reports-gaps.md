@@ -47,8 +47,8 @@ Add one new section to `skills/reports/SKILL.md` — **"Aggregation, joins, and 
 
 ## Status update — 2026-09-01 (dynamic-report migration)
 
-This audit was written against the four fixed-grain report tools. The dynamic report (`get_dynamic_report_settings` + `get_dynamic_report_data`) supersedes three of them (`get_campaign_history_report` remains, reframed as the change/audit log), which changes the picture:
+This audit was written against the four fixed-grain report tools. The dynamic report (`get_dynamic_report_settings` + `get_dynamic_report_data`) supersedes two of them — `get_top_campaign_content_report` and `get_campaign_site_day_breakdown_report`. `get_campaign_history_report` remains, reframed as the change/audit log, and **`get_campaign_breakdown_report` also remains**: upstream restored it because GROUP / admin-network accounts cannot use the dynamic report at all. That changes the picture:
 
 - **Gap 1 (aggregation rules) — closed.** Sum-vs-ratio columns, weighted re-derivation, and grain awareness are now in `knowledge/reporting-aggregation.md`. Grain is no longer fixed per tool — it is whatever dimension set the query requests, and the response banner states it.
-- **Gap 2 (join keys) — largely obsolete.** Cross-report joins existed because each fixed tool served one grain; the dynamic report queries the combined grain directly. The one surviving rule: IDs stay opaque strings.
+- **Gap 2 (join keys) — largely obsolete.** Cross-report joins existed because each fixed tool served one grain; the dynamic report queries the combined grain directly. The one surviving rule: IDs stay opaque strings. (On GROUP / admin-network accounts, where only `get_campaign_breakdown_report` is available, the grain is fixed at campaign × window again and no cross-report join is possible — state that limit rather than implying a finer cut is reachable.)
 - **Gap 3 (general guidelines) — partially closed.** Like-for-like windows, currency, and timezone caveats remain good practice; the field-list caveat now points at the metamodel as the only authoritative field source.

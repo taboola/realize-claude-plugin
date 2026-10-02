@@ -250,7 +250,18 @@
         "Grain header",
         "short page",
         "Records header",
-        "page_size"
+        "page_size",
+        "get_campaign_breakdown_report",
+        "campaign breakdown report",
+        "GROUP account",
+        "admin network",
+        "403",
+        "account type routing",
+        "grand Total",
+        "record count",
+        "visible impressions",
+        "served ads",
+        "CTR basis"
       ],
       "description": "Pagination discipline + sum-reconciliation gate for every MCP-report-based answer. Codifies the rule that aggregating page 1 of a paginated report is a silent failure mode that understates spend on long-tail breakdowns. Mandatory read for any reporting / optimization question."
     }

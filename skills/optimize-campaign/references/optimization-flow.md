@@ -16,6 +16,8 @@ Pull each dimension and rank by spend contribution:
 
 All performance dimensions come from the dynamic report (`get_dynamic_report_settings` first, then `get_dynamic_report_data` at the stated grain — see the `reports` skill for the workflow):
 
+> **GROUP / admin-network accounts:** the dynamic tools return 403 there, leaving `get_campaign_breakdown_report` as the only **performance** report — so campaign grain is the finest cut and every sub-campaign dimension below is out of reach. Say so plainly rather than silently skipping a signal. `get_campaign_history_report` is unrestricted by account type, so the change-log signals still work.
+
 | Dimension | Dynamic-report grain | What to look for |
 |---|---|---|
 | Campaign | campaign dimensions + metrics | Which campaigns are above goal CPA? Which are below? |
