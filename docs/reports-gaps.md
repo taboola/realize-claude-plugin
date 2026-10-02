@@ -19,7 +19,7 @@ Needs:
   |---|---|
   | `get_top_campaign_content_report` | item × window |
   | `get_campaign_breakdown_report` | campaign × window |
-  | `get_campaign_history_report` | campaign × date |
+  | `get_campaign_history_report` | one change event — `(campaign_id, change_time, id)` (**not** campaign × date; it is an audit log, not a time series) |
   | `get_campaign_site_day_breakdown_report` | campaign × site × date |
 
 ### 2. Join keys — missing

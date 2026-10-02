@@ -112,7 +112,7 @@ Common causes of failure:
 - [ ] Read the banner's `Grain` line; it matches the intended roll-up.
 - [ ] Paginated until a short page (or bounded the claim to "top N" with a DESC sort).
 - [ ] Summed counter columns only; re-derived rates weighted.
-- [ ] Ran the sum-reconciliation gate. Within 2%.
+- [ ] Ran the sum-reconciliation gate. Within 2%. *(On a GROUP / admin-network account there is no independent reference — `get_campaign_breakdown_report` is both the data and the only possible cross-check — so the gate is **not available**. Mark it N/A and say in the answer that the figure could not be cross-checked, rather than reporting a vacuous pass.)*
 - [ ] Documented the row count and scope in the summary (e.g. *"aggregated across 2,433 site-day rows; reconciled against €7,499.89 total spend (within 0.4%)"*).
 
 If any check fails, fix and re-run. Never ship aggregated numbers from a partial sample.

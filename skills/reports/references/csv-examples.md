@@ -86,21 +86,29 @@ Interpretation pattern:
 ## `get_campaign_history_report` — change/audit log
 
 ```
-🏆 **Campaign History Report CSV** - Account: advertiser_12345_prod | Period: 2026-04-17 to 2026-04-23
+**Campaign History Report CSV** - Account: advertiser_12345_prod | Period: 2026-04-17 to 2026-04-23
 
-📊 Records: 3 | Total: 3 | Page: 1 | Size: 20
+Grain: (campaign_id, change_time, id) | Records: 2 | Total: 39 | Page: 1 | Size: 2 | More data available - use pagination
+Row key: (campaign_id, change_time, id) — these columns together uniquely identify each row; …
+this is a change/audit log — one row per change event (change_time, change_type, old_value→new_value, performer); not performance metrics
 
-<change-log rows: when a campaign setting changed, and what changed>
+id,account_id,account_name,campaign_group_id,campaign_group_name,campaign_id,campaign_name,change_type,activity_code,activity_code_description,activity_details_code,activity_details_description,old_value,new_value,performer,change_time,parameters_details,
+368873,12345,advertiser_12345_prod,,,,,UPDATE,creativeDescription,Creative Description,creativeDescriptionDesc,Creative ID: 4357516786,myDescription,People are saying it's a great deal,someone@example.com,09/30/2026,,
+5794395668,12345,advertiser_12345_prod,39937,AutoGen - Q3 test,48699419,Q3 test,UPDATE,adDescription,Ad Description,,Ad ID: 4357516787,myDescription,People are saying it's a great deal,someone@example.com,09/30/2026,Ad_Id=4357516787,
 ```
 
-This is the change log, not performance data — columns should be verified against real output before quoting them. The legacy banner keeps the grand `Total`; cite it.
+The change log, not performance data. Three things the shape tells you:
+
+- **It carries `Grain` and a `Row key:` line** like the other reports — the key is the triple `(campaign_id, change_time, id)`, so never dedupe on `campaign_id` alone.
+- **`change_time` is `MM/DD/YYYY`**, not ISO, and has no time component — don't parse it as `YYYY-MM-DD`.
+- **Campaign fields can be blank** on account-level changes (row 1 here is a creative edit with no `campaign_id`), so client-side filtering to one campaign silently drops them. Say what you filtered.
 
 ## Empty result
 
 ```
-🏆 **Dynamic Report CSV** - Account: advertiser_12345_prod | Period: 2026-04-17 to 2026-04-23
+📊 **Dynamic Report Data** - Account: advertiser_12345_prod
 
-📊 Records: 0 | Grain: CAMPAIGN | Page: 1 | Size: 20
+Grain: (Campaign Name) | Records: 0 | Page: 1 | Size: 20
 ```
 
 Never fabricate narrative from an empty report. Say so explicitly:
