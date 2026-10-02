@@ -142,9 +142,9 @@ Anchor for this rule: eval question Q61.
 
 3. **Propagate account_id through multi-step flows.** Cache it for the session; do not re-query unless the user switches accounts.
 
-4. **Interpret CSV reports.** Report tools return CSV, not JSON. The first line is a summary header like `Records: 100 | Grain: CAMPAIGN | Page: 1 | Size: 100` (the change-log report instead carries a `Total` field). Parse, then summarize in prose — don't dump the whole CSV back at the user unless asked.
+4. **Interpret CSV reports.** Report tools return CSV, not JSON. Every banner carries `Grain`, `Records` and pagination; **both classic reports (`get_campaign_breakdown_report`, `get_campaign_history_report`) additionally carry a grand `Total`**, while the dynamic report does not. `Total` is a **record count, not a sum**. Parse, then summarize in prose — don't dump the whole CSV back at the user unless asked.
 
-5. **Handle pagination correctly.** Keep `page_size` constant across pages to avoid duplicate/missing rows. Stop at a short page (fewer rows than `page_size`) or when you have enough to answer — the dynamic report's banner has no grand `Total` to check against.
+5. **Handle pagination correctly.** Keep `page_size` constant across pages to avoid duplicate/missing rows. On the **dynamic report** there is no grand `Total`, so stop at a short page (fewer rows than `page_size`). On the **classic reports** read `Total` and page until you hold that many rows — a full page plus a `More data available` hint means keep going. Either way, any spend figure still has to be summed from the rows you hold.
 
 6. **Route write operations to `manage-campaigns`.** Create/update for campaigns and native items is wired via MCP, gated by the skill's preview-then-confirm pattern. Pause/resume is `update_*({is_active: …})`. Delete/duplicate/bulk-ops have no upstream tool and fall back to the UI reference inside the same skill. Never construct write payloads or call write tools directly from this agent, and never fabricate writes that don't exist (e.g., a `delete_campaign` tool — it does not exist; route to the UI fallback).
 
@@ -236,7 +236,7 @@ These tools mutate live Realize state and carry `destructiveHint: true`. The age
 <csv header row>
 <csv data rows...>
 ```
-The dynamic report's banner carries **no grand `Total`** — state the scope you actually fetched instead of implying completeness, and page until a short page before quoting any aggregate. `get_campaign_history_report` keeps the legacy banner (`Records | Total | Page | Size`) — there, cite `Total`. If a `⚠️ **TRUNCATED**` banner appears, surface it.
+The dynamic report's banner carries **no grand `Total`** — state the scope you actually fetched instead of implying completeness, and page until a short page before quoting any aggregate. Both classic reports (`get_campaign_breakdown_report`, `get_campaign_history_report`) do carry `Total` — read it to know how many rows exist, but remember it is a **record count, not a sum**, so a spend total still comes from summing the rows. If a `⚠️ **TRUNCATED**` banner appears, surface it.
 
 **Sort format (dynamic report).** `sort` is a list of `{column, direction}`; each named column must also be present in `columns`. Directions: `ASC`, `DESC` (uppercase).
 
