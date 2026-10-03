@@ -91,6 +91,15 @@ metrics ctr/cpc/cpm/cpa/cvr/roas are pre-computed per row — do not recompute o
 
 So on **both** classic reports: read the **`Row key:`** line before any merge or dedupe, and treat **`More data available`** as the explicit signal that further pages exist.
 
+## Response-size limits
+
+These apply to **every** report tool, dynamic and classic alike, and are separate from pagination — a page can come back truncated even when you asked for a legal `page_size`.
+
+- CSV output is capped at **25 KB of characters** per call; truncation happens at row boundaries, so you never get a partial row — you get fewer rows than you asked for, silently.
+- A hard cap of **1,000 rows per page** applies regardless of `page_size`.
+- If you see a `⚠️ **TRUNCATED**` banner: **surface it**, then narrow the query (shorter date range, tighter filters, smaller `page_size`) and retry. Never present truncated data as the complete result.
+- A truncated page is not a short page. Do **not** read it as the end of the dynamic report's pagination — the short-page stop rule assumes an untruncated response.
+
 ## Pagination and aggregation
 
 - Keep `page_size` constant across pages of one query.
