@@ -210,7 +210,7 @@ A campaign is **either** Native **or** Display, locked at the first item-creatio
 
 **The common mistake:** describing a Native campaign whose items are `STATIC_IMAGE` or `PERFORMANCE_VIDEO` as "having no Display creatives" or "in EMPTY_DISPLAY learning state because there are no Display ads". This conflates two distinct concepts:
 - A Native campaign with image-format items is **Native**, not "Display with no Display ads".
-- `EMPTY_DISPLAY` as a learning-state value means the *Display* component of optimization has no signal — but on a Native-locked campaign this is expected and irrelevant; the campaign is not serving Display inventory at all.
+- `EMPTY_DISPLAY` comes from the campaign's **learning badge**, not from its creative mix — the MCP surfaces the badge's display column under the name `learning_state`. Its label is misleading in two ways: it is **not an ad format**, and it does not mean "no Display creatives". It is also **unusable as a signal**, because upstream maps two opposite states onto it — a campaign that has *finished* learning and one that has *never served*. So on a Native-locked campaign the value is expected and irrelevant, and on any campaign it is not something to state to the user or treat as a creative problem. If learning status matters, read `cvr_learning_status` instead (see `knowledge/bidding.md`).
 
 When diagnosing a Native campaign's underperformance, do not recommend "add a Display creative". The right framing is: add **more Native items** (more variety of titles, thumbnails, descriptions) — or, if the user wants Display reach, **launch a separate Display campaign**.
 

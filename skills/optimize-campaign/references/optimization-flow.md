@@ -338,7 +338,7 @@ When the user describes one of these behaviours, name it and correct gently. Don
 
 | User says / did | What's actually happening | What to do instead |
 |---|---|---|
-| "I paused and relaunched this campaign 3 times this week" | Each relaunch restarts the learning phase from zero. The algorithm never gets to a stable state. | Pick one configuration. Let it run 7+ days AND 30+ conversions before judging it. Patience outperforms restarts. |
+| "I paused and relaunched this campaign 3 times this week" | Each relaunch restarts the learning phase from zero. The algorithm never gets to a stable state. | Pick one configuration and leave it alone until the campaign reports it is out of learning (`cvr_learning_status` = `CVR_LEARNING_COMPLETE`; with a Target CPA, `target_cpa_learning_status` = `LEARNING_COMPLETED`). Expect roughly 7-10 days, but judge on the status, not the calendar. Patience outperforms restarts. |
 | "I'm changing the budget every day to chase performance" | Daily budget changes are the #1 self-inflicted CPA problem. The algorithm re-paces every change and never stabilises. | Change budget at most every 2-3 days, and by no more than 20% per change. |
 | "I blocked 50 publishers because their CPA looked bad" | Most of those publishers likely had insufficient data — the CPA was noise, not signal. Mass-blocking starves the algorithm of supply. | Apply the site-block threshold (campaign clicks ≥ 500, conversions ≥ 5, per-site clicks ≥ 100 or 2/CVR). Unblock the ones that don't meet the bar. |
 | "I set Target CPA way below current performance to force it down" | Setting Target CPA far below actual CPA usually kills delivery — the algorithm can't bid competitively at that target. | Target CPA is a last-resort lever, set within 10-20% of stable CPA after 3-4 days of delivery — not at launch, not aspirationally. |
@@ -384,7 +384,7 @@ Every walk through this flow produces:
 - NEVER conclude "external / algo" in the RCA path without ruling out signals 1-4 + 6 (in the SKILL.md).
 - NEVER mention 50-99% auction loss to the user — it's normal.
 - ALWAYS pair every observation with a concrete action item.
-- ALWAYS respect the learning phase (7-14 days). Don't make aggressive changes during it.
+- ALWAYS respect the learning phase (7-10 days typical). Don't make aggressive changes during it.
 - ALWAYS state the source of every claim (which MCP report, which date window, which row count).
 - ALWAYS label the attribution model on every CPA / CVR / Lead / ROAS figure (CT only, VT only, Total CT+VT).
 - ALWAYS lead with CVR for cross-account comparisons; lead with CPA for within-account analysis.

@@ -166,7 +166,7 @@ Special rules for display campaigns:
 ## Guardrails
 
 - Never exclude sites without meeting data thresholds (Campaign: 500 clicks + 5 conversions; Site: 100 clicks or 2 / CVR).
-- Never block publishers during the learning phase (first 7-14 days).
+- Never block publishers while the campaign is still learning — check `cvr_learning_status`, don't assume from age. (Typically ~7-10 days, but a low-volume campaign can report `CVR_LEARNING` for months.) **If that field is empty** (Fixed bid, or a non-conversion objective), there is no status to read — fall back to the volume floor: no blocking under ~500 campaign clicks or in the first ~7-10 days.
 - Never block channel publishers in display campaigns (header-bidding supply).
 - Never block display publishers based on Sponsored Content performance.
 - Never block a top-N historical publisher mid-flight without explicit user confirmation — phrase as "Confirm proceed," not imperative.
@@ -179,7 +179,7 @@ Special rules for display campaigns:
 
 ## Common Mistakes
 
-1. **Blocking during learning phase.** Removes publisher exploration. Wait 7-14 days.
+1. **Blocking during learning phase.** Removes publisher exploration. Wait until `cvr_learning_status` reads `CVR_LEARNING_COMPLETE` — not a fixed number of days.
 2. **Insufficient data for blocking.** Blocks potentially good sites. Follow data thresholds.
 3. **Blocking display publishers based on Sponsored Content data.** Different dynamics. Evaluate each campaign type independently.
 4. **Blocking channel publishers.** Removes header-bidding supply. Never block these in display.
