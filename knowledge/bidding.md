@@ -126,7 +126,7 @@ The primary recommendation is **Maximize Conversions** for best performance. Oth
 |---|---|---|---|---|
 | **Maximize Conversions** | Fully automated | Daily: 10× expected CPA goal. $50 minimum if CPA is under $5. | N/A (auto) | First 2-4 days: CPA fluctuations. Then CPA decreases and stabilises, conversion volume increases. **Strongly recommended not to adjust the campaign during this window.** |
 | **Maximize Conversions + Target CPA** | Fully automated | Daily: 10× expected CPA goal. $50 minimum if CPA is under $5. | Set Target CPA with a realistic goal | Target CPA can reduce campaign scale if the target is far from actual performance. **Apply only as a last resort when performance is so poor the campaign is at risk of being paused.** |
-| **Enhanced CPC** | Semi-automated | Daily: 5× CPA goal. Monthly: 150× CPA goal. | Known CVR: CPC = CPA goal × CVR. Unknown CVR: similar segment average CPC. | Learning phase ~11 days. Performance less stable, fluctuations in CTR and CPA during adjustment. |
+| **Enhanced CPC** | Semi-automated | Daily: 5× CPA goal. Monthly: 150× CPA goal. | Known CVR: CPC = CPA goal × CVR. Unknown CVR: similar segment average CPC. | Learning phase typically a little longer than other strategies (~11 days observed), but read `cvr_learning_status` rather than waiting out a day count. Performance less stable, fluctuations in CTR and CPA during adjustment. |
 | **Fixed Bid** | Manual | According to advertiser requirements | According to advertiser requirements | N/A |
 
 ### Strategy Selection Rules
@@ -164,7 +164,7 @@ When recommending a Target CPA value, the value you set matters as much as the d
 | Maximize Conversions, high CTR low CVR | Good clicks but no conversions | Reassess landing-page quality, check creative relevance, adjust targeting. |
 | Maximize Conversions, high CVR low scale | Converting well but not enough volume | Raise bid, expand targeting, consider splitting out top placements. |
 | Maximize Conversions, steady scale but high CPA | Spending but CPA above goal | Add predictive or CRM audience layering, refresh creative, refine site list. |
-| Any strategy, stalled scale post-launch | Campaign not growing | Wait the full 7-14 day learning phase. Review targeting or bid constraints. Use auction insights. |
+| Any strategy, stalled scale post-launch | Campaign not growing | Wait until the campaign reports it is out of learning (`cvr_learning_status`), typically ~7-10 days but judge on the status. Review targeting or bid constraints. Use auction insights. |
 | Enhanced CPC, performance acceptable | Stable and competitive | Consider gradually shifting to Maximize Conversions for more automation. |
 
 ### Bid Ceiling for Maximize Conversions
@@ -183,15 +183,29 @@ The first 2-4 days show CPA fluctuations. As learning progresses, CPA stabilises
 
 ### Learning Phase Duration
 
-Allow **7 to 14 days** for a campaign to exit learning. Avoid any major changes in this stage.
+**Typically 7-10 days, but it varies per campaign** — some settle sooner, some take considerably longer, and a low-volume campaign can stay in learning indefinitely. Use the range to set expectations with a client; never use it to decide whether learning has finished. The campaign reports its own status (see the guard below). Avoid major changes while it is still learning.
 
 ### Learning-Period Guard (mandatory)
 
-A campaign satisfies the **Learning-Period guard** when ALL three conditions hold:
+**Learning is a status the campaign reports, not a number of days.** One campaign leaves learning in 5 days, another in 12, another stays volume-starved indefinitely. Read the status from `get_campaign`; never infer it from the launch date.
 
-1. Campaign was created within the **last 7 calendar days**.
-2. Campaign has **fewer than 30 conversions** on its goal in lifetime.
-3. Campaign has **not yet completed a full bid-strategy learning window** — a 5-7 day sub-window inside the broader 7-14 day campaign learning phase, during which the algorithm is calibrating for Maximize Conversions / Target CPA / Maximize Value.
+The fields, and the only values each can take:
+
+| Field | Sequence | Means "done" at |
+|---|---|---|
+| `cvr_learning_status` | `CVR_LEARNING` → `CVR_LEARNING_LIMITED` → `CVR_LEARNING_COMPLETE` | `CVR_LEARNING_COMPLETE` |
+| `target_cpa_learning_status` (only when a Target CPA is set) | `NEW` → `CVR_LEARNING` → `CVR_LEARNING_LIMITED` → `TCPA_LEARNING` → `LEARNING_COMPLETED` | `LEARNING_COMPLETED` |
+| `learning_state` | `LEARNING` / `LEARNING_LIMITED` / `EMPTY_DISPLAY` | — never says done |
+
+Three things to know about these:
+
+- **`cvr_learning_status` is the one that decides.** It is `null` where there is no algorithmic learning to report — Fixed-bid campaigns, and campaigns with no conversion goal or a non-conversion objective (awareness, traffic). In those cases the learning question does not arise. Everywhere else a `null` means **still learning**, never done. An unapproved campaign is a separate matter: the blocker is approval, not learning.
+- **A Target CPA campaign is not settled until `target_cpa_learning_status` says `LEARNING_COMPLETED`**, even when CVR learning is already complete. The two run in sequence, not in parallel.
+- **`learning_state` has no "done" value, and `EMPTY_DISPLAY` is unusable.** Upstream maps two opposite states onto that one label — finished learning, and never served. Treat `EMPTY_DISPLAY` as unknown and fall back to `cvr_learning_status`.
+
+**Typical duration is 7-10 days**, but treat that as an expectation to set with the client, never as the test. A campaign reporting `CVR_LEARNING` on day 30 is still learning.
+
+The operational gate (P5) lives in `skills/optimize-campaign/SKILL.md` — this file states what the fields mean; that one states what to do about them.
 
 When the guard fires:
 
@@ -199,13 +213,16 @@ When the guard fires:
 - **Do NOT recommend** bid changes, Target CPA changes, or daily-cap changes.
 - **Do NOT use** the campaign's metrics in cross-campaign benchmarks or reallocation math.
 - **Acceptable actions:** Hold (do nothing), Pause (only if account-wide damage is severe), or Wait.
-- **Re-evaluate** after the 7-day mark + at least 30 conversions.
+- **Re-evaluate** when the status changes, not after a set number of days. Re-read `cvr_learning_status` (and `target_cpa_learning_status` where a Target CPA is set).
 
-**Exceptions** — guard does NOT fire on:
+**Cases where the reported status needs overriding** — these are the two directions it can be wrong:
 
-- A duplicate of an existing campaign — inherits learning from source within ~24h. Treat as mature after Day 2.
-- A re-launched campaign after a long pause may show as "old" by start_date but is effectively learning again. If restart is within last 7 days after > 14 days of no spend, treat as Learning.
-- A goal swap restarts learning even on a mature campaign.
+*Guard does NOT fire even though the campaign looks new:*
+- A duplicate of an existing campaign inherits learning from its source within ~24h. Treat as mature after Day 2.
+
+*Guard DOES fire even if the status reads complete:*
+- A re-launched campaign may look "old" by `start_date` but is effectively learning again. If it restarted within the last 7 days after > 14 days of no spend, treat as Learning.
+- A conversion-goal swap restarts learning even on a mature campaign.
 
 ### Overspending During Learning
 
@@ -236,7 +253,9 @@ For display campaigns specifically, also check:
 
 ### Extended Learning Phase
 
-If the learning phase extends beyond 14 days:
+If a campaign is still reporting `CVR_LEARNING` well past the typical window (say beyond 14 days), work through the checks below.
+
+**Order matters.** While the Learning-Period guard is firing, the acceptable actions are Hold / Pause / Wait — the first three rows are diagnostic and safe. The last two rows propose bid and budget moves, which the guard forbids: treat them as the escalation path **once you have decided the campaign is stuck rather than simply slow**, and surface them to the user as a deliberate choice to intervene during learning, with the trade-off stated (intervening restarts calibration). Never apply them silently as routine optimisation.
 
 | Check | Action |
 |---|---|
@@ -269,7 +288,7 @@ CPA volatility immediately after launch is common — the algorithm is learning 
 | High CTR, Low CVR | Reassess landing-page quality, check creative relevance, adjust targeting. |
 | High CVR, Low Scale | Raise bid, expand targeting, move to Maximize Conversions (if not already), consider splitting out top placements. |
 | Steady scale, High CPA | Add predictive or CRM audience layering, refresh creative, refine site list. |
-| Stalled scale post-launch | Wait the full 7-14 day learning phase. Review targeting or bid constraints. Use auction insights. |
+| Stalled scale post-launch | Wait until `cvr_learning_status` reports out of learning (typically ~7-10 days, but the status decides). Review targeting or bid constraints. Use auction insights. |
 | Maximize Conversions active, CPA too high | Add Target CPA — expect a scale drop if the target is lower than existing performance. Check average CPA from past weeks (post-click only). Consider blocking underperforming sites using Custom Rules. |
 | Maximize Conversions active, scale is low | Use auction insights. Consider expanding targeting and refreshing ads. Raise budget, broaden targeting. |
 
@@ -340,7 +359,7 @@ Consider using the **Performance Simulator** (if eligible) to identify potential
 - Never label a Learning-Period campaign as "underperforming" — it is calibrating, not failing.
 - Always allow 2-3 days for recalibration after any budget change.
 - Always use Maximize Conversions as the default bidding strategy.
-- Always allow 7-14 days for the learning phase before evaluating.
+- Always wait until the campaign reports it is out of learning before evaluating it (`cvr_learning_status` = `CVR_LEARNING_COMPLETE`; with a Target CPA, `target_cpa_learning_status` = `LEARNING_COMPLETED`). Typically ~7-10 days, but never evaluate on the calendar alone.
 - Always check post-click CPA performance (not just last-click) when setting Target CPA benchmarks.
 - Always verify a recommended bid action maps to a ✅ cell in the Bid Levers matrix above.
 

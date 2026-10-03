@@ -168,9 +168,13 @@ API field names and raw enum values from the Realize MCP are internal implementa
 
 | Never say (raw payload / enum) | Say instead |
 |---|---|
-| `EMPTY_DISPLAY` / `learning_state: EMPTY_DISPLAY` | "no Display creatives yet" or "the campaign hasn't started serving Display" |
+| `EMPTY_DISPLAY` / `learning_state: EMPTY_DISPLAY` | **Say nothing about it.** It is not an ad format and says nothing about Display creatives. Upstream maps two opposite states onto this one label — a campaign that has finished learning and one that has never served — so it carries no information you can state. If learning status matters, read `cvr_learning_status` and phrase that instead. |
 | `CVR_LEARNING_LIMITED` / `cvr_learning_status: CVR_LEARNING_LIMITED` | "still in the learning phase" or "doesn't yet have enough conversion data" |
-| `CVR_LEARNING_COMPLETE` | "out of the learning phase" / "has learned" |
+| `CVR_LEARNING_COMPLETE` | "out of the learning phase" / "has learned" — **but only when no Target CPA is set.** With a Target CPA, CVR learning completing does not mean the campaign has settled; check `target_cpa_learning_status` and say "still settling its Target CPA" unless that reads `LEARNING_COMPLETED`. |
+| `CVR_LEARNING` / `cvr_learning_status: CVR_LEARNING` | "still in the learning phase" |
+| `LEARNING` / `LEARNING_LIMITED` (`learning_state`) | Prefer phrasing the `cvr_learning_status` instead — `learning_state` is corroboration, not the deciding field. If it is all you have: "still learning" / "still learning, and short on conversion volume". |
+| `NEW` / `TCPA_LEARNING` (`target_cpa_learning_status`) | "the Target CPA goal hasn't settled yet" |
+| `LEARNING_COMPLETED` (`target_cpa_learning_status`) | "the Target CPA goal has settled" — the **only** value of this field that means settled |
 | `MAX_CONVERSIONS` (raw enum) | **Maximize Conversions** (per the approved-feature-naming table above) |
 | `TARGET_CPA` (raw enum) | **Target CPA** |
 | `FIXED` (raw enum, alone) | **Fixed Bid** |

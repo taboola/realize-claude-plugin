@@ -162,7 +162,8 @@ All tools are exposed by the `realize-mcp` server as `mcp__realize-mcp__<tool_na
 
 ### Campaigns
 - **`list_campaigns(account_id, page=1, page_size=10)`** — List campaigns, **one page per call**. `page_size` is capped at **10** (default 10), so an account with more than 10 campaigns needs paging — never present page 1 as the complete list. Each campaign carries an `advertiser_id`: that is the **owning** account, and it is what `get_campaign` / `list_items` need (see below), not necessarily the account you listed from.
-- **`get_campaign(account_id, campaign_id)`** — Get a specific campaign's details. Both params required.
+- **`get_campaign(account_id, campaign_id)`** — Get a specific campaign's details. Both params required; `account_id` must be the campaign's owning `advertiser_id`.
+  - **Learning status comes back here — read it, never infer it from the launch date.** `cvr_learning_status` (`CVR_LEARNING` → `CVR_LEARNING_LIMITED` → `CVR_LEARNING_COMPLETE`) is the deciding field; `target_cpa_learning_status` (`NEW` → `CVR_LEARNING` → `CVR_LEARNING_LIMITED` → `TCPA_LEARNING` → `LEARNING_COMPLETED`) applies only when a Target CPA is set, and a campaign is not settled until it reads `LEARNING_COMPLETED`. `learning_state` never reports a "done" value, and its `EMPTY_DISPLAY` value is **unusable** — upstream maps both "finished learning" and "never served" onto it. Treat `EMPTY_DISPLAY` as unknown and never surface it to the user. The gate that uses all this is P5 in `optimize-campaign`.
 
 ### Items
 - **`list_items(account_id, campaign_id)`** — List all creatives/items for a campaign. **No pagination.**

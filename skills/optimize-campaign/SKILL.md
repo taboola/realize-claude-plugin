@@ -56,17 +56,48 @@ Before any analysis, run all five. Skipping leads to wrong conclusions.
 | **P2** | **Campaign-level conversion goal verified** | Use `get_campaign` to read the campaign's `conversion_rules` / goal mapping. If no campaign-level goal is set, the campaign is **inheriting the account default** — the optimizer targets the most frequent conversion marked "include in total" at the account level. This is a **valid configuration when the include-in-total settings are sensible**, not a failure mode. Surface to the user what the campaign is actually optimizing toward (read it from the account's conversion-rules list) — don't assume the KPI from spend volume. | Wrong KPI = wrong diagnosis. Account-default routing is fine when configured deliberately; only flag it as a problem if the account's include-in-total events don't match what the user is trying to optimize for. |
 | **P3** | **Active conversion events only** | Read rule statuses via `get_conversion_rules`; when per-event detail matters, use the metamodel's per-rule conversion metrics and cross off rules whose status ≠ ACTIVE — the dynamic report's aggregate conversions metric is server-computed and cannot exclude dead rules itself. | Dead events inflate the apparent drop and produce phantom CPA values. |
 | **P4** | **Bid-strategy cross-check** | Read the campaign's `bid_strategy` + `pricing_model`. Map every proposed action against the bid-lever matrix in `references/optimization-flow.md`. If the action is not valid for the strategy, reframe before delivering. | Per-publisher bid moves don't exist on Maximize Conversions / Target CPA / Maximize Value. Per-item bids don't exist on any strategy. Recommending them is a credibility failure. |
-| **P5** | **Learning-period guard** | See "When P5 fires" below for the full rule + the user-facing message. | The Realize algorithm hasn't stabilised yet — recommendations made during learning reset the timer. |
+| **P5** | **Learning-period guard** | **Read the campaign's learning status from `get_campaign` — do not count days.** See "When P5 fires" below. | The Realize algorithm hasn't stabilised yet — recommendations made during learning reset the timer. Learning length varies per campaign, so elapsed time does not answer this. |
 
 Alongside P1–P5, the **data-sufficiency gates** in `references/optimization-flow.md` apply before any prescription: the statistical-volume tiers, the site-block threshold, and the **daily-spend floor (daily budget ≥ 8× the CPA goal — below it, prescribe a budget raise, not lever tuning)**.
 
 ### When P5 fires
 
-A campaign satisfies the Learning-Period guard when ALL three hold:
+**Learning is a status the campaign reports, not a number of days you count.** One campaign leaves learning in 5 days, another in 12, another never (it stays volume-starved). `get_campaign` returns the status directly — read it.
 
-1. Created within the **last 7 calendar days**, AND
-2. Fewer than **30 conversions** on its goal in lifetime, AND
-3. Has not completed its bid-strategy learning window (5-7 days for Maximize Conversions / Target CPA / Maximize Value — a sub-window inside the broader 7-14 day campaign learning phase).
+**Step 1 — read `cvr_learning_status` from `get_campaign`. This is the primary signal.**
+
+| `cvr_learning_status` | Guard |
+|---|---|
+| `CVR_LEARNING` | **FIRES** — still learning |
+| `CVR_LEARNING_LIMITED` | **FIRES** — learning, and short of conversion volume |
+| `CVR_LEARNING_COMPLETE` | Does not fire — the campaign is out of learning |
+| Missing or `null`, on a **Fixed-bid** campaign (`bid_strategy` has no algorithm) | **Not applicable** — there is no algorithmic learning phase. Skip P5. |
+| Missing or `null`, on a campaign with **no conversion goal or a non-conversion objective** (`BRAND_AWARENESS`, `DRIVE_WEBSITE_TRAFFIC`, a `MAX_VALUE` campaign with no goal set) | **Not applicable** — there is no CVR learning to report, so this field stays empty for the campaign's whole life. Skip P5. Firing here would make the skill permanently unable to advise an awareness or traffic campaign. |
+| Campaign is **not approved** (`PENDING_APPROVAL`, `DRAFT`, `REJECTED`) | **Not a P5 case.** Do not label it "Learning period" or tell the user to wait — the blocker is approval, and for `REJECTED` waiting never resolves it. Explain the approval state instead and stop. |
+| Missing or `null`, any other campaign (conversion objective, non-Fixed, approved) | **FIRES** — treat an absent status as `CVR_LEARNING`, never as "done". |
+
+**"Not applicable" is not "mature."** When P5 is skipped, the data-sufficiency gates still apply — a day-1 Fixed-bid or awareness campaign is still too thin to judge. Skipping P5 only means the *algorithmic learning* question doesn't arise.
+
+**Step 2 — if the campaign has a Target CPA, also read `target_cpa_learning_status`.** It runs its own sequence on top of the CVR one: `NEW → CVR_LEARNING → CVR_LEARNING_LIMITED → TCPA_LEARNING → LEARNING_COMPLETED`. The guard **fires on every value except `LEARNING_COMPLETED`**. A campaign can be `CVR_LEARNING_COMPLETE` and still be in `TCPA_LEARNING` — Target CPA is not settled until this field says `LEARNING_COMPLETED`. It is `null` when no Target CPA is set — ignore it then. But if a Target CPA **is** set and this field comes back `null`, the guard **FIRES**: an absent status is never evidence that the target has settled, the same rule as Step 1.
+
+**Step 3 — `learning_state` is weak corroboration only. Never decide on it alone.**
+
+| `learning_state` | Read it as |
+|---|---|
+| `LEARNING` / `LEARNING_LIMITED` | Still learning — corroborates Step 1 |
+| `EMPTY_DISPLAY` | **UNKNOWN. Carries no information.** Upstream collapses two opposite states into this one label — a campaign that has *finished* learning and one that has *never served* both report `EMPTY_DISPLAY`. Never read it as "done", never read it as "no creatives", never mention it to the user. Fall back to Step 1. |
+| `null` | Unknown — fall back to Step 1. |
+
+**Step 4 — fallback, for one case only: you could not read the campaign at all** (no `get_campaign` access, or the call failed). If you *can* read the campaign, Step 1 decides — every missing/null combination has a row there, and Step 1 wins. Do not try to distinguish "field absent" from "field present but null": a rendered payload usually omits nulls, so the two are indistinguishable and Step 1 treats them identically.
+
+When you have no campaign record at all, estimate — and **fire the guard if *either* signal says learning**, never only when both do:
+
+- fewer than **30 conversions** on the goal in lifetime, **OR**
+- under ~**7–10 days** since launch.
+
+Conversion volume is the stronger of the two: a 60-day campaign with 3 lifetime conversions is still learning, and an AND here would wave it through on age alone — the exact defect this rewrite removes. Say out loud that you are estimating because the status was unavailable, and that the real answer is the campaign's reported status.
+
+**What changed and why it matters:** the previous rule required the campaign to have been *created within the last 7 days*, joined by AND. That meant no campaign older than a week could ever trigger the guard, whatever its real state. Campaigns commonly report `LEARNING` for months. Age is now irrelevant to the decision.
 
 If the guard fires:
 
@@ -74,16 +105,21 @@ If the guard fires:
 - **Do NOT recommend** bid changes, Target CPA changes, or daily-cap changes.
 - **Do NOT use** the campaign's metrics in cross-campaign benchmarks or reallocation math.
 - **Acceptable actions:** Hold (do nothing), Pause (only if account-wide damage is severe), or Wait.
-- **Re-evaluate** after 7 days + 30 conversions.
+- **Re-evaluate** when the status changes — `cvr_learning_status` reaching `CVR_LEARNING_COMPLETE` (and, with a Target CPA, `target_cpa_learning_status` reaching `LEARNING_COMPLETED`). Re-read it; do not wait out a fixed number of days and assume.
 
 **Message the user in plain language first** (before the operator-facing label):
 
-> "This campaign is in its learning phase — the first 7 days where Realize's algorithm is figuring out which audiences, sites, and times convert best for you. CPA often looks high during this period because the algorithm is testing. Making changes (pausing, adjusting budget, swapping creatives) during learning resets the timer and starts the process over. The recommended action is to **wait** until the campaign has had at least 7 days AND 30 conversions, then re-evaluate."
+> "This campaign is still in its learning phase — Realize's algorithm is working out which audiences, sites, and times convert best for you. CPA often looks high while that's happening, because the algorithm is testing. Making changes now (pausing, adjusting budget, swapping creatives) restarts that process. The recommended action is to **wait**. Typically it takes around 7–10 days, but it varies by campaign — some settle faster, some need longer, and it depends on how many conversions are coming in. I'll know it's finished when the campaign reports that it's out of learning, not when a particular day passes."
 
-**Special learning cases:**
-- A duplicate of an existing campaign inherits learning from its source within ~24h. Treat as mature after Day 2.
-- A campaign re-launched after > 14 days of no spend is effectively learning again — treat as Learning even if `start_date` is old.
+Give the day range as an **expectation**, never as the test. If the user asks "so is it done on day 10?", the honest answer is no: it is done when the status says so.
+
+**Special learning cases** — the reported status can lag reality in both directions:
+
+*Overrides a `COMPLETE` reading — the guard DOES fire:*
+- A campaign re-launched after > 14 days of no spend is effectively learning again — treat as Learning even if `start_date` is old and the status says complete.
 - A conversion-goal swap restarts learning even on a mature campaign.
+
+*Not an override:* a duplicate of an existing campaign is often said to inherit its source's learning within ~24h. **Do not use that to overrule a `CVR_LEARNING` reading.** Nothing in the MCP marks a campaign as a duplicate, so it would rest entirely on the user's say-so, and overruling the reported status on an age basis is the exact failure this guard was rewritten to remove. If the duplicate really has inherited learning, the status will say so.
 
 **Exit criteria from pre-checks:** Do not advance past the pre-checks if tracking is broken (P1 — route to `diagnose-tracking` first) or the campaign is in Learning period (P5).
 
