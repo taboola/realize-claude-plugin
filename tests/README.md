@@ -30,4 +30,4 @@ This directory contains a **manual QA checklist** for the Realize plugin. There 
 - **Use a test account for writes.** Realize has no separate non-prod environment — every account lives on production. The team designates a real prod account for QA writes (named in `test-scenarios-write.md`); never run those scenarios against any other account. Read scenarios are safe against any account but still subject to rate limits.
 - **OAuth on first run.** Scenario 1 triggers an interactive browser-based OAuth flow. Have your Taboola SSO credentials ready.
 - **Date windows.** Scenarios that reference relative dates ("last week") depend on your test account having data in that window. Adjust dates if your test account is empty.
-- **CSV report truncation.** Very large result sets may be truncated server-side. If a report unexpectedly returns fewer records than `Total` would suggest, narrow the query.
+- **CSV report truncation.** Very large result sets may be truncated server-side. If a report shows a `⚠️ TRUNCATED` banner or returns fewer rows than expected, narrow the query (shorter window, tighter filter, smaller `page_size`).

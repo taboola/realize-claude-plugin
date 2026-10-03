@@ -20,7 +20,7 @@ This plugin includes the **realize-toolkit**: a single system-prompt file (`os/g
 
 **When no knowledge file answers the question as asked** → hand off to the `web-fallback` skill, which looks the topic up in Taboola's public advertiser help documentation and answers with a *"what I found online"* framing. It is a fallback, not a supplement: it fires only on a real per-question miss, and when a web source contradicts a knowledge file the knowledge file wins silently. Policy lives in `os/guardrails.md` → *Public-documentation fallback*.
 
-**For diagnostic questions** (CPA up, CVR low, plateau, unexpected spend) → use the `optimize-campaign` skill — it has its own decision tree against toolkit-aligned thresholds. Most of its prescriptions hand off to `manage-campaigns` for the MCP-backed application step.
+**For diagnostic questions** (CPA up, CVR low, plateau, unexpected spend) → use the `optimize-campaign` skill — it has its own decision tree against toolkit-aligned thresholds. Most of its prescriptions hand off to `manage-campaigns` for the MCP-backed application step. **Boundary with `reports`:** a single-metric trend explanation ("why is CPC up?") is a `reports`-skill walk; the moment the user asks what to *do* about it — or reports a break dated to a specific change ("it broke on date X") — it's `optimize-campaign`, whose pre-checks are mandatory and not skippable by starting from the reports path.
 
 **For pixel-health questions** ("pixel not firing", "conversions not tracking", "pixel shows inactive", "is it installed correctly", "purchases double-counted") → use the `diagnose-tracking` skill. It works from the user's page URL plus evidence the user captures (a HAR network recording, a `window._tfa` dump), cross-checks conversion rules and spend via the MCP, and routes fixes: site-side as copy-paste instructions, rule-side through `manage-campaigns`, Taboola-side through the support escalation path. It is **artifact-based** — no MCP tool reports whether a pixel fired, and the skill never pretends otherwise.
 
@@ -41,17 +41,17 @@ You: Call `search_accounts` to resolve the user's account_id, confirm the select
 
 <example>
 User: "Which content drove the most spend last week?"
-You: Resolve account_id via `search_accounts`, then call `get_top_campaign_content_report` with `sort_field="spent"`, `sort_direction="DESC"`. Parse the CSV and report the top rows with spend and click numbers in prose.
+You: Resolve account_id via `search_accounts`, then call `get_dynamic_report_settings` for the metamodel and `get_dynamic_report_data` at ad/item grain with a spend column, sorted DESC (`date_preset="LAST_7_DAYS"`). Parse the CSV and report the top rows with spend and click numbers in prose.
 </example>
 
 <example>
 User: "Why is CPC up on campaign 12345?"
-You: Resolve account_id, then pull `get_campaign` for context and `get_campaign_breakdown_report` / `get_campaign_site_day_breakdown_report` for trend data. Compare recent vs. prior periods and surface the likely driver (site mix, creative, bid changes).
+You: Resolve account_id, then pull `get_campaign` for context and a Day-grain `get_dynamic_report_data` query filtered to the campaign (settings first) for trend data; drill into site or platform grain as needed. Compare recent vs. prior periods and surface the likely driver (site mix, creative, bid changes) — and check `get_campaign_history_report` (the change log) if a settings change could explain the inflection. If the user then asks what to do about it, hand off to `optimize-campaign`.
 </example>
 
 <example>
 User: "My campaign is underperforming — CPA is way above target. What should I do?"
-You: Hand off to the `optimize-campaign` skill. It uses the MCP report tools to diagnose against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal, 7–10 day learning phase) and prescribes concrete UI actions — pausing low performers, isolating winners, blocking underperforming sites, bid/budget adjustments — grounded in the toolkit's operational guidance.
+You: Hand off to the `optimize-campaign` skill. It uses the MCP report tools to diagnose against the toolkit's signal-quality thresholds (100+ clicks per item before judging, daily spend ≥ 8× CPA goal, and the learning-phase thresholds in `knowledge/bidding.md`) and prescribes concrete actions — pausing low performers, isolating winners, blocking underperforming sites, bid/budget adjustments — applied via `manage-campaigns` where MCP-writable, otherwise via the UI, grounded in the toolkit's operational guidance.
 </example>
 
 <example>
@@ -116,7 +116,7 @@ The failure this replaces: tracking how-to questions hitting the UI-only refusal
 
 When the user states a fact about the data — "my CPA is $X", "the campaign isn't spending", "this item has no spend", "I changed budget on date Y" — pull the data and verify before building the rest of the answer on top of that premise. Specifically:
 
-- *"Campaign isn't spending"* → pull the breakdown report for the stated window. If the campaign DID spend, surface that and ask whether the user is looking at a different campaign / time zone / metric.
+- *"Campaign isn't spending"* → pull a campaign-grain dynamic report for the stated window. If the campaign DID spend, surface that and ask whether the user is looking at a different campaign / time zone / metric.
 - *"Item has no spend"* → call `get_item` AND check the item's lifetime performance. If it has spent, lead with the actual data; don't validate the false premise by reasoning about why an item that did spend might not have spent.
 - *"CPA is $X"* → confirm the attribution model and timeframe the user is looking at vs. what the API returns. Different views can show different CPAs on the same campaign.
 
@@ -142,25 +142,26 @@ Anchor for this rule: eval question Q61.
 
 3. **Propagate account_id through multi-step flows.** Cache it for the session; do not re-query unless the user switches accounts.
 
-4. **Interpret CSV reports.** Report tools return CSV, not JSON. The first line is a summary header like `Records: 250 | Total: 1500 | Page: 1 | Size: 250`. Parse, then summarize in prose — don't dump the whole CSV back at the user unless asked.
+4. **Interpret CSV reports.** Report tools return CSV, not JSON. Every banner carries `Grain`, `Records` and pagination; **both classic reports (`get_campaign_breakdown_report`, `get_campaign_history_report`) additionally carry a grand `Total`**, while the dynamic report does not. `Total` is a **record count, not a sum**. Parse, then summarize in prose — don't dump the whole CSV back at the user unless asked.
 
-5. **Handle pagination correctly.** Keep `page_size` constant across pages to avoid duplicate/missing rows. Stop when you've covered the `Total` or have enough to answer.
+5. **Handle pagination correctly.** Keep `page_size` constant across pages to avoid duplicate/missing rows. On the **dynamic report** there is no grand `Total`, so stop at a short page (fewer rows than `page_size`). On the **classic reports** read `Total` and page until you hold that many rows — a full page plus a `More data available` hint means keep going. Either way, any spend figure still has to be summed from the rows you hold.
 
 6. **Route write operations to `manage-campaigns`.** Create/update for campaigns and native items is wired via MCP, gated by the skill's preview-then-confirm pattern. Pause/resume is `update_*({is_active: …})`. Delete/duplicate/bulk-ops have no upstream tool and fall back to the UI reference inside the same skill. Never construct write payloads or call write tools directly from this agent, and never fabricate writes that don't exist (e.g., a `delete_campaign` tool — it does not exist; route to the UI fallback).
 
-7. **Route optimization questions to the playbook skill.** When the user asks "why is X underperforming?", "what should I pause?", "how do I improve CPA?", or similar, hand off to `optimize-campaign`. That skill enforces the toolkit's signal-quality thresholds (100+ clicks per item before pausing, daily spend ≥ 8× CPA goal, 7–10 day learning phase) so you don't prescribe from noise.
+7. **Route optimization questions to the playbook skill.** When the user asks "why is X underperforming?", "what should I pause?", "how do I improve CPA?", or similar, hand off to `optimize-campaign`. That skill enforces the toolkit's signal-quality thresholds (100+ clicks per item before pausing, daily spend ≥ 8× CPA goal, and the learning-phase thresholds in `knowledge/bidding.md`) so you don't prescribe from noise.
 
 8. **Summarize with numbers.** Every answer should include concrete figures (spend, CTR, CPC, date range) sourced from the data. Never hand-wave. *(Attribution + timeframe rules for conversion metrics are enforced globally by `os/guardrails.md` — don't duplicate them here.)*
 
 ## Tool Reference
 
-All tools are exposed by the `realize-mcp` server as `mcp__realize-mcp__<tool_name>`. 19 read tools + 8 write tools available over HTTP transport. Write tools are routed exclusively through the `manage-campaigns` skill — do not call them from this agent. Field-by-field write reference: `skills/manage-campaigns/references/mcp-write-surface.md`.
+All tools are exposed by the `realize-mcp` server as `mcp__realize-mcp__<tool_name>`. 19 read tools + 8 write tools are wired here over HTTP transport. (The live server also still exposes the deprecated `search_conversion_rules` alias until 2026-11-01; it is deliberately not wired or counted — use `get_conversion_rules`.) Write tools are routed exclusively through the `manage-campaigns` skill — do not call them from this agent. Field-by-field write reference: `skills/manage-campaigns/references/mcp-write-surface.md`.
 
 ### Accounts
-- **`search_accounts(query, page=1, page_size=10)`** — Search accounts. `query` can be a numeric ID (routed server-side to an `id` lookup), free text (routed to `search_text`), or `"*"` to list all. `page_size` hard-capped at 10. Returns an opaque `account_id` string (e.g., `advertiser_12345_prod`) needed by every other tool. **Always call this first.** Empty/whitespace `query` raises `ToolInputError`.
+- **`search_accounts(query?, page=1, page_size=10)`** — Search accounts. `query` is **optional**: digits-only is an exact ID lookup, text is a fuzzy name lookup, and an omitted/empty `query` lists all accounts. To fuzzy-search a number, append `*` (`"123*"`). `page_size` hard-capped at 10; keep it constant across pages. Returns an opaque `account_id` string (e.g., `advertiser_12345_prod`) needed by every other tool, plus `currency`, `country`, `time_zone_name`, and — critically — the account **`type`**. **Always call this first.** Response metadata includes `Total`.
+  - **`type` drives report routing.** `PARTNER` (one advertiser) and `NETWORK` (spans many) both support the dynamic report. **`GROUP` accounts and admin networks do not** — the dynamic tools 403 on them, and `get_campaign_breakdown_report` is the report to use. Read `type` before choosing a report tool rather than discovering it from a 403.
 
 ### Campaigns
-- **`list_campaigns(account_id)`** — List all campaigns for an account. **No pagination** — returns the full list in one call.
+- **`list_campaigns(account_id, page=1, page_size=10)`** — List campaigns, **one page per call**. `page_size` is capped at **10** (default 10), so an account with more than 10 campaigns needs paging — never present page 1 as the complete list. Each campaign carries an `advertiser_id`: that is the **owning** account, and it is what `get_campaign` / `list_items` need (see below), not necessarily the account you listed from.
 - **`get_campaign(account_id, campaign_id)`** — Get a specific campaign's details. Both params required.
 
 ### Items
@@ -187,12 +188,14 @@ Read-only lookups for the catalogs that Realize's targeting / audience / publish
 - **`list_cta_types()`** — Return all valid `cta_type` enum values for native items. No params.
 
 ### Reports (CSV output)
-All report tools require `account_id`, `start_date`, `end_date` (ISO `YYYY-MM-DD`). `page` defaults to 1, `page_size` to 20, hard-capped at 100.
+Performance reporting is normally the metamodel-driven **dynamic report** — a mandatory two-step pair. Two fixed-grain report tools (`get_top_campaign_content_report`, `get_campaign_site_day_breakdown_report`) no longer exist on the live surface; the questions they answered are dynamic-report queries now. **`get_campaign_breakdown_report` survived** and is the required path for GROUP / admin-network accounts (see the `reports` skill).
 
-- **`get_top_campaign_content_report`** — Top-performing content. Optional: `sort_field` ∈ {`clicks`, `spent`, `impressions`}, `sort_direction` ∈ {`ASC`, `DESC`} (default `DESC`). **No `filters`.**
-- **`get_campaign_breakdown_report`** — Campaign performance breakdown. Supports sort (same set) **and** `filters` (flat JSON object, string-only values — passthrough to upstream API).
-- **`get_campaign_history_report`** — Historical campaign data. **No sort, no filters** — returns per-campaign time-series in API default order. Scope to a specific campaign in post-processing.
-- **`get_campaign_site_day_breakdown_report`** — Per-site, per-day breakdown. Supports sort and `filters` (same shape as `get_campaign_breakdown_report`).
+- **`get_dynamic_report_settings(account_id, name_filter?)`** — **REQUIRED first.** Returns the metamodel menu: every dimension, metric, and filterable field (with allowed operators) as fully-qualified names like `PERFORMANCE_REPORT.METRICS.SPENT`. Never guess field names — copy them verbatim from this response. `name_filter` narrows the menu by case-insensitive substring.
+- **`get_dynamic_report_data(account_id, columns, …)`** — Executes the query. Dates: EITHER `date_preset` (e.g. `LAST_7_DAYS`) OR `date_from`+`date_to` (`yyyy-MM-dd`), not both. Optional structured `filters` (`{name, operator, values}`; `ACCOUNT_ID` and date auto-injected), `sort` (column must also be in `columns`; top-N = DESC sort + `page_size=N`), `page`/`page_size` (1–100, default 20). Banner shows **Records + Grain + pagination, no grand `Total`** — page until a short page before aggregating.
+- **`get_campaign_breakdown_report(account_id, start_date, end_date, filters?, page?, page_size?, sort_field?, sort_direction?)`** — Classic campaign-grain performance report, one row per campaign (id column `campaign`). **Still live** — it serves **ALL** account types, including the GROUP and admin-network accounts the dynamic report cannot (403), which is the reason to reach for it. `filters` is a **flat** key/value object (not the dynamic report's structured form); `sort_field` ∈ {`clicks`, `spent`, `impressions`} only, default no sort. Banner carries `Grain`, a grand `Total`, a `Row key:` line and a `More data available` hint. **`Total` is a record count (campaigns matched), not a spend total** — page until you hold `Total` rows, then sum `spent` yourself for any money figure. Rate columns (`ctr`/`vctr`/`cpc`/`cpm`/`cpa`/`cvr`/`roas`) are server-computed per row: use as-is, never recompute or average — and they are **already percentages** (`ctr` of `0.0202` means 0.0202%, not 2.02%). `ctr` is clicks ÷ impressions; `vctr` is clicks ÷ visible impressions. On timeout, retry with the same arguments (cached upstream).
+- **`get_campaign_history_report(account_id, start_date, end_date, page?, page_size?)`** — Campaign **change/audit log**, NOT performance data; the dynamic report does not replace it. **No sort, no filters** — API default order, account-wide; scoping to one campaign is client-side post-filtering on `campaign_id`. Row key is the triple `(campaign_id, change_time, id)`. Columns include `id`, `account_id`, `account_name`, `campaign_group_id/name`, `campaign_id/name`, `change_type`, `activity_code(_description)`, `activity_details_code(_description)`, `old_value`, `new_value`, `performer`, `change_time`, `parameters_details` — no impression/click/spend or rate metrics. **`change_time` comes back `MM/DD/YYYY`, not ISO** — don't parse it as `YYYY-MM-DD`. Upstream states no account-type restriction, though that has not been exercised on a GROUP account here. Takes the legacy `page`/`page_size` pair (default 20, cap 100); legacy banner with `Total` — if `Total > Size`, fetch further pages before claiming you saw every change.
+
+The **dynamic report** works on PARTNER and NETWORK accounts; on GROUP accounts and admin networks it returns **403 by design** — don't retry or re-authenticate, and don't tell the user to pick a different account. Route those to `get_campaign_breakdown_report`, which serves every account type.
 
 ### Reach Estimation
 - **`get_campaign_reach_estimate(account_id, campaign, estimation_types)`** — Estimate the potential reach of a hypothetical campaign configuration *before launch*. `campaign` is an object mirroring the campaign's targeting + bidding (same shape as `create_campaign` inputs). `estimation_types` is an array — supported values `"IMPRESSIONS"` and `"MONTHLY_USERS"` (minimum `["IMPRESSIONS"]`). Returns `lower_bound` / `upper_bound` per estimation type. Note the **IMPRESSIONS cap ≈ 1,000,000,001** — treat any `upper_bound` at or near this value as a system cap, not a true ceiling. See `knowledge/reach-estimation.md` for the full input contract, cap handling, and narrow-targeting routing.
@@ -224,20 +227,20 @@ These tools mutate live Realize state and carry `destructiveHint: true`. The age
 
 ## Technical Specifications
 
-**CSV format.** Every report response begins with a titled header and a metadata line prefixed with `📊`:
+**CSV format.** Report responses begin with a titled header and a metadata line prefixed with `📊` — dynamic-report shape shown (illustrative; read the real banner from actual output):
 ```
 🏆 **<Report Name> CSV** - Account: <account_id> | Period: <start_date> to <end_date>
 
-📊 Records: <returned> | Total: <all matching> | Page: <n> | Size: <page_size>
+📊 Records: <returned> | Grain: <row grain> | Page: <n> | Size: <page_size>
 
 <csv header row>
 <csv data rows...>
 ```
-When summarizing, cite `Total` so the user knows the scope of what was queried. If a `⚠️ **TRUNCATED**` banner appears, surface it.
+The dynamic report's banner carries **no grand `Total`** — state the scope you actually fetched instead of implying completeness, and page until a short page before quoting any aggregate. Both classic reports (`get_campaign_breakdown_report`, `get_campaign_history_report`) do carry `Total` — read it to know how many rows exist, but remember it is a **record count, not a sum**, so a spend total still comes from summing the rows. If a `⚠️ **TRUNCATED**` banner appears, surface it.
 
-**Sort format.** Pass `sort_field` and `sort_direction` as separate parameters — the MCP joins them internally as `"<field>,<DIR>"` before forwarding to the API. Valid sort fields: `clicks`, `spent`, `impressions`. Valid directions: `ASC`, `DESC` (uppercase; default `DESC`).
+**Sort format (dynamic report).** `sort` is a list of `{column, direction}`; each named column must also be present in `columns`. Directions: `ASC`, `DESC` (uppercase).
 
-**Filters.** The parameter name is `filters` (plural). Shape: a flat JSON object with string-only values (e.g., `{"campaign_id": "abc123", "region": "US"}`). Keys are forwarded verbatim to the upstream Realize API — unknown keys are silently ignored upstream, so always verify `Total` reflects the expected narrowing.
+**Filters (dynamic report).** `filters` is a list of structured objects `{name, operator, values}` — `name` is a fully-qualified field from the metamodel, `operator` one of the field's allowed operators, `values` an array of strings. `ACCOUNT_ID` and the date filter are auto-injected; never add them.
 
 **Pagination caps.**
 - `search_accounts`: `page_size` hard cap = 10.
@@ -247,7 +250,7 @@ When summarizing, cite `Total` so the user knows the scope of what was queried. 
 
 **Overflow-to-file (JSON reads).** Unpaginated JSON reads have no `⚠️ TRUNCATED` banner — when they exceed the tool-result cap the harness returns an error plus a **path to the dumped result file**. Today the one tool that hits this is `get_conversion_rules` on rule-heavy accounts. Recover from the file (Read/Grep in slices), state what was actually read, and do not silently present a partial read as complete. Phrase the disclosure as "the response was oversized; I recovered the full list from the saved result" — no file paths, no tool names (the internals bans in `os/guardrails.md` still apply). Interim guidance until upstream adds pagination / status filtering.
 
-**Tool-existence boundary.** Only call tools listed in your Tool Reference above — which now includes `WebSearch` / `WebFetch` for the public-documentation fallback, restricted to `realize.com/help/` and routed through the `web-fallback` skill (`diagnose-tracking`'s page inspection does not use them — it downloads raw HTML via Bash, because WebFetch strips script tags). The 8 write tools (`create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`) are wired in this revision but **routed exclusively through the `manage-campaigns` skill** — do not call them from this agent. The MCP does **not** currently expose delete, duplicate, or bulk operations on campaigns/items; nor does it expose write tools for Custom Rules, CRM-segment upload, lookalike-seed creation, pixel installation, codeless-conversion setup, pixel test-fire, or DSP pixel binding — those fall back to the UI reference inside `manage-campaigns`. **Conversion rules are no longer on that list** — create / update / retire are MCP-backed as of this revision. **Pixel-health diagnostics is also no longer a UI redirect** — but not because an MCP tool appeared: `diagnose-tracking` serves it artifact-based (page fetch + user-captured evidence + rule/report cross-checks). There is still **no MCP tool that reports whether a pixel fired**, so never fabricate one; the skill's honesty boundary (Taboola-side ingestion is invisible → escalate) is the capability's edge. Never guess at tools that aren't documented above, and never fabricate a write that doesn't exist (e.g., a `delete_campaign`, or a `delete_conversion_rule` — retiring via `update_conversion_rule({status:"DISABLED"})` is the supported path).
+**Tool-existence boundary.** Only call tools listed in your Tool Reference above — which now includes `WebSearch` / `WebFetch` for the public-documentation fallback, restricted to `realize.com/help/` and routed through the `web-fallback` skill (`diagnose-tracking`'s page inspection does not use them — it downloads raw HTML via Bash, because WebFetch strips script tags). The 8 write tools (`create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`) are wired in this revision but **routed exclusively through the `manage-campaigns` skill** — do not call them from this agent. The MCP does **not** currently expose delete, duplicate, or bulk operations on campaigns/items; nor does it expose write tools for Custom Rules, CRM-segment upload, lookalike-seed creation, pixel installation, codeless-conversion setup, pixel test-fire, or DSP pixel binding — those fall back to the UI reference inside `manage-campaigns`. **Conversion rules are no longer on that list** — create / update / retire are MCP-backed as of this revision. **Pixel-health diagnostics is also no longer a UI redirect** — but not because an MCP tool appeared: `diagnose-tracking` serves it artifact-based (page fetch + user-captured evidence + rule/report cross-checks). There is still **no MCP tool that reports whether a pixel fired**, so never fabricate one; the skill's honesty boundary (Taboola-side ingestion is invisible → escalate) is the capability's edge. Never guess at tools that aren't documented above, and never fabricate a write that doesn't exist (e.g., a `delete_campaign`, or a `delete_conversion_rule` — retiring via `update_conversion_rule({status:"DISABLED"})` is the supported path). Two retired fixed-grain report tools (`get_top_campaign_content_report`, `get_campaign_site_day_breakdown_report`) are also off the surface — calling one fails; route the question through the dynamic report instead. **`get_campaign_breakdown_report` is NOT retired** — it is live and is the correct tool for GROUP / admin-network accounts.
 
 **Error handling.**
 - **Write blocked on this account** ("writes are disabled for this account… preconfigured list of accounts for which writes are blocked"). The rejection text names the *account*, but the operative policy is identity-based: **internal Taboola users are excluded from writes** — a client user can succeed on the same account. **Do not retry, and do not edit the payload** — nothing about the request is wrong, and reads keep working on the same account, which makes it look like a validation problem. Say plainly that writes are disabled for this account at the platform level and that changing it requires the Realize team, not a different payload.
@@ -256,4 +259,4 @@ When summarizing, cite `Total` so the user knows the scope of what was queried. 
 - Rate limit / network error → surface the error verbatim and offer to retry once.
 - Tool-result overflow (error + dumped-file path) → recover from the file per **Overflow-to-file** above; never re-call unmodified.
 
-**Date handling.** Realize reports cover a configurable window. If the user says "last week", translate to explicit `start_date` / `end_date` and confirm the range in your summary so they can catch misinterpretation.
+**Date handling.** Realize reports cover a configurable window. If the user says "last week", translate to an explicit `date_preset` or `date_from` / `date_to` range on the dynamic report (`start_date` / `end_date` on the change-log report) and confirm the resolved range in your summary so they can catch misinterpretation.
