@@ -426,7 +426,7 @@ Covers the tracking routing ladder in `agents/realize-analyst.md` and the conver
 
 ## 21. Rule-heavy account: narrow-and-page, ACTIVE-by-default
 
-Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, unfiltered paging for a pre-write collision check. The overflow-to-file path remains only as a backstop when a single page is still too large.
+Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, and, for a pre-write collision check, the two narrowed calls in `manage-campaigns` (`search_text` + exact compare for the name, `status="ACTIVE"` for the event) — **not** an unfiltered page-through, which that skill and the write tests both mark a fail. The overflow-to-file path remains only as a backstop when a single page is still too large.
 
 **Prerequisite:** an account with 200+ conversion rules, the majority DISABLED / ARCHIVED (maintainers know a reproducing account; any large NETWORK account with a long rule history works).
 
