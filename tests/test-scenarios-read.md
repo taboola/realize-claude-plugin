@@ -45,10 +45,10 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 **Expected behavior:**
 1. Claude reuses the cached `account_id` (does not re-run `search_accounts`).
-2. Calls `list_campaigns(account_id=...)`.
-3. Filters to running/active campaigns by inspecting the `status` field (exact enum from the API response) and summarizes: count, combined spend, names of top few.
+2. Calls `list_campaigns(account_id=...)` and **pages until a short page** — `page_size` caps at 10, so one call is not the account.
+3. Filters to running/active campaigns by inspecting the `status` field (exact enum from the API response) and summarizes: count, combined spend, names of top few — and states how many campaigns were read.
 
-**Pass criteria:** No duplicate `search_accounts` call; summary is prose, not raw JSON dump.
+**Pass criteria:** No duplicate `search_accounts` call; summary is prose, not raw JSON dump. **On an account with more than 10 campaigns, answering from a single call is a fail** — a count or combined spend drawn from the first 10 and presented as the full account is the regression this scenario guards.
 
 ---
 
