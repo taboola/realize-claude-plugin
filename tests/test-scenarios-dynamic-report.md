@@ -91,7 +91,7 @@ For these, the correct Run A behavior **today** is: state it can't produce this 
 ### Q8 · Ad attribute × platform
 > "What's my CTR by ad CTA button per platform — desktop, mobile, tablet — for July 1–31, 2026? I want to see if different call-to-action buttons drive different results per device."
 
-- **Run B config:** Dimensions: Ad CTA, Platform (2 — at the cap) · Metrics: CTR, Clicks, Impressions.
+- **Run B config:** Dimensions: Ad CTA, Platform · Metrics: CTR, Clicks, Impressions. (**Uses 1 of the 2 targeting sub-groups, not 2** — only `TARGETING.*` columns count toward the cap, and Ad CTA is an ad attribute. A third *targeting* dimension here would be the one over the limit.)
 - **Why dynamic-only:** no current tool exposes platform or any ad attribute as a reporting dimension, and no tool crosses ad attributes with anything but campaign. (Platform also appears in Q9 — intentional: Q8 tests the ad-attribute cross, Q9 the time cross.)
 - *(Amended 2026-08-20: was "per country" — multi-country test accounts are rare, so geo was dropped here and from the account criteria in Test setup.)*
 

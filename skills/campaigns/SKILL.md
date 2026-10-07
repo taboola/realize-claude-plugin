@@ -32,8 +32,8 @@ Inspection of campaigns and their items (creatives) for a given account using th
 ## Typical flows
 
 **"List my active campaigns."**
-1. `list_campaigns(account_id=...)`
-2. Inspect the `status` field on each campaign and filter in memory to rows with an active/running status (the exact enum comes from the API response — e.g., `RUNNING`). Then summarize: count, combined spend, date range.
+1. `list_campaigns(account_id=...)` — then **keep paging until a page returns fewer than `page_size` rows.** The cap is 10 per page, so a single call covers only the smallest accounts; answering from it gives a wrong count and a wrong combined spend, presented as the whole account.
+2. Inspect the `status` field on each campaign and filter in memory to rows with an active/running status (the exact enum comes from the API response — e.g., `RUNNING`). Then summarize: count, combined spend, date range — and state how many campaigns you actually read.
 
 **"What's the deal with campaign 98765?"**
 1. `get_campaign(account_id=..., campaign_id=98765)` for configuration and status.
@@ -48,7 +48,7 @@ Inspection of campaigns and their items (creatives) for a given account using th
 
 - **Always cite the account in your summary.** Make it obvious which account the numbers are from.
 - **Don't list raw JSON back at the user.** Pull the 3–5 fields that answer their question (status, spend, budget, objective) and surface those in prose.
-- **If the list is long** (>20 campaigns), offer a filter before paginating — most questions don't need the full list.
+- **If the account is large**, ask what the user actually needs before paging through it. You will not know the size from the first call — it caps at 10 — so judge from the second page onward, or from the user's own description of the account. Most questions don't need the full list.
 
 ## Gotchas
 
