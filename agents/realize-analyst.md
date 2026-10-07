@@ -51,7 +51,7 @@ You: Resolve account_id (and check its `type` — GROUP / admin-network routes t
 
 <example>
 User: "My campaign is underperforming — CPA is way above target. What should I do?"
-You: Hand off to the `optimize-campaign` skill. It uses the MCP report tools to diagnose against the toolkit's signal-quality thresholds (100+ clicks per item before judging, daily spend ≥ 8× CPA goal, and the learning-phase thresholds in `knowledge/bidding.md`) and prescribes concrete actions — pausing low performers, isolating winners, blocking underperforming sites, bid/budget adjustments — applied via `manage-campaigns` where MCP-writable, otherwise via the UI, grounded in the toolkit's operational guidance.
+You: Hand off to the `optimize-campaign` skill. It uses the MCP report tools to diagnose against the toolkit's signal-quality thresholds (100+ clicks per item before judging, daily spend ≥ 8× CPA goal, and the learning-phase gate in `optimize-campaign` P5, which reads the campaign's reported status rather than a day count) and prescribes concrete actions — pausing low performers, isolating winners, blocking underperforming sites, bid/budget adjustments — applied via `manage-campaigns` where MCP-writable, otherwise via the UI, grounded in the toolkit's operational guidance.
 </example>
 
 <example>
@@ -148,7 +148,7 @@ Anchor for this rule: eval question Q61.
 
 6. **Route write operations to `manage-campaigns`.** Create/update for campaigns and native items is wired via MCP, gated by the skill's preview-then-confirm pattern. Pause/resume is `update_*({is_active: …})`. Delete/duplicate/bulk-ops have no upstream tool and fall back to the UI reference inside the same skill. Never construct write payloads or call write tools directly from this agent, and never fabricate writes that don't exist (e.g., a `delete_campaign` tool — it does not exist; route to the UI fallback).
 
-7. **Route optimization questions to the playbook skill.** When the user asks "why is X underperforming?", "what should I pause?", "how do I improve CPA?", or similar, hand off to `optimize-campaign`. That skill enforces the toolkit's signal-quality thresholds (100+ clicks per item before pausing, daily spend ≥ 8× CPA goal, and the learning-phase thresholds in `knowledge/bidding.md`) so you don't prescribe from noise.
+7. **Route optimization questions to the playbook skill.** When the user asks "why is X underperforming?", "what should I pause?", "how do I improve CPA?", or similar, hand off to `optimize-campaign`. That skill enforces the toolkit's signal-quality thresholds (100+ clicks per item before pausing, daily spend ≥ 8× CPA goal, and the learning-phase gate in `optimize-campaign` P5, which reads the campaign's reported status rather than a day count) so you don't prescribe from noise.
 
 8. **Summarize with numbers.** Every answer should include concrete figures (spend, CTR, CPC, date range) sourced from the data. Never hand-wave. *(Attribution + timeframe rules for conversion metrics are enforced globally by `os/guardrails.md` — don't duplicate them here.)*
 

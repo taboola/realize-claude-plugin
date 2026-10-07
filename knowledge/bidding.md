@@ -210,7 +210,7 @@ The operational gate (P5) lives in `skills/optimize-campaign/SKILL.md` — this 
 When the guard fires:
 
 - **Label** the campaign as **"Learning period"** — never "Underperforming," "Failed," or "Bad performance."
-- **Do NOT recommend** bid changes, Target CPA changes, or daily-cap changes.
+- **Do NOT recommend** bid changes, Target CPA changes, or daily-cap changes — **except** the daily-budget raise under P5 Exception A (`CVR_LEARNING_LIMITED` with a budget below 8× the CPA goal). P5 in `skills/optimize-campaign/SKILL.md` is the authority on both exceptions.
 - **Do NOT use** the campaign's metrics in cross-campaign benchmarks or reallocation math.
 - **Acceptable actions:** Hold (do nothing), Pause (only if account-wide damage is severe), or Wait.
 - **Re-evaluate** when the status changes, not after a set number of days. Re-read `cvr_learning_status` (and `target_cpa_learning_status` where a Target CPA is set).
