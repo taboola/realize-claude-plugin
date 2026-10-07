@@ -45,10 +45,10 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 **Expected behavior:**
 1. Claude reuses the cached `account_id` (does not re-run `search_accounts`).
-2. Calls `list_campaigns(account_id=...)`.
-3. Filters to running/active campaigns by inspecting the `status` field (exact enum from the API response) and summarizes: count, combined spend, names of top few.
+2. Calls `list_campaigns(account_id=...)` and **pages until a short page** — `page_size` caps at 10, so one call is not the account.
+3. Filters to running/active campaigns by inspecting the `status` field (exact enum from the API response) and summarizes: count, combined spend, names of top few — and states how many campaigns were read.
 
-**Pass criteria:** No duplicate `search_accounts` call; summary is prose, not raw JSON dump.
+**Pass criteria:** No duplicate `search_accounts` call; summary is prose, not raw JSON dump. **On an account with more than 10 campaigns, answering from a single call is a fail** — a count or combined spend drawn from the first 10 and presented as the full account is the regression this scenario guards.
 
 ---
 
@@ -453,7 +453,7 @@ Covers the tracking routing ladder in `agents/realize-analyst.md` and the conver
 
 ## 21. Rule-heavy account: narrow-and-page, ACTIVE-by-default
 
-Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, unfiltered paging for a pre-write collision check. The overflow-to-file path remains only as a backstop when a single page is still too large.
+Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, and, for a pre-write collision check, the two narrowed calls in `manage-campaigns` (`search_text` + exact compare for the name, `status="ACTIVE"` for the event) — **not** an unfiltered page-through, which that skill and the write tests both mark a fail. The overflow-to-file path remains only as a backstop when a single page is still too large.
 
 **Prerequisite:** an account with 200+ conversion rules, the majority DISABLED / ARCHIVED (maintainers know a reproducing account; any large NETWORK account with a long rule history works).
 
