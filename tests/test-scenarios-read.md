@@ -154,7 +154,10 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 1. The `optimize-campaign` skill activates.
 2. Claude reads `cvr_learning_status` from `get_campaign` and/or sees the click total is under threshold, and **refuses to prescribe**. Refusing *because the campaign is new* does not pass — age is not the trigger.
 3. Surfaces the specific reason: that the campaign **reports** it is still learning, or that the toolkit recommends at least 100 clicks per item before judging performance. If it mentions 7-10 days it must frame that as a typical duration, **not** as the test — saying "it is done on day 10" is a fail.
-4. **Only on the thin-data branch** (campaign is *not* reporting learning, just under the click threshold): if daily spend is below 8× CPA goal, recommends **increasing the daily budget** first. On the learning branch this step must **not** happen — a firing P5 forbids daily-cap changes, so recommending a budget raise there is a fail.
+4. Budget handling depends on which branch fired:
+   - **Thin data, not learning:** if daily spend is below 8× CPA goal, recommends **increasing the daily budget** first.
+   - **`CVR_LEARNING_LIMITED` *and* budget below 8× CPA goal:** recommending the budget raise is **correct** (P5 Exception A) — `_LIMITED` means too little conversion volume and the budget is the cause. It must be labelled as a deliberate intervention during learning, and must come alone (no bid / Target CPA / targeting change alongside).
+   - **Plain `CVR_LEARNING`, or `_LIMITED` with an adequate budget:** no budget raise. Recommending one here is a fail.
 5. Offers to revisit the diagnosis once the threshold is met.
 
 **Pass criteria:** Claude does **not** recommend a pause, bid change, or targeting change on insufficient data. Names the exact reason, sourced from the reported status rather than the campaign's age.
@@ -174,7 +177,12 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 3. Claude declines the bid change and labels the campaign "Learning period", explaining that the campaign reports it is still learning — **not** that it is new. It may attribute this to low conversion volume **only if the status is `CVR_LEARNING_LIMITED`**, which is the value that carries that signal; on plain `CVR_LEARNING` asserting a cause is a fabrication and a fail.
 4. It offers Hold / Wait, and says it will re-check the status rather than naming a date.
 
-**Pass criteria:** Claude does **not** treat age as evidence that learning is finished, and does **not** prescribe a bid, Target CPA, or daily-cap change. This is the regression test for the retired rule, which required the campaign to be under 7 days old and so could never fire here.
+**Pass criteria:** Claude does **not** treat age as evidence that learning is finished, and does **not** silently apply a bid, Target CPA, or daily-cap change. This is the regression test for the retired rule, which required the campaign to be under 7 days old and so could never fire here.
+
+**Accepted under P5's exceptions** (not a fail):
+- If the status is `CVR_LEARNING_LIMITED` and the daily budget is below 8× the CPA goal, recommending **the budget raise alone**, labelled as an intervention during learning (Exception A).
+- Since the campaign is well past ~14 days, **offering the user a choice** between continuing to wait and intervening, with the restart-calibration trade-off stated (Exception B). Applying an intervention *without* the user choosing it is still a fail.
+- What stays a fail in every case: the requested **bid change**, applied silently or presented as routine optimisation.
 
 **Also verify:** if the campaign's `learning_state` reads `EMPTY_DISPLAY`, Claude must not mention it, must not call it "no Display creatives", and must not treat it as evidence that learning is complete.
 

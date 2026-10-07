@@ -389,7 +389,7 @@ Every walk through this flow produces:
 - NEVER conclude "external / algo" in the RCA path without ruling out signals 1-4 + 6 (in the SKILL.md).
 - NEVER mention 50-99% auction loss to the user — it's normal.
 - ALWAYS pair every observation with a concrete action item.
-- ALWAYS respect the learning phase (7-10 days typical). Don't make aggressive changes during it.
+- ALWAYS respect the learning phase, judged by `cvr_learning_status` and not by the calendar (~7-10 days is the typical duration, not the test). Don't make aggressive changes during it — with the two documented exceptions in `SKILL.md` P5: a budget raise when `CVR_LEARNING_LIMITED` meets an undersized budget, and a user-chosen intervention when a campaign is stuck past ~14 days.
 - ALWAYS state the source of every claim (which MCP report, which date window, which row count).
 - ALWAYS label the attribution model on every CPA / CVR / Lead / ROAS figure (CT only, VT only, Total CT+VT).
 - ALWAYS lead with CVR for cross-account comparisons; lead with CPA for within-account analysis.

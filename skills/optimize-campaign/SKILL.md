@@ -71,9 +71,9 @@ Alongside P1–P5, the **data-sufficiency gates** in `references/optimization-fl
 | `CVR_LEARNING` | **FIRES** — still learning |
 | `CVR_LEARNING_LIMITED` | **FIRES** — learning, and short of conversion volume |
 | `CVR_LEARNING_COMPLETE` | Does not fire — the campaign is out of learning |
-| Missing or `null`, on a **Fixed-bid** campaign (`bid_strategy` has no algorithm) | **Not applicable** — there is no algorithmic learning phase. Skip P5. |
-| Missing or `null`, on a campaign with **no conversion goal or a non-conversion objective** (`BRAND_AWARENESS`, `DRIVE_WEBSITE_TRAFFIC`, a `MAX_VALUE` campaign with no goal set) | **Not applicable** — there is no CVR learning to report, so this field stays empty for the campaign's whole life. Skip P5. Firing here would make the skill permanently unable to advise an awareness or traffic campaign. |
-| Campaign is **not approved** (`PENDING_APPROVAL`, `DRAFT`, `REJECTED`) | **Not a P5 case.** Do not label it "Learning period" or tell the user to wait — the blocker is approval, and for `REJECTED` waiting never resolves it. Explain the approval state instead and stop. |
+| Missing or `null`, on a **Fixed-bid** campaign (`bid_strategy` = `FIXED`) | **Not applicable** — no algorithm, so no learning phase. Skip P5. |
+| Missing or `null`, on a **non-conversion objective** (`marketing_objective` is `BRAND_AWARENESS` or `DRIVE_WEBSITE_TRAFFIC`) | **Not applicable** — the campaign does not optimize toward conversions, so this field stays empty for its whole life. Skip P5. Firing here would make the skill permanently unable to advise an awareness or traffic campaign. **This is about the objective, not about whether a campaign-level goal is set:** per P2, a `LEADS_GENERATION` / `ONLINE_PURCHASES` campaign with no campaign-level goal is inheriting the account default, which is a normal setup — it is still learning toward that goal, so it does **not** land here. |
+| Campaign is **not approved** — `approval_state` is `PENDING_APPROVAL`, `DRAFT` or `REJECTED` (read it from `get_campaign`; `status` is the separate run/pause state) | **Not a P5 case.** Do not label it "Learning period" or tell the user to wait — the blocker is approval, and for `REJECTED` waiting never resolves it. Explain the approval state instead and stop. |
 | Missing or `null`, any other campaign (conversion objective, non-Fixed, approved) | **FIRES** — treat an absent status as `CVR_LEARNING`, never as "done". |
 
 **"Not applicable" is not "mature."** When P5 is skipped, the data-sufficiency gates still apply — a day-1 Fixed-bid or awareness campaign is still too thin to judge. Skipping P5 only means the *algorithmic learning* question doesn't arise.
@@ -106,6 +106,18 @@ If the guard fires:
 - **Do NOT use** the campaign's metrics in cross-campaign benchmarks or reallocation math.
 - **Acceptable actions:** Hold (do nothing), Pause (only if account-wide damage is severe), or Wait.
 - **Re-evaluate** when the status changes — `cvr_learning_status` reaching `CVR_LEARNING_COMPLETE` (and, with a Target CPA, `target_cpa_learning_status` reaching `LEARNING_COMPLETED`). Re-read it; do not wait out a fixed number of days and assume.
+
+#### The two exceptions — a firing guard must not trap a campaign that is stuck
+
+Holding is right for a campaign that is *progressing* through learning. It is wrong for one that cannot progress, and a status-driven guard with no exit would leave a low-volume campaign waiting forever on a condition it can never meet.
+
+**Exception A — `CVR_LEARNING_LIMITED` with an undersized budget.** `_LIMITED` means precisely *not enough conversion volume*. If the daily budget is also below **8× the CPA goal**, the budget is the cause and raising it is the remedy — the one prescription that ends the learning the guard is protecting. **Recommend the budget raise.** State that it is being made during learning and will restart calibration, and make no other change in the same breath — no bid, no Target CPA, no targeting. (If the budget already clears 8× CPA and spend is tracking it, the constraint is not budget; hold and say what is actually short.)
+
+**Exception B — stuck past the usual window.** If the campaign has been reporting a learning status for materially longer than the ~7-10 day expectation (use **~14 days** as the trigger) and conversion volume is not climbing, say so plainly and **offer the user the choice** rather than holding silently:
+
+> "This campaign has been in learning for N days, which is longer than usual, and conversions aren't building. Two options: keep waiting, or intervene now — raising the budget or widening targeting gives the algorithm more to learn from, but it restarts calibration. Which would you prefer?"
+
+Do not apply an intervention under Exception B without the user choosing it. Both exceptions are deliberate departures from Hold/Wait and must be labelled as such when you present them.
 
 **Message the user in plain language first** (before the operator-facing label):
 

@@ -217,12 +217,11 @@ When the guard fires:
 
 **Cases where the reported status needs overriding** — these are the two directions it can be wrong:
 
-*Guard does NOT fire even though the campaign looks new:*
-- A duplicate of an existing campaign inherits learning from its source within ~24h. Treat as mature after Day 2.
-
 *Guard DOES fire even if the status reads complete:*
 - A re-launched campaign may look "old" by `start_date` but is effectively learning again. If it restarted within the last 7 days after > 14 days of no spend, treat as Learning.
 - A conversion-goal swap restarts learning even on a mature campaign.
+
+*Not an override:* a duplicate is often said to inherit its source's learning within ~24h. **Do not use that to overrule a `CVR_LEARNING` reading** — overruling the reported status on an age basis is the defect this guard was rewritten to remove, and nothing in the MCP marks a campaign as a duplicate. If it really has inherited learning, the status will say so.
 
 ### Overspending During Learning
 
@@ -255,7 +254,7 @@ For display campaigns specifically, also check:
 
 If a campaign is still reporting `CVR_LEARNING` well past the typical window (say beyond 14 days), work through the checks below.
 
-**Order matters.** While the Learning-Period guard is firing, the acceptable actions are Hold / Pause / Wait — the first three rows are diagnostic and safe. The last two rows propose bid and budget moves, which the guard forbids: treat them as the escalation path **once you have decided the campaign is stuck rather than simply slow**, and surface them to the user as a deliberate choice to intervene during learning, with the trade-off stated (intervening restarts calibration). Never apply them silently as routine optimisation.
+**Order matters.** While the Learning-Period guard is firing, the default actions are Hold / Pause / Wait — the first three rows are diagnostic and safe. The last two rows propose bid and budget moves. Those are governed by **P5's two exceptions in `skills/optimize-campaign/SKILL.md`**, which is the single authority: a budget raise is prescribable when `CVR_LEARNING_LIMITED` meets a budget below 8× the CPA goal (Exception A), and anything else requires the campaign to be stuck past ~14 days **and** the user to choose it (Exception B). Never apply them silently as routine optimisation.
 
 | Check | Action |
 |---|---|
