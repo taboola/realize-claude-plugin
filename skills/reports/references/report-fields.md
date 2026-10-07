@@ -38,7 +38,7 @@ Use it for "what changed on this campaign?", or to line configuration changes up
 
 ## `get_campaign_breakdown_report` (classic — still live)
 
-One row per campaign; the campaign id column is `campaign`. Not retired, and not a legacy leftover: it is **the only performance report that serves GROUP and admin-network accounts**, which the dynamic report answers with a 403. (`get_campaign_history_report` has no account-type restriction.)
+One row per campaign; the campaign id column is `campaign`. Not retired, and not a legacy leftover: it is **the only performance report that serves GROUP and admin-network accounts**, which the dynamic report answers with a 403. (`get_campaign_history_report` carries no account-type restriction in its upstream description, though that has not been exercised on a GROUP account here.)
 
 - Params: `account_id`, `start_date`, `end_date` (required); `filters` (**flat** key/value object), `page`, `page_size` (1–100, default 20), `sort_field` (`clicks` | `spent` | `impressions` only), `sort_direction` (`ASC`/`DESC`, default `DESC`; default is no sort).
 - Banner carries `Grain`, a grand `Total`, a `Row key:` line and a `More data available` hint. **`Total` is the record count** (campaigns matched), not a spend total — page until you hold `Total` rows, then sum `spent` yourself for any money figure.

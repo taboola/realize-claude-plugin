@@ -4,7 +4,7 @@ Sample outputs with **fictional data**, but the **shape is real** — banners, h
 
 Two formatting facts that catch people out, both verified live:
 
-- **The header row uses friendly labels, not the fully-qualified names you requested.** You ask for `PERFORMANCE_REPORT.METRICS.CLICKS`; the CSV header says `Clicks`. Match columns by their label position in the header you got back.
+- **The header row uses friendly labels, not the fully-qualified names you requested.** You ask for `PERFORMANCE_REPORT.METRICS.CLICKS`; the CSV header says `Clicks`. Match columns by the **header name** you got back — never by column position, and never by the fully-qualified name you sent.
 - **`Impressions` and `Served Ads` are swapped relative to intuition.** `PERFORMANCE_REPORT.METRICS.VISIBLE_IMPRESSIONS` prints as **`Impressions`**, and `PERFORMANCE_REPORT.METRICS.IMPRESSIONS` prints as **`Served Ads`**. So the dynamic report's "Impressions" *is* visible impressions — which is why its CTR differs from the classic report's `ctr`. Request `METRICS.IMPRESSIONS` expecting impressions and you silently get served ads.
 
 ## `get_dynamic_report_data` — campaign grain

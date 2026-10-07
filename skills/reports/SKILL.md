@@ -63,9 +63,9 @@ One row per campaign; the campaign id column is `campaign`. Required: `account_i
 - **Serves every account type**, GROUP and admin-network included. That is its reason to exist now.
 - Sorting is **off unless you ask for it**: `sort_field` has no default and accepts only `clicks`, `spent`, `impressions`; `sort_direction` (`ASC`/`DESC`) defaults to `DESC` and only takes effect once `sort_field` is set. `page` / `page_size` (1–100, default 20). `filters` is a **flat** key/value object here — not the dynamic report's structured `{name, operator, values}` form.
 - **It has a grand `Total`** in the summary line — and `Total` is a **record count** (how many campaigns matched), *not* a spend total. Use it to know whether you have every row; it tells you nothing about what the rows sum to. To report total spend you must still page through and sum `spent` yourself.
-- `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are computed **server-side per row** — use them as-is, never recompute or average them across rows. To aggregate volume, sum only `clicks`, `impressions`, `spent`.
+- `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are computed **server-side per row** — use them as-is, never recompute or average them across rows. Sum only the raw counters: `clicks`, `impressions`, `visible_impressions`, `spent`, `conversions_value`, and the `cpa_actions_num*` conversion counts. The rule is *counters yes, rates no* — not a closed list of three.
 - Identify columns **by name, not position** — column order is not guaranteed, and the real column list is wide (traffic-allocation, demand type, learning state, and the `roas_*` / `cpa_*` families beyond the headline metrics).
-- **Rate columns are bare numbers already in percent units** — a `ctr` of `0.0202` means **0.0202%**, so do not multiply by 100 again. Same for `vctr` and `cpa_conversion_rate*`. **This differs from the dynamic report, which returns CTR as a pre-formatted string with a `%` sign (`"1.44%"`).** Never carry a formatting convention from one tool to the other; if a rate looks surprising, re-derive it from the row's own clicks and impressions.
+- **The *rate* columns are bare numbers already in percent units** — a `ctr` of `0.0202` means **0.0202%**, so do not multiply by 100 again. This covers `ctr`, `vctr` and `cpa_conversion_rate*` **only**. **`cpc`, `cpm`, `vcpm`, `cpa` and `roas` are money/ratio values, not percentages** — a `cpc` of `0.27` is $0.27, never "0.27%". **This differs from the dynamic report, which returns CTR as a pre-formatted string with a `%` sign (`"1.44%"`).** Never carry a formatting convention from one tool to the other; if a rate looks surprising, re-derive it from the row's own clicks and impressions.
 - **`ctr` and `vctr` are separate columns** — `ctr` is clicks ÷ impressions, `vctr` is clicks ÷ *visible* impressions. The dynamic report has only the visible-impressions one, so a CTR gap between the two reports is usually this, not a data error.
 - The banner also carries a **`Row key:`** line naming the columns that make a row unique — never merge or dedupe on a subset of it — and a `More data available` hint when further pages exist.
 - **On timeout, retry with the same arguments.** The report keeps generating and is cached upstream, so the repeat call usually returns quickly. (Same for `get_campaign_history_report`.)
@@ -77,7 +77,7 @@ All three report tools return CSV with a summary banner stating **Records, the r
 - **There is no grand `Total` in its metadata.** You cannot know the full row count without paging to the end. State the scope you actually fetched ("first 100 rows by spend") instead of implying completeness. The classic reports *do* carry `Total`.
 - **Its `Grain` is whatever you asked for**, not a fixed property of the tool — it's the dimension combination in your `columns`. Read it back before aggregating. (On the classic reports the grain is fixed: `campaign` for the breakdown report, `(campaign_id, change_time, id)` for the history report.)
 
-Both classic reports carry a grand **`Total`** — cite it there instead of paging to a short page.
+Both classic reports carry a grand **`Total`** — it is the **row count**, so use it as the stop condition: **keep paging until you hold `Total` rows.** It is not a substitute for fetching them, and it is never a sum.
 
 `get_campaign_breakdown_report`'s banner is **not** the bare legacy line: it carries `Grain` *and* `Total` together, plus two extra lines —
 
@@ -93,11 +93,11 @@ So on **both** classic reports: read the **`Row key:`** line before any merge or
 
 ## Response-size limits
 
-These apply to **every** report tool, dynamic and classic alike, and are separate from pagination — a page can come back truncated even when you asked for a legal `page_size`.
+These apply to **every** report tool, dynamic and classic alike (verified against the server: the dynamic report formats its CSV through the same helper and inherits the same cap), and are separate from pagination — a page can come back truncated even when you asked for a legal `page_size`.
 
-- CSV output is capped at **25 KB of characters** per call; truncation happens at row boundaries, so you never get a partial row — you get fewer rows than you asked for, silently.
-- A hard cap of **1,000 rows per page** applies regardless of `page_size`.
-- If you see a `⚠️ **TRUNCATED**` banner: **surface it**, then narrow the query (shorter date range, tighter filters, smaller `page_size`) and retry. Never present truncated data as the complete result.
+- CSV output is capped at **100,000 characters** per call; truncation happens at row boundaries, so you never get a partial row — you get fewer rows than you asked for.
+- There is **no separate row cap** beyond `page_size`, which every report tool caps at **100**.
+- Truncation is **not** silent: the response ends with **`**TRUNCATED**: Showing X of Y rows`**. **Surface that to the user**, then narrow the query (shorter date range, tighter filters, smaller `page_size`) and retry. Never present truncated data as the complete result.
 - A truncated page is not a short page. Do **not** read it as the end of the dynamic report's pagination — the short-page stop rule assumes an untruncated response.
 
 ## Pagination and aggregation
