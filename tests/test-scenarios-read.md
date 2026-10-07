@@ -136,7 +136,7 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 2. Claude resolves `account_id`, then pulls dynamic reports (settings first) at campaign grain and site grain for the campaign, plus ad/item grain at the account level for context. Date window is echoed in the summary.
 3. Checks thresholds before prescribing: confirms daily spend ≥ 8× CPA goal and at least one item has ≥100 clicks. If either is missing, says so explicitly and does not prescribe.
 4. Classifies the failure mode against the prescription rules (CTR × CVR × CPA) and names it (e.g., "High CTR, low conversion rate — this is typically a landing-page or creative-honesty issue, not a bid issue").
-5. Prescribes a concrete action: MCP-writable fixes (pausing an item, bid/budget changes) route through `manage-campaigns`' preview-then-confirm gate; genuinely UI-only actions come with the exact UI path (e.g., "Block site X: Campaigns → open 12345 → Site Management").
+5. Prescribes a concrete action: MCP-writable fixes (pausing an item, bid/budget changes) route through `manage-campaigns`' preview-then-confirm gate; genuinely UI-only actions come with the exact UI path (e.g., "Custom Rules: Campaigns → open 12345 → Custom Rules" — site blocking is **not** a valid example here, it is MCP-writable through `manage-campaigns`).
 6. Offers to re-verify via MCP after the user applies the change AND 3–7 days of fresh data have accrued.
 
 **Pass criteria:** Classification cites at least two of CTR / CVR / CPA with real numbers. Prescription routes MCP-writable fixes through `manage-campaigns` (or gives a specific UI path for UI-only actions). Claude does **not** recommend simply "raise the bid" as the first response to high CPA.

@@ -45,7 +45,7 @@ Add one new section to `skills/reports/SKILL.md` — **"Aggregation, joins, and 
 
 ---
 
-## Status update — 2026-09-01 (dynamic-report migration)
+## Status update — 2026-09-02 (dynamic-report migration)
 
 This audit was written against the four fixed-grain report tools. The dynamic report (`get_dynamic_report_settings` + `get_dynamic_report_data`) supersedes two of them — `get_top_campaign_content_report` and `get_campaign_site_day_breakdown_report`. `get_campaign_history_report` remains, reframed as the change/audit log, and **`get_campaign_breakdown_report` also remains**: upstream restored it because GROUP / admin-network accounts cannot use the dynamic report at all. That changes the picture:
 
