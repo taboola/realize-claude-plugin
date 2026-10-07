@@ -48,14 +48,14 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 - **Expected:** exact spend per strategy; percentage within rounding. Tests whether Claude's two-tool join equals the native dimension. Watch for campaigns whose strategy **changed mid-month** — the join uses today's setting, the dynamic report may attribute historically.
 
 ### Q3 · Roll-up: counters, day → week
-> "How many clicks did I get each week between June 29 and August 2, 2026?"
+> "How many clicks did I get each week between June 28 and August 1, 2026?"
 
 - **Run A path:** `get_campaign_site_day_breakdown_report` (all pages), clicks summed per day → per Mon–Sun week by Claude.
 - **Run B config:** Dimension: Week · Metric: Clicks.
 - **Expected:** exact match — but only if week boundaries agree. If they don't, first check whether "Week" in the dynamic report starts Sunday or Monday, and whether time zones match.
 
 ### Q4 · Roll-up: rates, day → week (highest-risk question)
-> "What was my CTR per week between June 29 and August 2, 2026?"
+> "What was my CTR per week between June 28 and August 1, 2026?"
 
 - **Run A path:** same data as Q3; Claude must derive weekly CTR from summed clicks ÷ summed impressions. Note: the fixed tools instruct *never recompute rates across rows* — how Claude resolves that tension is itself a result. Record whether it computes, refuses, or uses `Total` lines.
 - **Run B config:** Dimension: Week · Metric: CTR.
@@ -96,7 +96,7 @@ For these, the correct Run A behavior **today** is: state it can't produce this 
 - *(Amended 2026-08-20: was "per country" — multi-country test accounts are rare, so geo was dropped here and from the account criteria in Test setup.)*
 
 ### Q9 · Platform × time
-> "How many clicks did I get per platform — desktop, mobile, tablet — per week between June 29 and August 2, 2026?"
+> "How many clicks did I get per platform — desktop, mobile, tablet — per week between June 28 and August 1, 2026?"
 
 - **Run B config:** Dimensions: Platform, Week · Metric: Clicks.
 - **Why dynamic-only:** no current tool exposes platform. (Original phrasing was "inventory type" — not a supported dimension; Platform is the closest real one.)
