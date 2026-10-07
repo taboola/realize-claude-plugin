@@ -199,7 +199,7 @@ The fields, and the only values each can take:
 
 Three things to know about these:
 
-- **`cvr_learning_status` is the one that decides.** It is `null` where there is no algorithmic learning to report — Fixed-bid campaigns, and campaigns with no conversion goal or a non-conversion objective (awareness, traffic). In those cases the learning question does not arise. Everywhere else a `null` means **still learning**, never done. An unapproved campaign is a separate matter: the blocker is approval, not learning.
+- **`cvr_learning_status` is the one that decides.** It is `null` where there is no algorithmic learning to report: **Fixed-bid** campaigns (`bid_strategy` = `FIXED`), and **non-conversion objectives** (`marketing_objective` = `BRAND_AWARENESS` or `DRIVE_WEBSITE_TRAFFIC`). In those cases the learning question does not arise. **A missing *campaign-level* conversion goal is not one of these cases** — a `LEADS_GENERATION` / `ONLINE_PURCHASES` campaign with no goal set is inheriting the account default, which is a normal configuration, and it is still learning toward that goal. Everywhere else a `null` means **still learning**, never done. An unapproved campaign is a separate matter: the blocker is approval, not learning.
 - **A Target CPA campaign is not settled until `target_cpa_learning_status` says `LEARNING_COMPLETED`**, even when CVR learning is already complete. The two run in sequence, not in parallel.
 - **`learning_state` has no "done" value, and `EMPTY_DISPLAY` is unusable.** Upstream maps two opposite states onto that one label — finished learning, and never served. Treat `EMPTY_DISPLAY` as unknown and fall back to `cvr_learning_status`.
 
@@ -254,7 +254,7 @@ For display campaigns specifically, also check:
 
 If a campaign is still reporting `CVR_LEARNING` well past the typical window (say beyond 14 days), work through the checks below.
 
-**Order matters.** While the Learning-Period guard is firing, the default actions are Hold / Pause / Wait — the first three rows are diagnostic and safe. The last two rows propose bid and budget moves. Those are governed by **P5's two exceptions in `skills/optimize-campaign/SKILL.md`**, which is the single authority: a budget raise is prescribable when `CVR_LEARNING_LIMITED` meets a budget below 8× the CPA goal (Exception A), and anything else requires the campaign to be stuck past ~14 days **and** the user to choose it (Exception B). Never apply them silently as routine optimisation.
+**Order matters.** While the Learning-Period guard is firing, the default actions are Hold / Pause / Wait. **Only the auction-insights row is purely diagnostic.** Adding earlier-funnel conversion events changes the goal, which restarts learning outright; expanding targeting is an intervention Exception B requires the user to choose. So the first two rows are not "safe" either — they belong to the exceptions below alongside the bid and budget rows. Those are governed by **P5's two exceptions in `skills/optimize-campaign/SKILL.md`**, which is the single authority: a budget raise is prescribable when `CVR_LEARNING_LIMITED` meets a budget below 8× the CPA goal (Exception A), and anything else requires the campaign to be stuck past ~14 days **and** the user to choose it (Exception B). Never apply them silently as routine optimisation.
 
 | Check | Action |
 |---|---|
