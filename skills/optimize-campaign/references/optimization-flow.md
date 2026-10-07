@@ -270,7 +270,7 @@ Two scenarios:
 | Scenario | Action |
 |---|---|
 | Performance acceptable + overspending | Allow 2-3 days for the algorithm to stabilise. Avoid mid-learning-phase budget cuts — reducing budget too early resets the learning phase. Only intervene if there are strict budget restrictions; prefer a moderate adjustment over a significant cut. |
-| Under-performing + under-spending | Walk delivery-constraint checks: (a) tracking healthy, (b) creatives approved, (c) audience not too narrow, (d) bid sufficient (Enhanced CPC / Fixed Bid), (e) learning phase still in progress, (f) for Maximize Conversions, consider increasing daily spend by up to 20%. |
+| Under-performing + under-spending | Walk delivery-constraint checks: (a) tracking healthy, (b) creatives approved, (c) audience not too narrow, (d) bid sufficient (Enhanced CPC / Fixed Bid), (e) learning phase still in progress — **this is a stop, not a note: if P5 is firing, (f) is off the table** unless Exception A applies, (f) for Maximize Conversions and **only when P5 is not firing**, consider increasing daily spend by up to 20% (under Exception A the raise is instead sized to clear the 8× floor in one move, per `SKILL.md` P5). |
 
 For Display campaigns specifically: confirm IAB sizes are uploaded (300×250 / 300×600 minimum); confirm no channel-publisher blocks stripping header-bidding supply; recommend Maximize Conversions as the bidding strategy.
 

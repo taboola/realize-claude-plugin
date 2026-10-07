@@ -173,7 +173,7 @@ API field names and raw enum values from the Realize MCP are internal implementa
 | `CVR_LEARNING_COMPLETE` | "out of the learning phase" / "has learned" — **but only when no Target CPA is set.** With a Target CPA, CVR learning completing does not mean the campaign has settled; check `target_cpa_learning_status` and say "still settling its Target CPA" unless that reads `LEARNING_COMPLETED`. |
 | `CVR_LEARNING` / `cvr_learning_status: CVR_LEARNING` | "still in the learning phase" |
 | `LEARNING` / `LEARNING_LIMITED` (`learning_state`) | Prefer phrasing the `cvr_learning_status` instead — `learning_state` is corroboration, not the deciding field. If it is all you have: "still learning" / "still learning, and short on conversion volume". |
-| `NEW` / `TCPA_LEARNING` (`target_cpa_learning_status`) | "the Target CPA goal hasn't settled yet" |
+| `NEW` / `CVR_LEARNING` / `CVR_LEARNING_LIMITED` / `TCPA_LEARNING` (`target_cpa_learning_status`) | "the Target CPA goal hasn't settled yet" — **all four mean not settled.** Note that this field reuses the `CVR_LEARNING*` names: when it carries one of those, phrase it as the Target CPA not having settled, not as the CVR row above, or the Target CPA caveat is lost. |
 | `LEARNING_COMPLETED` (`target_cpa_learning_status`) | "the Target CPA goal has settled" — the **only** value of this field that means settled |
 | `MAX_CONVERSIONS` (raw enum) | **Maximize Conversions** (per the approved-feature-naming table above) |
 | `TARGET_CPA` (raw enum) | **Target CPA** |
