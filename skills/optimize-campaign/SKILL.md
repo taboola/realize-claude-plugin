@@ -64,7 +64,11 @@ Alongside P1–P5, the **data-sufficiency gates** in `references/optimization-fl
 
 **Learning is a status the campaign reports, not a number of days you count.** One campaign leaves learning in 5 days, another in 12, another never (it stays volume-starved). `get_campaign` returns the status directly — read it.
 
-**Step 1 — read `cvr_learning_status` from `get_campaign`. This is the primary signal.**
+**Step 0 — approval first, before any learning question.** Read `approval_state` from `get_campaign`. If it is anything other than `APPROVED`, **stop here**: the blocker is approval, not learning. Do not label the campaign "Learning period" and do not tell the user to wait — on a rejected campaign waiting never resolves it. Explain the approval state and stop.
+
+This has to come before Step 1, not inside it: an unapproved campaign can still report `CVR_LEARNING`, and a status-keyed table would match that row first and give exactly the wrong answer. (`approval_state` is verified present on a live campaign payload, carrying `APPROVED`; the full value set is not documented upstream, so test for *not* `APPROVED` rather than matching a list. It is distinct from `status` / `is_active`, which are the run/pause state.)
+
+**Step 1 — read `cvr_learning_status` from `get_campaign`. This is the primary signal.** (Only reached once Step 0 passes.)
 
 | `cvr_learning_status` | Guard |
 |---|---|
@@ -73,7 +77,6 @@ Alongside P1–P5, the **data-sufficiency gates** in `references/optimization-fl
 | `CVR_LEARNING_COMPLETE` | Does not fire — the campaign is out of learning |
 | Missing or `null`, on a **Fixed-bid** campaign (`bid_strategy` = `FIXED`) | **Not applicable** — no algorithm, so no learning phase. Skip P5. |
 | Missing or `null`, on a **non-conversion objective** (`marketing_objective` is `BRAND_AWARENESS` or `DRIVE_WEBSITE_TRAFFIC`) | **Not applicable** — the campaign does not optimize toward conversions, so this field stays empty for its whole life. Skip P5. Firing here would make the skill permanently unable to advise an awareness or traffic campaign. **This is about the objective, not about whether a campaign-level goal is set:** per P2, a `LEADS_GENERATION` / `ONLINE_PURCHASES` campaign with no campaign-level goal is inheriting the account default, which is a normal setup — it is still learning toward that goal, so it does **not** land here. |
-| Campaign is **not approved** — `get_campaign`'s `approval_state` reads anything other than `APPROVED` (verified present on a live campaign payload alongside `APPROVED`; the full value set is not documented upstream, so test for *not* `APPROVED` rather than matching a list). This is distinct from `status` / `is_active`, which are the run/pause state. | **Not a P5 case.** Do not label it "Learning period" or tell the user to wait — the blocker is approval, and for `REJECTED` waiting never resolves it. Explain the approval state instead and stop. |
 | Missing or `null`, any other campaign (conversion objective, non-Fixed, approved) | **FIRES** — treat an absent status as `CVR_LEARNING`, never as "done". |
 
 **"Not applicable" is not "mature."** When P5 is skipped, the data-sufficiency gates still apply — a day-1 Fixed-bid or awareness campaign is still too thin to judge. Skipping P5 only means the *algorithmic learning* question doesn't arise.
@@ -88,9 +91,11 @@ Alongside P1–P5, the **data-sufficiency gates** in `references/optimization-fl
 | `EMPTY_DISPLAY` | **UNKNOWN. Carries no information.** Upstream collapses two opposite states into this one label — a campaign that has *finished* learning and one that has *never served* both report `EMPTY_DISPLAY`. Never read it as "done", never read it as "no creatives", never mention it to the user. Fall back to Step 1. |
 | `null` | Unknown — fall back to Step 1. |
 
-**Step 4 — fallback, for one case only: you could not read the campaign at all** (no `get_campaign` access, or the call failed). If you *can* read the campaign, Step 1 decides — every missing/null combination has a row there, and Step 1 wins. Do not try to distinguish "field absent" from "field present but null": a rendered payload usually omits nulls, so the two are indistinguishable and Step 1 treats them identically.
+**Step 4 — fallback, for one case only: the campaign record came back but carries no learning-status fields at all** (an older server, or a read that does not return them). If the fields are present, Step 1 decides — every missing/null combination has a row there, and Step 1 wins. Do not try to distinguish "field absent" from "field present but null": a rendered payload usually omits nulls, so the two are indistinguishable and Step 1 treats them identically.
 
-When you have no campaign record at all, estimate — and **fire the guard if *either* signal says learning**, never only when both do:
+**If `get_campaign` itself failed, you cannot run P5 at all** — you have neither the status nor the `start_date` and goal the estimate below needs. Say the campaign could not be read, and do not prescribe from the report data alone.
+
+With a campaign record but no learning fields, estimate — and **fire the guard if *either* signal says learning**, never only when both do:
 
 - fewer than **30 conversions** on the goal in lifetime, **OR**
 - under ~**7–10 days** since launch.
