@@ -199,7 +199,7 @@ The fields, and the only values each can take:
 
 Three things to know about these:
 
-- **`cvr_learning_status` is the one that decides.** It is `null` where there is no algorithmic learning to report: **Fixed-bid** campaigns (`bid_strategy` = `FIXED`), and **non-conversion objectives** (`marketing_objective` = `BRAND_AWARENESS` or `DRIVE_WEBSITE_TRAFFIC`). In those cases the learning question does not arise. **A missing *campaign-level* conversion goal is not one of these cases** — a `LEADS_GENERATION` / `ONLINE_PURCHASES` campaign with no goal set is inheriting the account default, which is a normal configuration, and it is still learning toward that goal. Everywhere else a `null` means **still learning**, never done. An unapproved campaign is a separate matter: the blocker is approval, not learning.
+- **`cvr_learning_status` is the one that decides.** It is `null` wherever there is no algorithmic learning to report — Fixed-bid campaigns, non-conversion objectives, `MOBILE_APP_INSTALL`, and campaigns with no conversion rule attached. **`skills/optimize-campaign/SKILL.md` P5 Step 1 holds the authoritative list; do not re-derive it from this paragraph**, which exists to explain the fields rather than to gate on them. In those cases the learning question does not arise. **A missing *campaign-level* conversion goal is not one of these cases** — a `LEADS_GENERATION` / `ONLINE_PURCHASES` campaign with no goal set is inheriting the account default, which is a normal configuration, and it is still learning toward that goal. Outside those cases a `null` means **still learning**, never done — but check the P5 table before concluding a campaign is "everywhere else". An unapproved campaign is a separate matter: the blocker is approval, not learning.
 - **A Target CPA campaign is not settled until `target_cpa_learning_status` says `LEARNING_COMPLETED`**, even when CVR learning is already complete. The two run in sequence, not in parallel.
 - **`learning_state` has no "done" value, and `EMPTY_DISPLAY` is unusable.** Upstream maps two opposite states onto that one label — finished learning, and never served. Treat `EMPTY_DISPLAY` as unknown and fall back to `cvr_learning_status`.
 
@@ -233,6 +233,9 @@ If the campaign is pacing ahead of expectation:
 4. Only intervene if there are strict budget restrictions — and even then, prefer a moderate adjustment over a significant reduction.
 
 ### Underspending During Learning
+
+**Subject to P5, like the Extended Learning Phase table below.** The first three rows and the Pace Ahead row are diagnostic. The two **Bidding** rows are levers the Learning-Period guard forbids while it is firing — the Maximize Conversions row is permitted only as P5 Exception A (`CVR_LEARNING_LIMITED` with a budget under 8× the CPA goal), and the Enhanced CPC bid row requires Exception B, meaning the user chooses it. `skills/optimize-campaign/SKILL.md` P5 is the authority.
+
 
 | Check | Action |
 |---|---|

@@ -188,6 +188,49 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 ---
 
+## 9c. Unapproved campaign is not a learning problem (P5 Step 0)
+
+**Prerequisite:** A campaign whose `approval_state` is `REJECTED`, which still reports a `cvr_learning_status` of `CVR_LEARNING`.
+
+**User prompt:**
+> "This campaign isn't performing. What should I change?"
+
+**Expected behavior:** Claude reads `approval_state` before the learning status, explains that the campaign is not approved, and stops. It does **not** label it "Learning period" and does **not** tell the user to wait.
+
+**Pass criteria:** Telling a rejected campaign to wait out its learning phase is the headline failure — waiting never resolves a rejection. Also a fail: skipping Step 0 and landing on the `CVR_LEARNING` row, which is reachable only because the approval check runs first.
+
+**Also verify:** with `approval_state` **missing** from the payload, Claude continues to Step 1 rather than inventing an approval blocker; and with an unrecognised value on a campaign that is `is_active` with non-zero spend, it notes the value and continues rather than halting a demonstrably serving campaign.
+
+---
+
+## 9d. Campaigns that can never report a learning status (P5 not-applicable rows)
+
+**Prerequisite:** Any of — a `bid_strategy: FIXED` campaign; a `BRAND_AWARENESS` campaign; a `MOBILE_APP_INSTALL` campaign; all with `cvr_learning_status` absent.
+
+**User prompt:**
+> "How do I improve this campaign's results?"
+
+**Expected behavior:** Claude recognises the campaign cannot report CVR learning, **skips P5**, and advises normally. For `MOBILE_APP_INSTALL` it names the real gap (attribution runs through an MMP, not the web pixel) rather than reporting a learning state.
+
+**Pass criteria:** Firing the guard here is a fail — these campaigns would be permanently unadvisable, which is the trap the not-applicable rows exist to prevent. Equally a fail: treating "not applicable" as "mature" and skipping the data-sufficiency gates, which still apply.
+
+**Also verify the disambiguation:** on a `LEADS_GENERATION` campaign with empty `conversion_rules` and no status, Claude calls `get_conversion_rules` at account level. If the **account** has rules, the campaign is inheriting the default (per P2) and the guard **fires**; only if the account has none does it skip. Deciding from the campaign's empty `conversion_rules` alone is a fail — both rows match that.
+
+---
+
+## 9e. Target CPA is not settled by CVR learning (P5 Step 2)
+
+**Prerequisite:** A campaign with a Target CPA set, reporting `cvr_learning_status: CVR_LEARNING_COMPLETE` and `target_cpa_learning_status: TCPA_LEARNING`.
+
+**User prompt:**
+> "CVR learning is done — can we lower the Target CPA now?"
+
+**Expected behavior:** Claude reads both fields, explains that the Target CPA has not settled yet, and holds. The guard clears only when `target_cpa_learning_status` reads `LEARNING_COMPLETED`.
+
+**Pass criteria:** Stopping at `CVR_LEARNING_COMPLETE` and approving the Target CPA change is the failure — the two run in sequence, not in parallel. Telling the user the campaign is "out of the learning phase" without the Target CPA caveat is also a fail.
+
+---
+
 ## 10. Error handling — invalid account_id
 
 **User prompt:** (after manually corrupting the cached `account_id`, or just passing a bogus one)
