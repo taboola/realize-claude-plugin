@@ -16,7 +16,7 @@ Pull each dimension and rank by spend contribution:
 
 All performance dimensions come from the dynamic report (`get_dynamic_report_settings` first, then `get_dynamic_report_data` at the stated grain — see the `reports` skill for the workflow):
 
-> **GROUP / admin-network accounts:** the dynamic tools return 403 there, leaving `get_campaign_breakdown_report` as the only **performance** report — so campaign grain is the finest cut and every sub-campaign dimension below is out of reach. Say so plainly rather than silently skipping a signal. `get_campaign_history_report` is unrestricted by account type, so the change-log signals still work.
+> **GROUP / admin-network accounts:** the dynamic tools return 403 there, leaving `get_campaign_breakdown_report` as the only **performance** report — so campaign grain is the finest cut and every sub-campaign dimension below is out of reach. Say so plainly rather than silently skipping a signal. `get_campaign_history_report` is documented upstream as unrestricted by account type, so the change-log signals should still work — not yet exercised on a GROUP account.
 
 | Dimension | Dynamic-report grain | What to look for |
 |---|---|---|
@@ -44,7 +44,12 @@ A statistical-volume floor on the dimension item, plus a specific threshold for 
 | **Minimum** | 20+ conversions | 100+ clicks | Directional signals only — flag as low confidence |
 | **Insufficient** | < 20 conversions | < 100 clicks | Exclude from analysis — do not recommend actions |
 
-**Daily-spend floor:** daily budget ≥ **8× the CPA goal** (realize-toolkit operational guidance, Apr 2026). Below that the campaign cannot generate enough daily conversion signal to judge performance or feed the algorithm — the first prescription is raising the daily budget (or resetting the CPA expectation), not tuning other levers.
+**Daily-spend floor — two separate checks, in this order.** They fail for different reasons and have different fixes, so do not collapse them:
+
+1. **Is the budget big enough?** Daily budget ≥ **8× the CPA goal** (realize-toolkit operational guidance, Apr 2026). Below that the campaign cannot generate enough daily conversion signal to judge performance or feed the algorithm. Fix: raise the daily budget, or reset the CPA expectation.
+2. **Is it actually spending it?** Actual daily spend should come close to the daily budget. A campaign with an $800 budget spending $200 passes check 1 and still has no signal — and raising the budget does nothing, because it is not spending what it already has. That is a **delivery** problem (bid too low, targeting too narrow, supply blocked), and it routes to the delivery levers, not to a budget raise.
+
+Only prescribe a budget raise when check 1 fails. When check 1 passes and check 2 fails, say so explicitly rather than reaching for the budget.
 
 ### Site-blocking threshold
 

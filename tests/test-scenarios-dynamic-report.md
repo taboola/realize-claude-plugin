@@ -17,7 +17,7 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 
 1. Pick **one** test account with real activity in July 2026 (spend on most days, 3+ campaigns, mixed bidding strategies, 20+ ads). All 10 questions run against this account. Record its `account_id`.
 2. For Q7, pick one campaign on that account and note its ID.
-3. All questions use **absolute dates** so both runs pull the identical window. Default window: **July 1–31, 2026**; the weekly questions use **June 29 – August 2, 2026** (five full Mon–Sun weeks).
+3. All questions use **absolute dates** so both runs pull the identical window. Default window: **July 1–31, 2026**; the weekly questions use **June 28 – August 1, 2026** (five full **Sun–Sat** weeks). The report's weeks start on **Sunday** — this was originally written as Mon–Sun, which put a partial bucket at each end and made the boundary mismatch look like a data bug.
 4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — this is **a real tool limit, not just a test-protocol choice**: `get_dynamic_report_data` accepts at most **2 targeting sub-groups** in `columns` (Country+Region is one pair of sub-groups and fine; Country+Platform+OS is three and is not served). Treat a failure or a dropped-column notice beyond two as expected behaviour, not a tool bug. Note for the release re-run: staging showed Run B's Week buckets start **Sunday** — align Run A's client-side Mon–Sun weeks (or expect the Jun 28 first-bucket label) before comparing the weekly questions, otherwise the boundary mismatch will look like a data bug.
 
 ## What to record per question, per run
@@ -84,7 +84,7 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 
 ---
 
-## Part 2 — Dynamic-only questions (Run A must honestly refuse)
+## Part 2 — Dynamic-only questions (historical: Run A had to refuse these before the tool shipped)
 
 For these, the correct Run A behavior **today** is: state it can't produce this breakdown and offer the Realize UI. A fabricated or partial answer in Run A is a **failure**. After release, Run B answers them.
 
@@ -113,4 +113,4 @@ For these, the correct Run A behavior **today** is: state it can't produce this 
 
 - Any Q1–Q7 mismatch beyond rounding → file with tool names, both outputs, and the `Total` lines from Run A.
 - Q8–Q10 Run A results feed the honesty check (compare with scenario 18/19 expectations in `tests/test-scenarios-read.md`).
-- When the tool goes live, sync the plugin per the *stale capability claims* checklist in `CLAUDE.md` — until then the plugin must keep saying these breakdowns need the UI.
+- The tool went live on 2026-09-01 and the plugin was synced per the *stale capability claims* checklist in `CLAUDE.md`. Before that, the plugin correctly said these breakdowns needed the UI; that is no longer true and must not be re-asserted.
