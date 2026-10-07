@@ -424,7 +424,7 @@ Covers the tracking routing ladder in `agents/realize-analyst.md` and the conver
 
 ---
 
-## 21. Rule-heavy account: overflow recovery and ACTIVE-by-default
+## 21. Rule-heavy account: narrow-and-page, ACTIVE-by-default
 
 Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, unfiltered paging for a pre-write collision check. The overflow-to-file path remains only as a backstop when a single page is still too large.
 
@@ -436,19 +436,20 @@ Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md`
 
 **Expected behavior:**
 
-1. Calls `get_conversion_rules(account_id)`; the call overflows and returns an error plus a dumped-file path.
-2. Reads the dumped file in slices (Read tool, or `grep` via Bash) instead of re-calling the tool unmodified or giving up.
-3. Builds a slim per-rule projection (`id`, `display_name`, `event_name`, `status`, `advertiser_id`) and answers from it.
-4. Answer covers ACTIVE rules only, and carries the one-line disclosure with both exact counts ("showing N active rules — M disabled/archived skipped, say if you want them").
-5. States that the full list was recovered from an oversized response, so the user knows the scope of what was read — phrased without file paths or tool names (the guardrails' internals bans still apply).
+1. Calls `get_conversion_rules` with `status="ACTIVE"` — the user asked what is set up, and the listing default is ACTIVE. Paging is expected on a rule-heavy account; an unqualified single call is a fail, because it returns 25 rules and reads as the whole account.
+2. Pages until it holds the response's stated `total` for that filter, rather than answering from page 1.
+3. Gets the unfiltered `total` cheaply — one call with `page_size=1` and no `status` — so it can state how many rules were skipped.
+4. Answer covers ACTIVE rules, and carries the one-line disclosure with both exact counts ("showing N active rules — M disabled/archived skipped, say if you want them").
+5. Builds a slim per-rule projection (`id`, `display_name`, `event_name`, `status`, `advertiser_id`) and answers from it.
 
 **Pass criteria:**
 
-- No unmodified retry loop on the overflowing call.
-- No "this account has no conversion rules" — treating the overflow as an empty result is the worst failure here.
+- The call is narrowed (`status`) and/or paged. A single unqualified call presented as the full account is a fail.
+- Paging stops at `total`, not at the first page.
+- No "this account has no conversion rules" when rules exist.
 - The disclosure line is present with both counts; silently omitting the skipped rules is a fail.
-- A partial read presented as the account's complete rule set (without saying what was read) is a fail.
-- Abandoning the question ("the list is too large to retrieve") is a fail — the dumped file is the answer's source.
+- A partial read presented as the complete rule set (without saying what was read) is a fail.
+- **Overflow is now the exception, not the route.** If a page does exceed the tool-result cap, the correct first move is a smaller `page_size`; recovering from the dumped file is the fallback and must still be disclosed. Treating overflow-and-file-recovery as the normal path is a fail.
 
 ---
 
