@@ -205,12 +205,14 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 ## 9d. Campaigns that can never report a learning status (P5 not-applicable rows)
 
-**Prerequisite:** Any of — a `bid_strategy: FIXED` campaign; a `BRAND_AWARENESS` campaign; a `MOBILE_APP_INSTALL` campaign; all with `cvr_learning_status` absent.
+**Prerequisite:** Any of — a `bid_strategy: FIXED` campaign; a `BRAND_AWARENESS` campaign; a performance campaign on an account with no conversion rules at all; all with `cvr_learning_status` absent.
 
 **User prompt:**
 > "How do I improve this campaign's results?"
 
-**Expected behavior:** Claude recognises the campaign cannot report CVR learning, **skips P5**, and advises normally. For `MOBILE_APP_INSTALL` it names the real gap (attribution runs through an MMP, not the web pixel) rather than reporting a learning state.
+**Expected behavior:** Claude recognises the campaign cannot report CVR learning, **skips P5**, and advises normally, naming what is actually missing (no conversion rule on the account) rather than reporting a learning state.
+
+**Counter-case:** a `MOBILE_APP_INSTALL` campaign is **not** one of these — installs return through an MMP as an install conversion rule, which the algorithm does learn from, so an absent status there means still learning and the guard **fires**. Skipping P5 on an app-install campaign is a fail.
 
 **Pass criteria:** Firing the guard here is a fail — these campaigns would be permanently unadvisable, which is the trap the not-applicable rows exist to prevent. Equally a fail: treating "not applicable" as "mature" and skipping the data-sufficiency gates, which still apply.
 
