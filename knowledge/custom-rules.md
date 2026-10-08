@@ -112,7 +112,8 @@ Custom Rules can exist at two levels.
 
 ## Guardrails
 
-- Never enable Custom Rules while the campaign is still learning — check `cvr_learning_status`, don't assume from age. (Typically ~7-10 days, but a low-volume campaign can report `CVR_LEARNING` for months.) **If that field is empty**, an empty value does **not** mean "not learning". Follow P5 Step 1: it is only *not applicable* on a Fixed-bid campaign, a non-conversion objective, `MOBILE_APP_INSTALL`, or a campaign whose **account** has no conversion rules at all. **An empty `conversion_rules` on the campaign itself is not one of these** — that normally means it inherits the account default, which is a normal setup, and the guard still fires — and **on any other campaign an empty status means still learning, so the guard fires and Custom Rules stay off-limits.** Only in the genuinely not-applicable cases fall back to the volume floor: nothing under ~500 campaign clicks or in the first ~7-10 days.
+- Never enable Custom Rules while the campaign is still learning — read `cvr_learning_status`, don't assume from age. Typically ~7-10 days, but a low-volume campaign can report `CVR_LEARNING` for months.
+- **An empty status does not mean "not learning".** `skills/optimize-campaign/SKILL.md` P5 Step 1 is the authoritative list of when it is genuinely not applicable — read it there rather than from a copy, which is how this rule has drifted before. In every other case an empty status means still learning, so Custom Rules stays off-limits. Only in the genuinely not-applicable cases fall back to the volume floor: nothing under ~500 campaign clicks or in the first ~7-10 days.
 - Never create rules for newer campaigns without monitoring for 1-2 weeks first.
 - Never create overly simplistic rules with only one condition — always include safeguards.
 - Never build account-level rules when campaigns work toward different benchmarks.
