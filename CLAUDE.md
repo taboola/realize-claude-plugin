@@ -27,7 +27,8 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                            (metamodel-driven performance reports, CSV)
            │                            + get_campaign_breakdown_report (campaign grain;
            │                              the only PERFORMANCE report serving GROUP/admin
-           │                              accounts; the change log is unrestricted)
+           │                              accounts; the change log is documented as
+           │                              unrestricted, not yet tested on GROUP)
            │                            + get_campaign_history_report (change log)
            ├──► optimize-campaign skill → diagnoses underperformance; hands write
            │                              prescriptions to manage-campaigns
