@@ -156,9 +156,12 @@ When events fire correctly but Realize shows nothing — or the symptom is "conv
 run checklist §E in order, and never skip its spend gate:
 
 1. `get_conversion_rules` — the rule exists, is ACTIVE, and its `event_name` matches the on-wire `en=`
-   (case-insensitive). On a rule-heavy account, **narrow rather than recover**: you are checking that a rule is live, so call with
-   `status="ACTIVE"` (and `search_text` when you know the name) and page to the stated `total`. Overflow recovery
-   in the `discovery` skill is the fallback if a page is still oversized, not the route. Keep the ACTIVE-default disclosure; report rule **ownership** (`advertiser_id`) rather than assuming the queried account owns them.
+   (case-insensitive). **Do not filter by `status="ACTIVE"` here.** A disabled or archived rule *is* the finding this step
+   exists to produce — an ACTIVE-only read returns nothing for it, collapsing "the rule is disabled, re-enable it" into
+   "no rule exists, create one", which is the wrong fix handed to the user. On a rule-heavy account narrow with
+   **`search_text=<the event or rule name>`** (status-agnostic) and page to the stated `total`; where you don't know the
+   name, page unfiltered. Overflow recovery in the `discovery` skill is the fallback if a page is still oversized, not the
+   route. Report the rule's actual `status` rather than its absence, and report rule report rule **ownership** (`advertiser_id`) rather than assuming the queried account owns them.
 2. Spend check via the report tools — **no active spend ⇒ zero conversions is expected and correct.**
    Report the pixel and rule as healthy; do not prescribe a fix for something that isn't broken.
 3. Only with a live rule *and* active spend is "zero conversions" a real anomaly — check the rule's

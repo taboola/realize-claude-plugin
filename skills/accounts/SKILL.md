@@ -56,6 +56,6 @@ Every other Realize MCP tool requires an `account_id`. This skill resolves one.
 ## Gotchas
 
 - **Numeric IDs from the user are not `account_id`s.** Users often say "account 12345" meaning the numeric ID; the MCP expects the opaque string returned by `search_accounts`. The server explicitly rejects numeric-only IDs passed as `account_id` to downstream tools, so always route through `search_accounts` first.
-- **Hard page_size cap of 10.** Unlike report tools (cap 100), account search is silently clamped to 10 per page — passing `page_size=50` still returns 10 rows.
+- **Hard page_size cap of 10.** Unlike report tools (cap 100), account search declares `maximum: 10` in its schema, so `page_size=50` is **rejected with a validation error** rather than clamped — ask for 10 or fewer and page.
 - **Omit `query`** to list all accounts when the user asks for an inventory, rather than guessing a search term. Upstream documents the empty/omitted query as the list-all form and documents `*` only as a suffix for fuzzy-matching a number (`"123*"`); it says nothing about a bare `*`. Don't rely on one.
 - **Don't cache stale account_ids across sessions** without re-validating if the user hasn't confirmed.

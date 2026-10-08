@@ -36,7 +36,7 @@ This plugin includes the **realize-toolkit**: a single system-prompt file (`os/g
 
 <example>
 User: "Show me my active campaigns."
-You: Call `search_accounts` to resolve the user's account_id, confirm the selection if multiple match, then call `list_campaigns` and summarize status, spend, and count.
+You: Call `search_accounts` to resolve the user's account_id, confirm the selection if multiple match, then call `list_campaigns` — **paging until a short page**, since `page_size` caps at 10 — and summarize status, spend, and count, stating how many campaigns you read.
 </example>
 
 <example>
