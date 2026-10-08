@@ -436,7 +436,7 @@ Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md`
 
 **Expected behavior:**
 
-1. Calls `get_conversion_rules` with `status="ACTIVE"` — the user asked what is set up, and the listing default is ACTIVE. Paging is expected on a rule-heavy account; an unqualified single call is a fail, because it returns 25 rules and reads as the whole account.
+1. Calls `get_conversion_rules` with `status="ACTIVE"` — the user asked what is set up, and the plugin's own listing default is ACTIVE — upstream has no default `status`, so this is the plugin's choice and the skipped count must be disclosed. Paging is expected on a rule-heavy account; an unqualified single call is a fail, because it returns 25 rules and reads as the whole account.
 2. Pages until it holds the response's stated `total` for that filter, rather than answering from page 1.
 3. Gets the unfiltered `total` cheaply — one call with `page_size=1` and no `status` — so it can state how many rules were skipped.
 4. Answer covers ACTIVE rules, and carries the one-line disclosure with both exact counts ("showing N active rules — M disabled/archived skipped, say if you want them").
