@@ -236,7 +236,7 @@ These tools mutate live Realize state and carry `destructiveHint: true`. The age
 <csv header row>
 <csv data rows...>
 ```
-The dynamic report's banner carries **no grand `Total`** — state the scope you actually fetched instead of implying completeness, and page until a short page before quoting any aggregate. Both classic reports (`get_campaign_breakdown_report`, `get_campaign_history_report`) do carry `Total` — read it to know how many rows exist, but remember it is a **record count, not a sum**, so a spend total still comes from summing the rows. If a `⚠️ **TRUNCATED**` banner appears, surface it.
+The dynamic report's banner carries **no grand `Total`** — state the scope you actually fetched instead of implying completeness, and page until a short page before quoting any aggregate. Both classic reports (`get_campaign_breakdown_report`, `get_campaign_history_report`) do carry `Total` — read it to know how many rows exist, but remember it is a **record count, not a sum**, so a spend total still comes from summing the rows. If the response ends with a `**TRUNCATED**: Showing X of Y rows` line, surface it.
 
 **Sort format (dynamic report).** `sort` is a list of `{column, direction}`; each named column must also be present in `columns`. Directions: `ASC`, `DESC` (uppercase).
 

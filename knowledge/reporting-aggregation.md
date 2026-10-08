@@ -18,10 +18,10 @@ This file codifies the discipline. Apply it to every report-based answer that qu
 2. If more pages may exist, paginate until a short page before aggregating. Never aggregate from page 1 alone unless page 1 was short.
 3. After aggregation, run the **sum-reconciliation gate**: sum the per-row `spent` across all rows, compare against the summed spend of a campaign-grain report **over the same date window** (few rows — campaign grain is coarse). On **PARTNER / NETWORK** accounts, the cheapest reference is a dynamic report asking for **spend alone with no dimension** — it comes back as a single row carrying the window total, so there is nothing to add up and nothing to paginate. (A campaign-grain dynamic report works too, it is just more rows.)
 
-On a **GROUP or admin-network** account the dynamic tools 403, and the only report available is `get_campaign_breakdown_report` — which is also the source of the rows you are checking. Comparing it against itself proves nothing, so **the gate cannot be run there.** Mark it N/A and tell the user the figure could not be independently cross-checked, rather than reporting a pass. `get_campaign.spent` is a lifetime/to-date figure — use it as the reference only when your window genuinely is lifetime/to-date; against any bounded historical window it fails the gate by construction. If the comparison diverges by more than **2%**, suspect a missing page or a bad date window and re-pull.
+   On a **GROUP or admin-network** account the dynamic tools 403, and the only report available is `get_campaign_breakdown_report` — which is also the source of the rows you are checking. Comparing it against itself proves nothing, so **the gate cannot be run there.** Mark it N/A and tell the user the figure could not be independently cross-checked, rather than reporting a pass. If the comparison *is* available and diverges by more than **2%**, suspect a missing page or a bad date window and re-pull. `get_campaign.spent` is a lifetime/to-date figure — use it as the reference only when your window genuinely is lifetime/to-date; against any bounded historical window it fails the gate by construction. If the comparison diverges by more than **2%**, suspect a missing page or a bad date window and re-pull.
 4. Only after both checks pass, use the numbers in any answer.
 
-The 2% tolerance covers reasonable rounding across many rows (cents truncation, in-flight UTC-vs-local date-boundary settling). Anything larger means missing data or a bad date window.
+The 2% tolerance in step 3 covers reasonable rounding across many rows (cents truncation, in-flight UTC-vs-local date-boundary settling). Anything larger means missing data or a bad date window.
 
 ---
 
@@ -58,7 +58,7 @@ Two caveats:
 ### `get_campaign_breakdown_report`
 
 - Row grain is fixed: one row per campaign per requested window. Banner carries a grand `Total` — but that is the **campaign count**, not spend. Page until you hold `Total` rows, then sum `spent` yourself for any money figure.
-- `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are server-computed per row. Use as-is — never average them across campaigns. Sum only `clicks`, `impressions`, `spent`.
+- `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are server-computed per row. Use as-is — never average them across campaigns. **Counters yes, rates no**: sum `clicks`, `impressions`, `visible_impressions`, `spent`, `conversions_value` and the `cpa_actions_num*` conversion counts — not a closed list of three.
 - It is the only **performance** report available on GROUP / admin-network accounts, so on those accounts campaign grain is the finest performance cut you can honestly offer. Say so instead of implying a site or day breakdown is reachable. (`get_campaign_history_report` carries no account-type restriction in its upstream description, so the change log should stay available there — not yet exercised on a GROUP account.)
 
 ### `get_campaign_history_report`
