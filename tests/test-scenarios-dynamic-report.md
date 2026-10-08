@@ -17,8 +17,8 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 
 1. Pick **one** test account with real activity in July 2026 (spend on most days, 3+ campaigns, mixed bidding strategies, 20+ ads). All 10 questions run against this account. Record its `account_id`.
 2. For Q7, pick one campaign on that account and note its ID.
-3. All questions use **absolute dates** so both runs pull the identical window. Default window: **July 1–31, 2026**; the weekly questions use **June 28 – August 1, 2026** (five full **Sun–Sat** weeks). The report's weeks start on **Sunday** — this was originally written as Mon–Sun, which put a partial bucket at each end and made the boundary mismatch look like a data bug.
-4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — this is **a real tool limit, not just a test-protocol choice**: `get_dynamic_report_data` accepts at most **2 targeting sub-groups** in `columns` (Country+Region is one pair of sub-groups and fine; Country+Platform+OS is three and is not served). Treat a failure or a dropped-column notice beyond two as expected behaviour, not a tool bug. Note for the release re-run: staging showed Run B's Week buckets start **Sunday** — align Run A's client-side Mon–Sun weeks (or expect the Jun 28 first-bucket label) before comparing the weekly questions, otherwise the boundary mismatch will look like a data bug.
+3. All questions use **absolute dates** so both runs pull the identical window. Default window: **July 1–31, 2026**; the weekly questions use **June 28 – August 1, 2026** (five full **Sun–Sat** weeks). The report's weeks start on **Sunday** — this was originally written as Sun–Sat, which put a partial bucket at each end and made the boundary mismatch look like a data bug.
+4. Global metrics only — no account-specific custom conversions. Max 2 targeting dimensions per dynamic report — this is **a real tool limit, not just a test-protocol choice**: `get_dynamic_report_data` accepts at most **2 targeting sub-groups** in `columns` (Country+Region is one pair of sub-groups and fine; Country+Platform+OS is three and is not served). Treat a failure or a dropped-column notice beyond two as expected behaviour, not a tool bug. Note for the release re-run: staging showed Run B's Week buckets start **Sunday** — align Run A's client-side Sun–Sat weeks (or expect the Jun 28 first-bucket label) before comparing the weekly questions, otherwise the boundary mismatch will look like a data bug.
 
 ## What to record per question, per run
 
@@ -50,7 +50,7 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 ### Q3 · Roll-up: counters, day → week
 > "How many clicks did I get each week between June 28 and August 1, 2026?"
 
-- **Run A path:** `get_campaign_site_day_breakdown_report` (all pages), clicks summed per day → per Mon–Sun week by Claude.
+- **Run A path:** `get_campaign_site_day_breakdown_report` (all pages), clicks summed per day → per Sun–Sat week by Claude.
 - **Run B config:** Dimension: Week · Metric: Clicks.
 - **Expected:** exact match — but only if week boundaries agree. If they don't, first check whether "Week" in the dynamic report starts Sunday or Monday, and whether time zones match.
 
@@ -86,7 +86,7 @@ When the Dynamic Report capability ships in the Realize MCP, run each question t
 
 ## Part 2 — Dynamic-only questions (historical: Run A had to refuse these before the tool shipped)
 
-For these, the correct Run A behavior **today** is: state it can't produce this breakdown and offer the Realize UI. A fabricated or partial answer in Run A is a **failure**. After release, Run B answers them.
+For these, the correct Run A behavior **at the time this was written** was: state it can't produce this breakdown and offer the Realize UI. A fabricated or partial answer in Run A was a **failure**. Since the 2026-09-01 release, Run B answers them and Run A is no longer executable — the tools it relied on are off the surface.
 
 ### Q8 · Ad attribute × platform
 > "What's my CTR by ad CTA button per platform — desktop, mobile, tablet — for July 1–31, 2026? I want to see if different call-to-action buttons drive different results per device."
