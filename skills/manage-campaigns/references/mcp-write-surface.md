@@ -220,7 +220,7 @@ The canonical matrix lives in `knowledge/bidding.md` ("Bid Levers — What's Pos
 | Tool | Returns | Use after |
 |---|---|---|
 | `get_campaign(account_id, campaign_id)` | Full campaign object | Single-campaign readback after `create_campaign` or `update_campaign`. |
-| `list_campaigns(account_id)` | All campaigns on the account | Account-level rollup after a batch create. |
+| `list_campaigns(account_id, page?, page_size?)` | One **page** of campaigns — `page_size` caps at **10** | Account-level rollup after a batch create. **Page until a short page**: after creating 12 campaigns a single call returns 10 and reads as complete. |
 | `list_items(account_id, campaign_id)` | All items on a campaign | After `create_*_item` / `update_*_item`. |
 | `get_item(account_id, campaign_id, item_id)` | Single item | After a targeted item edit. |
 

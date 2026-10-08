@@ -20,18 +20,20 @@ Inspection of campaigns and their items (creatives) for a given account using th
 
 | Tool | Required params | Paginated? |
 |---|---|---|
-| `mcp__realize-mcp__list_campaigns` | `account_id` | **No** — full list in one call |
+| `mcp__realize-mcp__list_campaigns` | `account_id` | **Yes** — `page` / `page_size`, **max 10 per page** |
 | `mcp__realize-mcp__get_campaign` | `account_id`, `campaign_id` | — |
 | `mcp__realize-mcp__list_items` | `account_id`, `campaign_id` | **No** — full list in one call |
 | `mcp__realize-mcp__get_item` | `account_id`, `campaign_id`, `item_id` | — |
 
-None of these tools accept pagination or filter parameters. If a campaign has hundreds of items, they all come back in the single `list_items` call. Filter or summarize in post-processing rather than paginating.
+`list_campaigns` **is paginated and caps at 10 rows per page** — page until a short page before claiming you have every campaign. `list_items` is not paginated: if a campaign has hundreds of items they all come back in one call, so filter or summarize in post-processing. None of these tools accept filter parameters.
+
+**The owning-account rule.** `get_campaign` and `list_items` need the campaign's **owning** account, which is the `advertiser_id` on the campaign row from `list_campaigns` — not necessarily the account you listed from. A NETWORK or parent account can *list* its children's campaigns but rejects campaign- and item-level calls on them (404 and 403 respectively). Always carry `advertiser_id` forward from the listing rather than reusing the account you searched with.
 
 ## Typical flows
 
 **"List my active campaigns."**
-1. `list_campaigns(account_id=...)`
-2. Inspect the `status` field on each campaign and filter in memory to rows with an active/running status (the exact enum comes from the API response — e.g., `RUNNING`). Then summarize: count, combined spend, date range.
+1. `list_campaigns(account_id=...)` — then **keep paging until a page returns fewer than `page_size` rows.** The cap is 10 per page, so a single call covers only the smallest accounts; answering from it gives a wrong count and a wrong combined spend, presented as the whole account.
+2. Inspect the `status` field on each campaign and filter in memory to rows with an active/running status (the exact enum comes from the API response — e.g., `RUNNING`). Then summarize: count, combined spend, date range — and state how many campaigns you actually read.
 
 **"What's the deal with campaign 98765?"**
 1. `get_campaign(account_id=..., campaign_id=98765)` for configuration and status.
@@ -39,14 +41,14 @@ None of these tools accept pagination or filter parameters. If a campaign has hu
 3. Summarize: objective, budget, targeting, creative count, any items flagged paused/rejected.
 
 **"Show me the creatives for my top-spending campaign."**
-1. Combine with the `reports` skill: run `get_top_campaign_content_report`, pick the top campaign.
-2. `list_items(account_id=..., campaign_id=<top>)` and list creatives with IDs, names, status.
+1. Combine with the `reports` skill: run a campaign-grain dynamic report sorted by spend DESC (`get_dynamic_report_settings` → `get_dynamic_report_data`), pick the top campaign. On a **GROUP or admin-network** account the dynamic tools 403 — use `get_campaign_breakdown_report` (`sort_field="spent"`, `sort_direction="DESC"`) instead; the `reports` skill owns that routing rule.
+2. `list_items(account_id=<the top campaign's `advertiser_id`>, campaign_id=<top>)` and list creatives with IDs, names, status. **Use the campaign's `advertiser_id`, not the account you reported on** — on a NETWORK / parent / GROUP account, passing the reporting account here returns 403.
 
 ## Interpretation guidelines
 
 - **Always cite the account in your summary.** Make it obvious which account the numbers are from.
 - **Don't list raw JSON back at the user.** Pull the 3–5 fields that answer their question (status, spend, budget, objective) and surface those in prose.
-- **If the list is long** (>20 campaigns), offer a filter before paginating — most questions don't need the full list.
+- **If the account is large**, ask what the user actually needs before paging through it. You will not know the size from the first call — it caps at 10 — so judge from the second page onward, or from the user's own description of the account. Most questions don't need the full list.
 
 ## Gotchas
 
