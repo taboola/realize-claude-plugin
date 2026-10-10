@@ -73,7 +73,7 @@ This plugin wraps the remote [realize-mcp](https://github.com/taboola/realize-mc
 | [`campaigns`](skills/campaigns/SKILL.md) | List and inspect campaigns and their creatives |
 | [`discovery`](skills/discovery/SKILL.md) | Look up targeting metadata, audiences, publishers, conversion rules, time zones, and CTA types — resolves opaque IDs before campaign work |
 | [`reports`](skills/reports/SKILL.md) | Build any-dimension performance reports via the dynamic report (metamodel-driven), fall back to the classic campaign-breakdown report for GROUP / admin-network accounts, pull the campaign change log, and interpret the CSV output |
-| [`optimize-campaign`](skills/optimize-campaign/SKILL.md) | Diagnose underperforming campaigns against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal, 7–14 day learning phase) and prescribe concrete actions (most now applied via `manage-campaigns`) |
+| [`optimize-campaign`](skills/optimize-campaign/SKILL.md) | Diagnose underperforming campaigns against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal) and the campaign's own reported learning status, then prescribe concrete actions (most now applied via `manage-campaigns`) |
 | [`diagnose-tracking`](skills/diagnose-tracking/SKILL.md) | Verify the Taboola Pixel on your site: install check from your page, firing check from a browser recording (HAR) you capture in one minute, cross-check against your conversion rules and spend. Site-side fixes come back as copy-paste instructions; rule fixes apply through `manage-campaigns`' write gate; Taboola-side gaps route to the support escalation |
 | [`manage-campaigns`](skills/manage-campaigns/SKILL.md) | Create and update campaigns, Native + Display items, and account-level conversion rules (including attribution windows and retiring a rule). Tiered preview-and-confirm pattern surfaces the target account on every write. Falls back to a UI reference for actions not supported here (delete, duplicate, bulk ops, Custom Rules, CRM uploads, pixel installation, codeless-conversion setup, pixel test-fire) |
 | [`support`](skills/support/SKILL.md) | Package the conversation into one file you can email to Taboola Support — see [`/realize-plugin:support`](#getting-help-with-a-problem) |
@@ -168,7 +168,7 @@ Every write preview must lead with `▶ WRITE TARGET: <account name> (<account i
 Very large result sets are auto-truncated server-side. Narrow the query (shorter date range, specific `campaign_id`, higher sort discrimination) and retry.
 
 **Conversion-rule listing failed or came back huge.**
-Accounts with hundreds of conversion rules can overflow the response (the listing isn't paginated yet). The plugin recovers by reading the saved result file and answers with **active** rules by default, noting how many disabled/archived rules were skipped — ask explicitly if you want those included.
+The conversion-rule listing is paginated (25 per page, 50 max) and filterable by status, so the plugin narrows and pages through accounts with hundreds of rules rather than pulling them all at once. It answers with **active** rules by default, noting how many disabled/archived rules were skipped — ask explicitly if you want those included. If a single page still comes back oversized, the plugin retries with a smaller page before falling back to reading the saved result file, and tells you when it did.
 
 ---
 

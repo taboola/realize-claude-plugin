@@ -145,19 +145,91 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 ## 9a. Optimization request — insufficient data (learning phase)
 
-**Prerequisite:** A campaign <7 days old, or one with <500 total clicks.
+**Prerequisite:** A campaign reporting `cvr_learning_status` = `CVR_LEARNING` or `CVR_LEARNING_LIMITED`, or one with <500 total clicks. (Age is deliberately **not** a prerequisite — see 9b.)
 
 **User prompt:**
 > "Why is my brand-new campaign not getting conversions? Should I pause it?"
 
 **Expected behavior:**
 1. The `optimize-campaign` skill activates.
-2. Claude pulls a campaign/day-grain dynamic report (settings first), sees the data is thin (either the age window or the click total is under threshold), and **refuses to prescribe**.
-3. Surfaces the specific threshold that was missed: "the algorithm's learning phase is 7–10 days" or "the toolkit recommends at least 100 clicks per item before judging performance".
-4. If daily spend is below 8× CPA goal, recommends **increasing the daily budget** before drawing any further conclusions.
+2. Claude reads `cvr_learning_status` from `get_campaign` and/or sees the click total is under threshold, and **refuses to prescribe**. Refusing *because the campaign is new* does not pass — age is not the trigger.
+3. Surfaces the specific reason: that the campaign **reports** it is still learning, or that the toolkit recommends at least 100 clicks per item before judging performance. If it mentions 7-10 days it must frame that as a typical duration, **not** as the test — saying "it is done on day 10" is a fail.
+4. Budget handling depends on which branch fired:
+   - **Thin data, not learning:** if daily spend is below 8× CPA goal, recommends **increasing the daily budget** first.
+   - **`CVR_LEARNING_LIMITED` *and* budget below 8× CPA goal:** recommending the budget raise is **correct** (P5 Exception A) — `_LIMITED` means too little conversion volume and the budget is the cause. It must be labelled as a deliberate intervention during learning, and must come alone (no bid / Target CPA / targeting change alongside).
+   - **Plain `CVR_LEARNING`, or `_LIMITED` with an adequate budget:** no budget raise. Recommending one here is a fail.
 5. Offers to revisit the diagnosis once the threshold is met.
 
-**Pass criteria:** Claude does **not** recommend a pause, bid change, or targeting change on insufficient data. Names the exact threshold(s) that haven't been met.
+**Pass criteria:** Claude does **not** recommend a pause, bid change, or targeting change on insufficient data. Names the exact reason, sourced from the reported status rather than the campaign's age.
+
+---
+
+## 9b. Established campaign that is still learning (age must not clear the guard)
+
+**Prerequisite:** A campaign **older than 30 days** whose `cvr_learning_status` still reads `CVR_LEARNING` or `CVR_LEARNING_LIMITED`. (Real example: a campaign 69 days past launch still reporting that it is learning — common on low-conversion-volume campaigns.)
+
+**User prompt:**
+> "This campaign's CPA is way above target. Lower the bid."
+
+**Expected behavior:**
+1. The `optimize-campaign` skill activates and reads `cvr_learning_status` from `get_campaign`.
+2. **P5 fires**, despite the campaign being months old.
+3. Claude declines the bid change and labels the campaign "Learning period", explaining that the campaign reports it is still learning — **not** that it is new. It may attribute this to low conversion volume **only if the status is `CVR_LEARNING_LIMITED`**, which is the value that carries that signal; on plain `CVR_LEARNING` asserting a cause is a fabrication and a fail.
+4. It offers Hold / Wait, and says it will re-check the status rather than naming a date.
+
+**Pass criteria:** Claude does **not** treat age as evidence that learning is finished, and does **not** silently apply a bid, Target CPA, or daily-cap change. This is the regression test for the retired rule, which required the campaign to be under 7 days old and so could never fire here.
+
+**Accepted under P5's exceptions** (not a fail):
+- If the status is `CVR_LEARNING_LIMITED` and the daily budget is below 8× the CPA goal, recommending **the budget raise alone**, labelled as an intervention during learning (Exception A).
+- Since the campaign is well past ~14 days, **offering the user a choice** between continuing to wait and intervening, with the restart-calibration trade-off stated (Exception B). Applying an intervention *without* the user choosing it is still a fail.
+- What stays a fail in every case: the requested **bid change**, applied silently or presented as routine optimisation.
+
+**Also verify:** if the campaign's `learning_state` reads `EMPTY_DISPLAY`, Claude must not mention it, must not call it "no Display creatives", and must not treat it as evidence that learning is complete.
+
+---
+
+## 9c. Unapproved campaign is not a learning problem (P5 Step 0)
+
+**Prerequisite:** A campaign whose `approval_state` is `REJECTED`, which still reports a `cvr_learning_status` of `CVR_LEARNING`.
+
+**User prompt:**
+> "This campaign isn't performing. What should I change?"
+
+**Expected behavior:** Claude reads `approval_state` before the learning status, explains that the campaign is not approved, and stops. It does **not** label it "Learning period" and does **not** tell the user to wait.
+
+**Pass criteria:** Telling a rejected campaign to wait out its learning phase is the headline failure — waiting never resolves a rejection. Also a fail: skipping Step 0 and landing on the `CVR_LEARNING` row, which is reachable only because the approval check runs first.
+
+**Also verify:** with `approval_state` **missing** from the payload, Claude continues to Step 1 rather than inventing an approval blocker; and with an unrecognised value on a campaign that is `is_active` with non-zero spend, it notes the value and continues rather than halting a demonstrably serving campaign.
+
+---
+
+## 9d. Campaigns that can never report a learning status (P5 not-applicable rows)
+
+**Prerequisite:** Any of — a `bid_strategy: FIXED` campaign; a `BRAND_AWARENESS` campaign; a performance campaign on an account with no conversion rules at all; all with `cvr_learning_status` absent.
+
+**User prompt:**
+> "How do I improve this campaign's results?"
+
+**Expected behavior:** Claude recognises the campaign cannot report CVR learning, **skips P5**, and advises normally, naming what is actually missing (no conversion rule on the account) rather than reporting a learning state.
+
+**Counter-case:** a `MOBILE_APP_INSTALL` campaign is **not** one of these — installs return through an MMP as an install conversion rule, which the algorithm does learn from, so an absent status there means still learning and the guard **fires**. Skipping P5 on an app-install campaign is a fail.
+
+**Pass criteria:** Firing the guard here is a fail — these campaigns would be permanently unadvisable, which is the trap the not-applicable rows exist to prevent. Equally a fail: treating "not applicable" as "mature" and skipping the data-sufficiency gates, which still apply.
+
+**Also verify the disambiguation:** on a `LEADS_GENERATION` campaign with empty `conversion_rules` and no status, Claude calls `get_conversion_rules` at account level. If the **account** has rules, the campaign is inheriting the default (per P2) and the guard **fires**; only if the account has none does it skip. Deciding from the campaign's empty `conversion_rules` alone is a fail — both rows match that.
+
+---
+
+## 9e. Target CPA is not settled by CVR learning (P5 Step 2)
+
+**Prerequisite:** A campaign with a Target CPA set, reporting `cvr_learning_status: CVR_LEARNING_COMPLETE` and `target_cpa_learning_status: TCPA_LEARNING`.
+
+**User prompt:**
+> "CVR learning is done — can we lower the Target CPA now?"
+
+**Expected behavior:** Claude reads both fields, explains that the Target CPA has not settled yet, and holds. The guard clears only when `target_cpa_learning_status` reads `LEARNING_COMPLETED`.
+
+**Pass criteria:** Stopping at `CVR_LEARNING_COMPLETE` and approving the Target CPA change is the failure — the two run in sequence, not in parallel. Telling the user the campaign is "out of the learning phase" without the Target CPA caveat is also a fail.
 
 ---
 
@@ -424,9 +496,9 @@ Covers the tracking routing ladder in `agents/realize-analyst.md` and the conver
 
 ---
 
-## 21. Rule-heavy account: overflow recovery and ACTIVE-by-default
+## 21. Rule-heavy account: narrow-and-page, ACTIVE-by-default
 
-Covers the `get_conversion_rules` overflow gotcha in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is unpaginated with no status filter, so a rule-heavy account exceeds the tool-result cap and the result arrives as an error plus a path to a dumped result file.
+Covers the `get_conversion_rules` narrowing rules in `skills/discovery/SKILL.md` and the overflow-to-file paragraph in `agents/realize-analyst.md`. The tool is paginated (default 25, max 50) and filterable by `status` / `search_text`, so a rule-heavy account should be read by narrowing — an ACTIVE-filtered page for a user listing, and, for a pre-write collision check, the two narrowed calls in `manage-campaigns` (`search_text` + exact compare for the name, `status="ACTIVE"` for the event) — **not** an unfiltered page-through, which that skill and the write tests both mark a fail. The overflow-to-file path remains only as a backstop when a single page is still too large.
 
 **Prerequisite:** an account with 200+ conversion rules, the majority DISABLED / ARCHIVED (maintainers know a reproducing account; any large NETWORK account with a long rule history works).
 
@@ -436,19 +508,20 @@ Covers the `get_conversion_rules` overflow gotcha in `skills/discovery/SKILL.md`
 
 **Expected behavior:**
 
-1. Calls `get_conversion_rules(account_id)`; the call overflows and returns an error plus a dumped-file path.
-2. Reads the dumped file in slices (Read tool, or `grep` via Bash) instead of re-calling the tool unmodified or giving up.
-3. Builds a slim per-rule projection (`id`, `display_name`, `event_name`, `status`, `advertiser_id`) and answers from it.
-4. Answer covers ACTIVE rules only, and carries the one-line disclosure with both exact counts ("showing N active rules — M disabled/archived skipped, say if you want them").
-5. States that the full list was recovered from an oversized response, so the user knows the scope of what was read — phrased without file paths or tool names (the guardrails' internals bans still apply).
+1. Calls `get_conversion_rules` with `status="ACTIVE"` — the user asked what is set up, and the plugin's own listing default is ACTIVE — upstream has no default `status`, so this is the plugin's choice and the skipped count must be disclosed. Paging is expected on a rule-heavy account; an unqualified single call is a fail, because it returns 25 rules and reads as the whole account.
+2. Pages until it holds the response's stated `total` for that filter, rather than answering from page 1.
+3. Gets the unfiltered `total` cheaply — one call with `page_size=1` and no `status` — so it can state how many rules were skipped.
+4. Answer covers ACTIVE rules, and carries the one-line disclosure with both exact counts ("showing N active rules — M disabled/archived skipped, say if you want them").
+5. Builds a slim per-rule projection (`id`, `display_name`, `event_name`, `status`, `advertiser_id`) and answers from it.
 
 **Pass criteria:**
 
-- No unmodified retry loop on the overflowing call.
-- No "this account has no conversion rules" — treating the overflow as an empty result is the worst failure here.
+- The call is narrowed (`status`) and/or paged. A single unqualified call presented as the full account is a fail.
+- Paging stops at `total`, not at the first page.
+- No "this account has no conversion rules" when rules exist.
 - The disclosure line is present with both counts; silently omitting the skipped rules is a fail.
-- A partial read presented as the account's complete rule set (without saying what was read) is a fail.
-- Abandoning the question ("the list is too large to retrieve") is a fail — the dumped file is the answer's source.
+- A partial read presented as the complete rule set (without saying what was read) is a fail.
+- **Overflow is now the exception, not the route.** If a page does exceed the tool-result cap, the correct first move is a smaller `page_size`; recovering from the dumped file is the fallback and must still be disclosed. Treating overflow-and-file-recovery as the normal path is a fail.
 
 ---
 
