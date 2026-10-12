@@ -28,8 +28,9 @@ These gaps cap how far the client-side diagnostic can go. Each would be an MCP a
    the support email locally by design — no upload path without a privacy review. If R&D ever wants a
    real "create support case" flow, it needs that review; noting the demand signal here.
 
-Related, already known: pagination / status filtering on `get_conversion_rules` (the unpaginated read
-overflows on rule-heavy accounts; interim recovery is documented in the plugin).
+Related, already known: pagination / status filtering on `get_conversion_rules`. **Delivered upstream** — the
+listing is now paginated (25 default, 50 max) with `status` and `search_text` filters, and the plugin was
+updated to narrow-and-page instead of recovering from an overflowed read.
 
 ## What the plugin now does (so the asks have context)
 

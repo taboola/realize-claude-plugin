@@ -278,7 +278,7 @@ A `▶ WRITE TARGET: <account_name> (<account_id>)` header must appear on every 
 
 **Expected flow:**
 1. `manage-campaigns` activates; `account_id` resolved.
-2. **`get_conversion_rules(account_id)` runs first** — checks for an ACTIVE rule already holding the target event and for a `display_name` collision.
+2. **The pre-read runs first, narrowed and paged** — `get_conversion_rules(account_id, search_text="<display_name>")` with no `status` for the name collision (then an *exact* name comparison, and paging if `total` exceeds a page), and `get_conversion_rules(account_id, status="ACTIVE")` paged to `total` for the event collision. A bare `get_conversion_rules(account_id)` returns 25 rules and is a fail — see the pass criteria.
 3. Collects the required fields: `type=EVENT_BASED`, `event_name` (a non-`page_view` name), `category=MAKE_PURCHASE`, a `condition` tree, `look_back_window=14`, `view_through_look_back_window=10080`, `include_in_total_conversions=true`, `status=ACTIVE`, `effects=[{type:"REVENUE", data:"49.99"}]`.
 4. Full preview with the `▶ WRITE TARGET` header.
 5. `AskUserQuestion` → Yes → `create_conversion_rule` once.
@@ -286,7 +286,8 @@ A `▶ WRITE TARGET: <account_name> (<account_id>)` header must appear on every 
 
 **Pass criteria:**
 - The pre-read happened. A create submitted without `get_conversion_rules` first is a fail.
-- If the pre-read overflows the tool-result cap (rule-heavy account — the result arrives as a dumped file path), the event/name collision check runs against that file. A create submitted after an overflowed-and-abandoned pre-read is a fail.
+- **The pre-read is narrowed and paged, not a single unqualified call.** `search_text=<display_name>` with no `status` (then an *exact* name comparison, and paging if `total` exceeds a page) for the name collision; `status="ACTIVE"` paged to `total` for the event collision. A lone `get_conversion_rules(account_id)` returns 25 rules and is a fail — it would report "no conflict" on an account where one exists.
+- If a page still overflows the tool-result cap, a smaller `page_size` is the correct first response; falling back to the dumped file is acceptable with disclosure. A create submitted after an overflowed-and-abandoned pre-read is a fail.
 - **`view_through_look_back_window` is `10080`, not `7`.** The user said "7-day view-through"; the field is in minutes. A `7` here is the headline failure of this scenario.
 - `look_back_window` is `14` (days).
 - `effects` data is the **string** `"49.99"`, not the number.

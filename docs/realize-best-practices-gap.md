@@ -61,7 +61,7 @@ Write tools are routed exclusively through the `manage-campaigns` skill (preview
 | Required fields list | `manage-campaigns` "Creating a campaign" — Required fields table |
 | Marketing Objective enum (5-value: `BRAND_AWARENESS` / `DRIVE_WEBSITE_TRAFFIC` / `LEADS_GENERATION` / `ONLINE_PURCHASES` / `MOBILE_APP_INSTALL`) | `manage-campaigns` "Creating a campaign" — Marketing Objective enum |
 | Bid Strategy enum + budget minimums (10× CPA / 5× CPA daily + 150× monthly / 100–200 clicks/day) | `manage-campaigns` "Creating a campaign" — Bid Strategy × Budget minimums |
-| 7–14 day learning phase | `manage-campaigns` Gotchas; `optimize-campaign`; agent Core Responsibility |
+| Learning phase — decided by the campaign's **reported status** (`cvr_learning_status`, plus `target_cpa_learning_status` where a Target CPA is set); 7–10 days quoted only as a typical duration | `knowledge/bidding.md` (what the fields mean); `optimize-campaign` P5 (the gate); agent Tool Reference |
 | "Stay broad at launch" targeting guidance | `manage-campaigns` "Creating a campaign" — Targeting recommendation |
 | 4–6 ads per campaign (never more than 10); "pre-qualify the click"; avoid generic CTAs | `manage-campaigns` "Creating a native item"; cross-referenced in `optimize-campaign` |
 | Post-launch MCP verification via `get_campaign` + `list_items` | `manage-campaigns` "Post-write verification" |
