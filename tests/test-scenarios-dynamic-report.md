@@ -113,4 +113,4 @@ For these, the correct Run A behavior **at the time this was written** was: stat
 
 - Any Q1–Q7 mismatch beyond rounding → file with tool names, both outputs, and the `Total` lines from Run A.
 - Q8–Q10 Run A results feed the honesty check (compare with scenario 18/19 expectations in `tests/test-scenarios-read.md`).
-- The tool went live on 2026-09-01 and the plugin was synced per the *stale capability claims* checklist in `CLAUDE.md`. Before that, the plugin correctly said these breakdowns needed the UI; that is no longer true and must not be re-asserted.
+- The tool went live on 2026-09-01 and the plugin was synced per the *stale capability claims* checklist in `.claude/CLAUDE.md`. Before that, the plugin correctly said these breakdowns needed the UI; that is no longer true and must not be re-asserted.

@@ -6,7 +6,7 @@ Thanks for your interest in improving the Realize Plugin. Contributions of all s
 
 - Be respectful and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 - This plugin wraps the [Realize remote MCP](https://github.com/taboola/realize-mcp). If your change needs a new MCP tool or a behavioral change on the server side, open an issue on the MCP repo first.
-- Do not add direct API calls to Realize from this plugin (no `curl`, no `httpx`). All data access flows through MCP tools — see [CLAUDE.md](CLAUDE.md) for the reasoning.
+- Do not add direct API calls to Realize from this plugin (no `curl`, no `httpx`). All data access flows through MCP tools — see [.claude/CLAUDE.md](.claude/CLAUDE.md) for the reasoning.
 - Do not add code paths that call MCP tools that don't exist in the current upstream release. User-facing requests for actions not yet exposed as MCP tools (today: delete, duplicate, bulk operations) are handled by the `manage-campaigns` skill's UI fallback section. When upstream adds new write tools, wire them through `manage-campaigns` with an explicit PR — never route writes directly through the agent. New writes must inherit the tiered preview-then-confirm gate and the mandatory `▶ WRITE TARGET` account header.
 
 ## Before you start

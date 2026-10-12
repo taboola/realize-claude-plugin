@@ -93,3 +93,45 @@ jobs:
 
       - name: Brand and guardrail lint
         run: bash scripts/brand-check.sh
+
+      # The Anthropic directory check blocked v0.5.1 on these. Everything in the
+      # repo ships, so they are checked repo-wide. See .claude/CLAUDE.md,
+      # "Shipped files must pass the Anthropic directory check".
+      - name: Directory-check guards
+        run: |
+          set -euo pipefail
+          fail=0
+
+          # ROOT_CLAUDE_MD: contributor notes live in .claude/CLAUDE.md.
+          if [ -f CLAUDE.md ]; then
+            echo "FAIL: CLAUDE.md at the plugin root (ROOT_CLAUDE_MD). Keep contributor notes in .claude/CLAUDE.md."
+            fail=1
+          fi
+
+          # SECRET_IN_SCRIPT: vendor-prefixed keys, and a credential key name
+          # next to a literal value. Test fixtures must be assembled at runtime.
+          prefixes='sk-ant-[A-Za-z0-9]|ya29\.[A-Za-z0-9]|eyJ[A-Za-z0-9_-]{10,}\.eyJ|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20}|xox[abps]-[A-Za-z0-9]|-----BEGIN [A-Z ]*PRIVATE KEY'
+          keyed='(password|passwd|client_secret|api_?key|access_token|refresh_token)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9._-]{6,}'
+          if git grep -nIE "$prefixes|$keyed" -- . ':!*.png'; then
+            echo "FAIL: credential-shaped literal(s) above (SECRET_IN_SCRIPT). Build test fixtures at runtime."
+            fail=1
+          fi
+
+          # ICON_MISSING: square PNG, 512-2048 px, under 2 MB.
+          python3 - <<'PY' || fail=1
+          import os, struct, sys
+          p = ".claude-plugin/icon.png"
+          if not os.path.isfile(p):
+              sys.exit(f"FAIL: {p} missing (ICON_MISSING)")
+          with open(p, "rb") as fh:
+              head = fh.read(24)
+          if head[:8] != b"\x89PNG\r\n\x1a\n":
+              sys.exit(f"FAIL: {p} is not a PNG")
+          w, h = struct.unpack(">II", head[16:24])
+          size = os.path.getsize(p)
+          if w != h or not 512 <= w <= 2048 or size >= 2 * 1024 * 1024:
+              sys.exit(f"FAIL: {p} is {w}x{h}, {size} bytes; need square 512-2048 px under 2 MB")
+          print(f"icon OK: {w}x{h}, {size} bytes")
+          PY
+
+          exit "$fail"
