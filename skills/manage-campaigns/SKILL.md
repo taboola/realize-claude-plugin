@@ -237,7 +237,7 @@ If the user supplies a budget below the relevant minimum, refuse the submission,
 `create_campaign` with a `campaign_group_id` inherits from the group, and the user cannot see any of it in the fields they gave you. Read the group per `knowledge/campaign-structure.md` → *Reading a campaign group* and carry two things into the preview:
 
 - **Flight dates.** The campaign's dates must fall inside the group's, and **dates you omit are taken from the group**. A "Q4" campaign created into a group whose flight ends 31 Oct will end 31 Oct. Show the inherited dates as explicit lines — `start_date: (from the group) 2026-07-01` — never as blanks.
-- **Budget.** Setting `campaign_group_id` at all makes `spending_limit_model` optional. In a `CUSTOM` group the campaign may still carry its own budget — send the budget fields if that is what the user wants. In a **shared-budget** group you must omit `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely; the API rejects them. Say in the preview that the campaign carries no budget of its own and is paced by the group — a preview with no budget line at all reads as an oversight.
+- **Budget.** Setting `campaign_group_id` at all makes `spending_limit_model` optional. In a `CUSTOM` group the campaign may still carry its own budget — send the budget fields if that is what the user wants. In an **`AUTOMATIC`** (shared-budget) group you must omit `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely; the API rejects them. Say in the preview that the campaign carries no budget of its own and is paced by the group — a preview with no budget line at all reads as an oversight.
 
 ### 2. Render preview and confirm
 

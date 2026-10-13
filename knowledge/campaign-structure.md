@@ -16,7 +16,7 @@ Campaign structure determines how budgets are distributed, how the algorithm opt
 > - On `create_campaign` it places the new campaign in the group. The campaign's dates must fall inside the group's, and omitted dates take the group's.
 > - On `update_campaign` it can only **attach a campaign that is in no group yet**, and only to a group whose `budget_distribution_method` is `CUSTOM`. **Moving a campaign to a different group, or taking it out of one, is not possible through the MCP at all** — that is the genuinely UI-only part.
 >
-> **In a shared-budget group the group owns the budget.** When the group's `budget_distribution_method` reads back as `FULLY_SHARED` or `CPA_BASED_ALLOCATION` (the same two settings the write API names `OPTIMIZE_SCALE` and `OPTIMIZE_PERFORMANCE`), the campaign's `spending_limit`, `spending_limit_model`, `daily_cap` and `daily_ad_delivery_model` are read-only — the API rejects them — so read the group before prescribing a budget change on one of its campaigns — through the **list** form (`get_campaign_groups(account_id=..., search_text="<the group id>")`), because a by-id read is not guaranteed to carry `budget_distribution_method` and an absent field reads as "not shared". `CPA_BASED_ALLOCATION` additionally requires the campaign being written to use `bid_strategy = MAX_CONVERSIONS`.
+> **In an `AUTOMATIC` group the group owns the budget.** `budget_distribution_method` has exactly two values: `CUSTOM` (the default — each campaign keeps its own budget) and `AUTOMATIC` (Taboola allocates the group's budget across its campaigns). In an `AUTOMATIC` group the campaign's `spending_limit`, `spending_limit_model`, `daily_cap` and `daily_ad_delivery_model` are read-only — the API rejects them — so read the group before prescribing a budget change on one of its campaigns, through the **list** form (`get_campaign_groups(account_id=..., search_text="<the group id>")`), because a by-id read is not guaranteed to carry `budget_distribution_method` and an absent field reads as "not shared". `MAX_CONVERSIONS` is the **recommended** bid strategy for an `AUTOMATIC` group's campaigns, not a requirement — never refuse a write over it. (Upstream retired the older `FULLY_SHARED` / `CPA_BASED_ALLOCATION` / `OPTIMIZE_SCALE` / `OPTIMIZE_PERFORMANCE` names on 2026-10-12; anything still using them is stale.)
 
 ### The group sets the conversion goal for campaigns that don't set their own
 
@@ -36,12 +36,13 @@ Every instruction elsewhere that says "read the group" means this procedure. It 
 get_campaign_groups(account_id="<the campaign's owning advertiser>", search_text="<the group id>")
 ```
 
-1. **Use the list form — `search_text` — even when you know the id.** Only the list form asks for the full projection. The `campaign_group_id` parameter returns a thinner one that can omit `conversion_rules` and the budget fields entirely, and an absent field reads as "no goal" or "not shared" — the two wrong answers that matter. This deliberately departs from the tool's own description, which tells you to pass `campaign_group_id`.
+1. **Use the list form — `search_text` — even when you know the id.** Only the list form asks for the full projection. The `campaign_group_id` parameter returns a thinner one that can omit `conversion_rules` and the budget fields entirely, and an absent field reads as "no goal" or "not shared" — the two wrong answers that matter. This deliberately departs from the MCP's own wording, and from **three** tool descriptions at once — `get_campaign`, `list_campaigns` and `get_campaign_groups` all tell you to pass `campaign_group_id`. They are describing the endpoint, not the projection. Do not "correct" this on a later sync without first checking whether the by-id call has started sending `view=FULL`; as of 2026-10-13 it sends no parameters at all.
 2. **Pick the row whose `id` matches.** `search_text` matches group *names* as well as ids, and results come back sorted by id ascending — so the row you want is often not the first. A group named "Q4 778 Retargeting" will out-sort group 778 itself.
 3. **No matching row means unread, not absent.** An empty result is a clean success, not evidence the group has no goal. Say the group could not be read; never resolve past it to the account default as if it were verified.
 4. **Never pass `statuses` here.** It silently drops any group not in the statuses you asked for — including the one you are resolving.
 5. **`account_id` is the advertiser that owns the group**, not a NETWORK or parent account its campaigns were listed through.
 6. **"Has a group" means `campaign_group_id` is a positive number.** `0`, `null`, `""` and an absent key all mean ungrouped, and none of them is an id worth searching for.
+7. **The group's CPA numbers are not the campaign's bid target.** A group carries its own `marketing_objective`, `kpi`, and optionally `kpi_data` — a pair of CPA thresholds ("increase spend below this, cut above that"). Those feed Realize's *recommendations*, and only when the group's `kpi` is CPA. They are not the campaign's Target CPA and must never be reported or used as one.
 
 A `STOPPED` group has been deleted, and deleting a group terminates its campaigns — say that rather than reporting a goal for a campaign that is no longer running.
 
@@ -104,10 +105,10 @@ When budget per campaign would fall below the algo's learning threshold after sp
 
 ### Budget Distributor Behaviour
 
-The Budget Distributor has two shared modes. The default allocates on **reach / scale**, not performance:
+The Budget Distributor is the group's automatic allocation — `budget_distribution_method: AUTOMATIC`, the one alternative to `CUSTOM`. **There is one automatic mode, not two**: upstream retired the separate scale-led and CPA-led methods on 2026-10-12 and describes the surviving one as allocating the group's budget *for the best performance*. The Realize+ Phase-1 behaviour below was observed before that change, so treat it as something to confirm against the account rather than as a second mode:
 
 - A narrow-targeting campaign with great performance may be limited in scale, so the Budget Distributor prioritises broader-targeted campaigns to ensure budget depletion.
-- A second shared mode allocates on **performance (CPA)** instead; selecting it requires the campaign being written to use Maximize Conversions.
+- `MAX_CONVERSIONS` is the **recommended** bid strategy for the campaigns in an `AUTOMATIC` group — recommended by upstream, not enforced, so never refuse or rewrite a campaign write over it.
 
 **Key requirements when using the Budget Distributor:**
 
@@ -282,6 +283,6 @@ Mail meaningfully **lost share** even though absolute $ looks flat. Open web tri
 
 ## Pro Tips
 
-- Campaign Groups with the Budget Distributor are powerful for advertisers testing multiple tactics — remember the default shared mode optimises for reach / scale; CPA-based allocation is the other option. A narrow high-performing campaign may get less budget than a broad lower-performing one.
+- Campaign Groups with the Budget Distributor are powerful for advertisers testing multiple tactics — remember the automatic mode is described upstream as performance-led, while Realize+ Phase 1 was documented as allocating for reach / scale — say which one the account actually shows rather than promising either. A narrow high-performing campaign may get less budget than a broad lower-performing one.
 - When an advertiser wants to "restart" a poorly performing campaign, it is often better to create a fresh campaign. Building a new campaign resets the learning phase and removes historical constraints. Pair it with fresh creatives, new segments, or re-evaluated bidding strategies.
 - Always optimise toward a specific product or funnel per account. Do not mix different products and completely different funnels on the same account.

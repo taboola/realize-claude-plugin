@@ -14,7 +14,7 @@ Required fields on every create call:
 | `name` | string | Internal campaign name. See `knowledge/campaign-structure.md` for grouping + objective rules; no platform-imposed naming convention. |
 | `marketing_objective` | enum | One of: `BRAND_AWARENESS`, `DRIVE_WEBSITE_TRAFFIC`, `LEADS_GENERATION`, `ONLINE_PURCHASES`, `MOBILE_APP_INSTALL`. Locked at create — cannot be changed via `update_campaign`. |
 | `branding_text` | string | Shown publicly under each item. Use the brand name or product line. |
-| `spending_limit_model` | enum | One of `NONE`, `MONTHLY`, `ENTIRE`. Use `NONE` + `daily_cap` + `daily_ad_delivery_model="STRICT"` for a daily cap. Use `MONTHLY` or `ENTIRE` + `spending_limit` for monthly cap / lifetime (flight total). **Required only when `campaign_group_id` is absent.** With a group set it becomes optional in a `CUSTOM` group (send it if the campaign should keep its own budget) and must be **omitted entirely** in a shared-budget one. |
+| `spending_limit_model` | enum | One of `NONE`, `MONTHLY`, `ENTIRE`. Use `NONE` + `daily_cap` + `daily_ad_delivery_model="STRICT"` for a daily cap. Use `MONTHLY` or `ENTIRE` + `spending_limit` for monthly cap / lifetime (flight total). **Required only when `campaign_group_id` is absent.** With a group set it becomes optional in a `CUSTOM` group (send it if the campaign should keep its own budget) and must be **omitted entirely** in an `AUTOMATIC` one. |
 | `bid_strategy` | enum | One of: `MAX_CONVERSIONS`, `TARGET_CPA`, `MAX_VALUE`, `SMART` (= Enhanced CPC in UI), `FIXED`. See Section 4 for the per-strategy field-gate matrix. |
 
 Optional but commonly-set scalars:
@@ -40,17 +40,16 @@ Optional but commonly-set scalars:
 
 A group's `budget_distribution_method` decides who owns the budget, and getting it wrong is a rejected call, not a warning. Read the group before any create-into-group or budget change on a campaign in one.
 
-| Reads back as | Write-API enum | What the campaign may send |
+| `budget_distribution_method` | What it means | What the campaign may send |
 |---|---|---|
-| `CUSTOM` | `CUSTOM` | Its own `spending_limit_model` / `spending_limit` / `daily_cap` / `daily_ad_delivery_model`, as normal. Also the only kind of group `update_campaign` can attach a campaign to. |
-| `FULLY_SHARED` | `OPTIMIZE_SCALE` | **None of those four fields** — the group owns the budget and the API rejects them. |
-| `CPA_BASED_ALLOCATION` | `OPTIMIZE_PERFORMANCE` | **None of those four fields**, and the campaign's `bid_strategy` must be `MAX_CONVERSIONS`. |
+| `CUSTOM` (the default) | Manual — each campaign keeps its own budget; nothing is auto-allocated. | Its own `spending_limit_model` / `spending_limit` / `daily_cap` / `daily_ad_delivery_model`, as normal. Also the only kind of group `update_campaign` can attach a campaign to. |
+| `AUTOMATIC` | Taboola allocates the group's budget across its campaigns. The group needs a limited budget, so a group-level `spending_limit_model` of `NONE` is rejected. | **None of those four fields** — the group owns them and the API rejects them. `MAX_CONVERSIONS` is the **recommended** `bid_strategy` here, not a requirement: do not refuse a write because the campaign uses another strategy. |
 
 **Read the group per `knowledge/campaign-structure.md` → *Reading a campaign group*** — the list form, the matching row, the traps. If `budget_distribution_method` is still absent afterwards, do **not** infer `CUSTOM`: say the group's budget setup could not be confirmed, and do not preview a campaign budget write.
 
-The two columns are the same setting: reads return `FULLY_SHARED` / `CPA_BASED_ALLOCATION`, writes take `OPTIMIZE_SCALE` / `OPTIMIZE_PERFORMANCE`. **You will only ever read these** — the write spellings belong to the campaign-group write tools, which are not enabled here, so never send one. Don't surface either spelling to the user — `os/guardrails.md` has the plain-English phrasing.
+**There are exactly two values, and they read back the way they are written.** Upstream retired the older `FULLY_SHARED` / `CPA_BASED_ALLOCATION` reads and their `OPTIMIZE_SCALE` / `OPTIMIZE_PERFORMANCE` write spellings on 2026-10-12; a doc or a cached answer still naming any of those four is stale. **You will only ever read this field** — setting it belongs to the campaign-group write tools, which are not enabled here. Don't surface the raw value to the user either; `os/guardrails.md` has the plain-English phrasing.
 
-So *"raise the daily budget on campaign 12345"* is not always a campaign-level write: if 12345 sits in a shared-budget group, the budget lives on the group, and that is a change made in the Realize UI rather than here. Say where the budget actually lives and name the UI, rather than attempting a write the API will reject.
+So *"raise the daily budget on campaign 12345"* is not always a campaign-level write: if 12345 sits in an `AUTOMATIC` group, the budget lives on the group, and that is a change made in the Realize UI rather than here. Say where the budget actually lives and name the UI, rather than attempting a write the API will reject.
 
 **Attach is not move.** On `update_campaign`, `campaign_group_id` can only attach a campaign that is currently in **no** group, and only to a `CUSTOM`-budget group. Moving a campaign between groups, or removing it from one, has no MCP tool — that is a UI action. Never present an attach preview for a campaign that already has a `campaign_group_id`.
 

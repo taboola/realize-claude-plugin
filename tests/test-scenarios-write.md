@@ -418,9 +418,9 @@ Guards the stale-capability regression in the flattering direction: `campaign_gr
 
 ---
 
-## W17. Shared-budget group — the budget write that must not fire
+## W17. `AUTOMATIC`-budget group — the budget write that must not fire
 
-**Setup:** a campaign inside a group whose `budget_distribution_method` reads back as `FULLY_SHARED` or `CPA_BASED_ALLOCATION`.
+**Setup:** a campaign inside a group whose `budget_distribution_method` reads back as `AUTOMATIC`.
 
 **User prompt:**
 > "Raise the daily budget on campaign 12345 to $500."
@@ -428,7 +428,7 @@ Guards the stale-capability regression in the flattering direction: `campaign_gr
 **Expected side effects:** none if the scenario passes. The point of the test is that no write is attempted.
 
 **Pass criteria:**
-- Reads the group **through the list form** before building any payload, sees the shared budget, and does **not** send `daily_cap` / `spending_limit` / `spending_limit_model` / `daily_ad_delivery_model` on the campaign — the API rejects all four while the campaign sits in that group.
+- Reads the group **through the list form** before building any payload, sees the group-owned budget, and does **not** send `daily_cap` / `spending_limit` / `spending_limit_model` / `daily_ad_delivery_model` on the campaign — the API rejects all four while the campaign sits in that group.
 - Explains that the budget lives on the Campaign Group, and that changing it is done in the Realize UI. Naming the MCP, a tool, or a skill is a fail.
 - Firing the write and relaying the API error back to the user is a fail — the group read exists precisely to prevent that round trip.
 - Treating an absent `budget_distribution_method` as "not shared" is a fail — that is what a by-id read can hand back.
@@ -438,11 +438,11 @@ Guards the stale-capability regression in the flattering direction: `campaign_gr
 
 ---
 
-## W18. Create a new campaign directly into a shared-budget group
+## W18. Create a new campaign directly into an `AUTOMATIC`-budget group
 
 The mirror of W16, and the direction that is easiest to get wrong in the cautious direction: the `CUSTOM`-only restriction applies to **attaching an existing campaign**, not to creating one. Refusing this is a fail.
 
-**Setup:** a group whose `budget_distribution_method` reads back as `FULLY_SHARED`.
+**Setup:** a group whose `budget_distribution_method` reads back as `AUTOMATIC`.
 
 **User prompt:**
 > "Create a new campaign called Q4 Prospecting inside group 778."
@@ -454,6 +454,6 @@ The mirror of W16, and the direction that is easiest to get wrong in the cautiou
 - Reads the group through the **list** form first (`search_text` = the group id).
 - **Omits `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely** — the group owns the budget and the API rejects all four. Sending `spending_limit_model` "because it's required" is the specific failure to catch; it stops being required once `campaign_group_id` is set.
 - Takes the group's flight dates when the user gives none, and refuses dates falling outside the group's.
-- On a `CPA_BASED_ALLOCATION` group, uses `bid_strategy=MAX_CONVERSIONS`.
+- Does **not** refuse or rewrite the campaign's `bid_strategy`: `MAX_CONVERSIONS` is upstream's *recommendation* for an `AUTOMATIC` group's campaigns, not a requirement. Mentioning it as a suggestion is fine; blocking the create over it is a fail.
 
 **Cleanup:** pause the campaign (`is_active=false`). It cannot be removed from the group here.
