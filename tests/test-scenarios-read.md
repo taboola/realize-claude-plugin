@@ -592,6 +592,17 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 - `account_id` is the advertiser that owns the group. Reusing a NETWORK `account_id` the campaigns were listed through, and then reporting "no group", is a fail.
 - `campaign_group_id` is carried over from the campaign payload unchanged except for being sent as a string — no re-formatting, no padding.
 
+**Part A2 — a grouped campaign that carries its own goal.**
+
+**Setup:** a campaign with a `campaign_group_id` *and* a non-empty `conversion_rules.rules` of its own, differing from the group's.
+
+> "What is campaign 12345 optimizing toward?"
+
+**Pass criteria:**
+- Answers with the **campaign's own** goal and says it came from the campaign. Reporting the group's goal is a fail — the campaign's rules replace the group's, they do not merge.
+- Adds one line that the Realize UI may show the group's goal for this campaign instead, because the campaign-level field is not displayed on a grouped campaign. Omitting it is a fail: the user who checks the screen reads a correct answer as a mistake.
+- Does **not** suggest editing the group's goal to "fix" the discrepancy. The campaign's own goal is the one in effect.
+
 **Part B — no group, or an unreadable one.**
 
 **Setup:** run four variants — (i) a campaign with `conversion_rules.rules` empty and **no** `campaign_group_id`; (ii) one whose group comes back with `conversion_rules: {"rules": []}` — the key present and the array empty; (iii) one whose group read is made against the wrong account, so the group does not come back (whether it errors or returns empty); (iv) one whose group comes back **without a `conversion_rules` key at all** — the thin-projection shape.

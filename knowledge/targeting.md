@@ -31,7 +31,7 @@ When demographic targeting is required and MCP search results don't surface a ma
 
 Gender-specific exact age ranges (e.g., F35-64) may need to be composed from broader buckets (e.g., F25+ + F65- excluding) in the UI.
 
-**Per-account write tools (new conversion rules, CRM segments, lookalike seeds) are not yet on the public Realize MCP.** Create new conversion rules / CRM segments / lookalike seeds in the Realize UI after campaign creation — the public MCP doesn't yet expose write tools for these.
+**Of the per-account writes, only lookalike / predictive seeds have no tool at any level.** Conversion-rule create / update / retire are wired in this plugin and go through the `manage-campaigns` gate. CRM customer-list upload exists upstream (`create_audience`) but is **not enabled here** — say so, rather than that Realize cannot do it. Building a lookalike from a seed has no MCP tool at all and is done in the Realize UI.
 
 ---
 

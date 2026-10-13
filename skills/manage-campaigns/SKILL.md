@@ -183,6 +183,8 @@ Never submit a write tool call before step 5. Never construct payloads from infe
 
 ### 1. Collect inputs
 
+**If the user named a Campaign Group, do step 1b first.** The group decides which budget fields you may even ask for, and asking for one the group owns produces a field you then have to drop — the exact mistake W18 exists to catch.
+
 Use `AskUserQuestion` for any required field the user did not supply. Validate against the enums and rules below before constructing the payload.
 
 **Required fields:**
@@ -192,7 +194,7 @@ Use `AskUserQuestion` for any required field the user did not supply. Validate a
 | `name` | Any text | Internal identifier. |
 | `marketing_objective` | `BRAND_AWARENESS`, `DRIVE_WEBSITE_TRAFFIC`, `LEADS_GENERATION`, `ONLINE_PURCHASES`, `MOBILE_APP_INSTALL` | See enum guidance below. |
 | `branding_text` | Any text | Shown publicly under each item — "site name or product you're promoting". |
-| `spending_limit_model` | `NONE`, `MONTHLY`, `ENTIRE` | If `MONTHLY` or `ENTIRE`, `spending_limit` is also required. Required on create **unless** `campaign_group_id` is set. |
+| `spending_limit_model` | `NONE`, `MONTHLY`, `ENTIRE` | If `MONTHLY` or `ENTIRE`, `spending_limit` is also required. Required on create **unless** `campaign_group_id` is set. In an `AUTOMATIC` group it must be **omitted entirely** — do not ask the user for it. |
 | `bid_strategy` | `SMART`, `FIXED`, `TARGET_CPA`, `MAX_CONVERSIONS`, `MAX_VALUE` | Drives the budget minimums — see below. |
 
 **Common optional scalars:**
@@ -216,7 +218,7 @@ Use `AskUserQuestion` for any required field the user did not supply. Validate a
 
 **Conversion goal on a campaign in a group — a replace, not an add.** Writing `conversion_rules` on a campaign **overrides** every rule it inherits from its Campaign Group; the inherited ones stop applying to it. That changes what the bidder optimizes toward on a live campaign. If the campaign has a `campaign_group_id`, read the group first and put both sets in the preview — inherited now, campaign-only after. And when the user's premise is "this campaign has no conversion goal", check whether it is inheriting one before acting on that.
 
-**Bid Strategy × Budget minimums** (Taboola-published; enforce before submitting). **Exception: a campaign in a Campaign Group that shares its budget carries no budget of its own, so there is nothing to validate — skip the gate rather than blocking the create.** Check the group's budget against the minimum instead, and if it falls short say so as advice about the group, not as a refusal of the campaign.
+**Bid Strategy × Budget minimums** (Taboola-published; enforce before submitting). **Exception: a campaign in a Campaign Group that shares its budget carries no budget of its own, so there is nothing to validate — skip the gate rather than blocking the create.** Check the group's budget against **10× the CPA goal multiplied by the number of campaigns in the group** — the 10× rule is per campaign (`knowledge/budget.md`). If you cannot establish that count, say the group's budget could not be assessed rather than guessing; if it falls short, say so as advice about the group, not as a refusal of the campaign.
 
 | Bid Strategy | Minimum daily budget |
 |---|---|
@@ -248,10 +250,11 @@ About to call create_campaign with:
   name: "<name>"
   marketing_objective: <enum>
   branding_text: "<branding_text>"
-  spending_limit_model: <enum>
+  spending_limit_model: <enum>           # omit in an AUTOMATIC-budget group
   bid_strategy: <enum>
   daily_cap: <amount> <currency>      # if supplied
   cpa_goal: <amount> <currency>       # if supplied
+  start_date / end_date: <date>       # say "(taken from the group)" when inherited
   cpc: <amount> <currency>            # if supplied
   start_date: <YYYY-MM-DD>            # if supplied
   end_date: <YYYY-MM-DD>              # if supplied
@@ -285,6 +288,7 @@ If the user did not explicitly say to launch, set `is_active=false` (or omit, si
 1. Resolve `account_id`, `campaign_id`.
 2. Call `get_campaign` to capture current state.
 3. **If the response carries a `campaign_group_id` that is a positive number** (`0` / `null` / `""` / absent all mean ungrouped — do not search for them), and any field you are about to change is `spending_limit_model` / `spending_limit` / `daily_cap` / `daily_ad_delivery_model`, read the group before previewing anything. Read it per `knowledge/campaign-structure.md` → *Reading a campaign group*. An unread group is **not** an unshared one — if you cannot confirm the budget setup, say so instead of previewing the write. If the group shares its budget across its campaigns, **stop**: those four fields are locked on the campaign and the API rejects them. Say the budget lives on the Campaign Group and name the Realize UI, instead of previewing a write that cannot land. Non-budget scalars (name, bid, tracking code) are unaffected — carry on to step 4.
+3b. **If `campaign_group_id` is one of the fields being changed, it is an attach and nothing else.** `update_campaign` can only put a campaign that is currently in **no** group into a group, and only into a `CUSTOM`-budget one. If the campaign already has a positive `campaign_group_id`, refuse: moving or detaching has no MCP tool at any level and is a Realize UI action. If it is ungrouped, read the target group per `knowledge/campaign-structure.md` → *Reading a campaign group* and refuse if it is `AUTOMATIC`. **The preview must say the attach cannot be undone from here** — once the campaign is in the group it only comes out in the Realize UI, and in an `AUTOMATIC` group it hands over budget control for good. A user confirming an ordinary-looking diff must not discover that afterwards.
 4. Render diff preview:
    ```
    ▶ WRITE TARGET: <account_name> (<account_id>)

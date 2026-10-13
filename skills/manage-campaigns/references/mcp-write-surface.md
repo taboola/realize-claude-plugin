@@ -33,7 +33,7 @@ Optional but commonly-set scalars:
 | `daily_ad_delivery_model` | enum | `BALANCED` (default — smooths spend across the day; forbids `daily_cap`) / `STRICT` (tight daily pacing; **required when `daily_cap` is set**). Matches `skills/manage-campaigns/SKILL.md`. |
 | `traffic_allocation_mode` | enum | Defaults to algorithm-driven. |
 | `pricing_model` | enum | `CPC` (standard) or `VCPM` (Display only — locks campaign as Display at create time). See `knowledge/creative.md` for the two-path Native-vs-Display lock-in rule. |
-| `is_active` | boolean | **Always `false` on initial create.** Flipped to `true` only after the activation gate (see SKILL.md Step 6). |
+| `is_active` | boolean | **Always `false` on initial create.** Flipped to `true` only after the activation gate (see *Create-with-launch flow* in SKILL.md). |
 | `campaign_group_id` | string | Places the new campaign in that group — id from `get_campaign_groups`, sent as a string even though `get_campaign` returns it as a number. **Read the group first:** its dates bound the campaign's (omitted dates take the group's), and how its budget is split decides whether you may send budget fields at all — see the next section. With `campaign_group_id` set, `spending_limit_model` stops being required. |
 
 ### Campaign groups and the budget they own

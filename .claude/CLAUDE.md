@@ -225,7 +225,7 @@ The conversion-rule sync surfaced a failure mode worth naming, because it will r
 So when syncing, grep for the capability by *name* rather than only diffing the tool list:
 
 ```bash
-grep -rniE 'conversion-rule creation|UI-only|does not expose|no MCP tool|not wired|not enabled here|does not wire|no tool at any level' --include='*.md' .
+grep -rniE 'conversion-rule creation|UI-only|does not expose|does ?n.t yet expose|not yet on the public|no MCP tool|not wired|not enabled here|does not wire|no tool at any level' --include='*.md' .
 ```
 
 **The campaign-group release added a second shape of this bug: *exists upstream, deliberately not wired here*.** That is not a stale claim — it is a standing choice — but it decays into one the same way, because the natural shorthand for it is "Realize can't do that", which is false. Three distinct states now have to stay distinct in the docs: **wired** (reading groups; attaching an ungrouped campaign via `campaign_group_id`), **exists upstream but not enabled here** (`create_campaign_group`, `update_campaign_group`), and **no tool at any level** (moving or detaching a campaign). Collapsing the middle one into either neighbour is the failure to watch for. The decision not to wire the two group writes is recorded in `CHANGELOG.md` rather than an issue; treat that entry as the record required by *How to sync with upstream MCP changes* step 4.
