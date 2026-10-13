@@ -509,7 +509,7 @@ One consequence worth catching early: if a campaign sits in a group that **share
 
 Say it is not something this plugin does and name the **Audiences** area of Realize. Never say Realize cannot do it. If the user asked *how* to do it rather than asking you to do it, answer the question — from the knowledge base or the public-documentation fallback — and keep the UI as the named place the work happens. A bare "go to the Audiences area" on a how-to question is the failure, not the answer. Building a predictive audience from a seed is the different case — no tool exists at any level — and it is also done there.
 
-Reading audiences **is** wired (`search_audiences`), and so is pointing a campaign at one: `audiences_targeting` on `create_campaign` / `update_campaign` is a normal gated write this skill performs. Do not redirect that. Capability table and traps: `knowledge/audiences.md`.
+Reading audiences **is** wired (`search_audiences`), and so is pointing a campaign at one: `audiences_targeting` and `lookalike_audience_targeting` on `create_campaign` / `update_campaign` are normal gated writes this skill performs — including targeting an existing predictive audience, which is not the same as building one. Do not redirect that. Capability table and traps: `knowledge/audiences.md`.
 
 ### Tracking setup that stays UI-only
 

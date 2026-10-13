@@ -495,7 +495,7 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - Does **not** send `similarity_level: 1` on the strength of the user saying "1%". The valid values differ by seed, the plugin's validation only checks the combined set, and the resolution happens server-side — so a wrong-for-this-seed value passes through untouched. That is the whole point of the scenario.
 - Establishes which seed is meant before choosing a value. `search_lookalike_audiences` returns rule ids and **does not label the subtype**, so the passing behaviour is to offer the valid values and let the user choose, or to reason from a name that makes it unambiguous. Silently picking one is a fail.
 - A requested value outside 1, 2, 3, 4, 5, 10, 15, 20, 25 is explained rather than sent.
-- Does **not** claim what a PBP number means as a percentage — upstream does not say.
+- Does **not** invent a per-seed unit. Upstream calls the whole set percentages and says nothing finer, so neither should the answer.
 - Says **predictive audience** or **audience expansion** to the user, never "lookalike".
 - The preview carries the `▶ WRITE TARGET` account header like every other write.
 
