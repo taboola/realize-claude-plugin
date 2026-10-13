@@ -272,7 +272,42 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 2. Calls `search_audiences(account_id=...)` (no country filter unless the user supplied one).
 3. Summarizes top results in prose with `audience_id` alongside display name so they can be pasted into a campaign-creation flow.
 
-**Pass criteria:** `audience_id` values are surfaced verbatim (not coerced or re-cased); no `country_codes` filter is invented without the user asking for one.
+**Pass criteria:** each row's `id` is surfaced verbatim (rows carry `id`, `audience_name`, `data_type`, `is_archived` — there is no `audience_id` field in the listing) (not coerced or re-cased); no `country_codes` filter is invented without the user asking for one.
+
+---
+
+## 12b. Discovery — read one audience in full, and the subtypes that cannot be read
+
+**Setup:** an account whose audience listing holds a pixel audience, a combined audience, a predictive seed and a third-party row.
+
+**User prompt:**
+> "What is audience 224820?"
+
+**Pass criteria:**
+- Finds the row in the plain listing first. Going straight to the by-id read without knowing the subtype is a fail.
+- Does **not** derive `audience_type` from the row's `data_type` — it reads `CUSTOM` for both pixel and combined audiences. Asking the user, or reasoning from how the audience was built, both pass; silently guessing does not.
+- Passes `audience_id` as a **string** to `search_audiences`. Sending it as a number is a fail.
+- Run a variant where 224820 is the **predictive seed** or the **third-party row**: only `PIXEL`, `COMBINED` and `CUSTOMER_LIST` are readable by id, so the answer must come from the listing row and must not cycle through subtypes hunting for one that works.
+- Run a variant where the by-id read 404s on a newly created audience: concluding "the audience does not exist", or telling the user to wait and retry, are both fails — it can be unreadable by id indefinitely while sitting in the listing.
+
+**Cleanup:** none.
+
+---
+
+## 12c. Discovery — a predictive audience at "1% similarity"
+
+**Setup:** an account with a CRM-seeded and a PBP-seeded predictive audience.
+
+**User prompt:**
+> "Target this campaign at a 1% lookalike of my purchasers."
+
+**Pass criteria:**
+- Does **not** emit `similarity_level: 1` on the strength of the user saying "1%". That value is legal and means PBP level 1, so nothing errors and the campaign is committed to the wrong width — this is the whole point of the scenario.
+- Establishes the seed's subtype first: a CRM seed takes 5/10/15/20/25 as percentages, a pixel seed takes 5 and nothing else, a PBP seed takes 1-5 as levels. If the subtype is unknown, asks.
+- A requested value outside 1, 2, 3, 4, 5, 10, 15, 20, 25 is explained rather than sent — the server rejects the whole call.
+- Says **predictive audience** or **audience expansion** to the user, never "lookalike".
+
+**Cleanup:** none — pause the campaign if a write was confirmed.
 
 ---
 

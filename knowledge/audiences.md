@@ -2,6 +2,8 @@
 
 What the Realize MCP can read and write about audiences, and the traps that produce confidently wrong answers.
 
+**Audience *strategy* — when to retarget, how wide to go, which segments to reach for — lives in `knowledge/targeting.md`.** This file is the tool surface.
+
 ## What exists, and what this plugin does with it
 
 | Capability | Upstream | Wired here |
@@ -23,7 +25,8 @@ Three different states, and they must not be collapsed into each other. *Not ena
 `search_audiences` has **three modes**, and picking the wrong one returns a plausible, wrong result set.
 
 1. **List** — omit `audience_id`. Every subtype at once (first-party, custom, combined, lookalike, third-party). Each row carries `id`, `audience_name`, `data_type`, `is_archived`. These ids are what `audiences_targeting` takes.
-2. **By id** — `audience_id` **plus** `audience_type`, which routes the lookup. This is the only way to see the writable detail: `condition` / `effects` / `status` on a pixel audience, `combined_audience_components` on a combined one.
+2. **By id** — `audience_id` **plus** `audience_type`, which routes the lookup. This is the only way to see the writable detail: `condition` / `effects` / `status` on a pixel audience, `combined_audience_components` on a combined one. **Only `PIXEL`, `COMBINED` and `CUSTOMER_LIST` are readable this way.** The listing covers five subtypes, so a lookalike or third-party row has *no* `audience_type` that will fetch it — its listing row is all there is.
+   **Choosing `audience_type` is not something the data tells you.** `data_type` cannot do it (below), and a 404 does not identify the right one either, so there is no rule to derive it. Use what is known about how the audience was built — a CRM upload is `CUSTOMER_LIST`, a rule built on pixel events is `PIXEL`, one assembled from other audiences is `COMBINED` — and otherwise **ask the user**. If you must probe, try `PIXEL` then `COMBINED` then `CUSTOMER_LIST`, and read all three failing as *not readable by id right now*, never as *the audience does not exist*.
 3. **Combinable** — `combinable=true` lists what may go *inside* a combined audience. This is a **different population**, dominated by third-party marketplace segments, and it contains only some of the account's own audiences. Only `audience_id` and `search_text` apply; `audience_type` and the country filters are **refused**, not ignored.
 
 There is no `query` parameter on this tool, or on `search_lookalike_audiences`.
@@ -31,9 +34,9 @@ There is no `query` parameter on this tool, or on `search_lookalike_audiences`.
 ### The traps
 
 - **`data_type` is not `audience_type`.** The listing reports `data_type: CUSTOM` for **both** pixel audiences and combined ones, so it cannot tell them apart and must never be used to choose `audience_type`.
-- **A 404 by id does not mean you guessed the wrong subtype.** A newly created audience is often unreadable by its own id for a while — observed at twelve minutes and not known to recover on its own — while appearing in the plain listing immediately. An **archived** audience stops being readable by id altogether. Confirm from the listing rather than retrying with a different subtype.
-- **`"Udd with id N doesn't exist"`** on an id that the ordinary listing returned means the id has no segment behind it yet — typical of one created moments earlier. Fall back to `combinable=true`, remembering it is a different population, not a membership test.
-- **Archiving is the only retirement, and the listing keeps showing it** with `is_archived` true. That is where to confirm an archive, since the by-id read stops working.
+- **A 404 by id does not mean you guessed the wrong subtype.** A newly created audience is often not readable by its own id **at all** — observed still unreadable after twelve minutes, and not known to recover on its own — while appearing in the plain listing immediately. Twelve minutes is a floor, not a wait: do not tell the user to retry later. An **archived** audience stops being readable by id altogether. Confirm from the listing rather than retrying with a different subtype.
+- **`"Udd with id N doesn't exist"`** comes from using a listed id *inside a combined audience* and means the id has no segment behind it yet — typical of one created moments earlier. The fallback is the combinable listing, remembering it is a different population, not a membership test.
+- **Archiving is the only retirement, and the listing keeps showing it** with `is_archived` true. That is where to confirm an archive, since the by-id read stops working. Archiving is itself a write this plugin does not perform — it happens in the **Audiences** area of Realize.
 
 ## Targeting a campaign at an audience
 
@@ -46,8 +49,12 @@ The envelope is the part that gets written wrong:
 ]}
 ```
 
-`state` is **`ALL` or `EXISTS`** — never `INCLUDE` or `EXCLUDE`, which are the inner `type`. `{"state": "ALL", "value": []}` clears the block. The `lookalike_audience_targeting` block takes `{rule_id, similarity_level}` objects instead of bare ids, is INCLUDE-only, and allows one outer block. Those are wire names: to the user these are **predictive audiences / audience expansion**, never "lookalikes" — see the naming table in `os/guardrails.md`.
+`state` is **`ALL` or `EXISTS`** — never `INCLUDE` or `EXCLUDE`, which are the inner `type`. `{"state": "ALL", "value": []}` clears the block; `state: "ALL"` with a non-empty `value` is rejected outright. Audience ids are **integers inside the payload**, even though `search_audiences` takes `audience_id` as a string.
+
+The `lookalike_audience_targeting` block takes `{rule_id, similarity_level}` objects instead of bare ids, is INCLUDE-only, and allows one outer block. **`similarity_level` is a closed set — 1, 2, 3, 4, 5, 10, 15, 20, 25 — and it does not mean the same thing for every seed:** a CRM seed takes 5/10/15/20/25 and those are percentages; a pixel seed takes 5 and nothing else; a PBP seed takes 1–5 and those are *levels*, not percentages. Anything outside the set is rejected before the call leaves the server. **The dangerous case is the one that is accepted:** a user asking for "a 1% lookalike" — the vocabulary they bring from other platforms — must never be turned into `similarity_level: 1`, which is legal, means PBP level 1, and silently commits the campaign to the wrong audience width. Check the seed's subtype first, and if it is not known, ask. Those are wire names: to the user these are **predictive audiences / audience expansion**, never "lookalikes" — see the naming table in `os/guardrails.md`.
 
 ## Where the capability boundary actually sits
 
-Lookalike creation is the one worth stating carefully, because upstream's own prose contradicts its enum in two places. The enum is the truth: a customer list can only be uploaded for **targeting or suppression**, and a lookalike built from it is not reachable here. Upstream is blunt about why it is excluded rather than merely missing — a lookalike authored directly is accepted, then filtered out of every listing and reads back 403. It succeeds and is invisible. Do not look for a way to do it; send the user to the Realize UI.
+Predictive / lookalike creation is the one worth stating carefully, because upstream's own prose contradicts its enum — including in one tool description a caller can read. **The enum is the truth**, and it is enforced twice over, in the schema and again in the handler before the file is even fetched: `crm_targeting_type` is `TARGETING_SUPPRESSION` and nothing else, so a customer list can be uploaded only to target or suppress the people in it. Building a predictive audience from that seed is refused outright.
+
+A separate path fails far more quietly. A lookalike-subtype rule authored directly through the pixel route **is accepted** — and is then filtered out of every listing and reads back 403. It succeeds and is invisible, which is worse than an error. Neither path is a way in. Predictive audiences are built in the **Audiences** area of Realize; say that, and call them *predictive audiences* or *audience expansion* to the user, never "lookalikes".

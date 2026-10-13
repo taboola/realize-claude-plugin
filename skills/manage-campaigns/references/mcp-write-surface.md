@@ -83,8 +83,8 @@ All optional; populate where the request specifies. Item-level targeting does no
 | Field | Shape | Resolver |
 |---|---|---|
 | `audiences_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int IDs]}]}` — **`state` is `ALL` or `EXISTS`, never `INCLUDE`/`EXCLUDE`; those are the inner `type`.** `{state: "ALL", value: []}` clears the block. | `search_audiences` (account-resident, e.g. pixel-built segments, CRM uploads) |
-| `contextual_segments_targeting` | `{state, value: [{type, value: [int IDs]}]}` | `search_contextual_segments` (network-wide marketplace catalogue — demographics, interests, 3P data partners) |
-| `lookalike_audience_targeting` | `{state, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}` | `search_lookalike_audiences` (account-resident lookalike seeds) |
+| `contextual_segments_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int IDs]}]}` | `search_contextual_segments` (network-wide marketplace catalogue — demographics, interests, 3P data partners) |
+| `lookalike_audience_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}` — INCLUDE-only, one outer block. **`similarity_level` ∈ 1, 2, 3, 4, 5, 10, 15, 20, 25 and means different things per seed** (CRM 5/10/15/20/25 = percent; pixel 5 only; PBP 1-5 = a level). A user's "1% lookalike" must not become `similarity_level: 1` — that is legal and means something else. See `knowledge/audiences.md`. | `search_lookalike_audiences` (account-resident predictive seeds) |
 
 ### Supply / placement
 
