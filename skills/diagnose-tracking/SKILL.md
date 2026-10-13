@@ -89,7 +89,7 @@ unbounded redirect chains on a user-supplied URL); keep them.
 > answering, which strips every `<script>` tag — tested live (2026-08-22): a page whose raw HTML carried
 > 11 script tags came back through WebFetch with zero code visible. A WebFetch-based static check reports
 > "no pixel" on every site. Raw download + Grep is the only correct mechanic. (This raw download is not
-> the banned Realize-API curl — see `CLAUDE.md`, *No direct curl*; the ban is on API endpoints, and this
+> the banned Realize-API curl; that ban is on API endpoints, and this
 > fetch is scoped to the user's page under diagnosis, nothing else.)
 
 Two findings from live testing that shape how the download result is read:
