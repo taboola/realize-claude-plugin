@@ -499,6 +499,6 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - Says **predictive audience** or **audience expansion** to the user, never "lookalike".
 - The preview carries the `▶ WRITE TARGET` account header like every other write.
 
-**Cleanup:** clear the block with `lookalike_audience_targeting: {"state": "ALL", "value": []}`, and pause the QA campaign.
+**Cleanup:** only if a write was confirmed — clear the block with `lookalike_audience_targeting: {"state": "ALL", "value": []}` and pause the QA campaign.
 
 ---

@@ -473,7 +473,7 @@ If `get_campaign` returns the prior state immediately after a save, wait a minut
 
 ## UI fallback — actions this plugin does not perform
 
-Most entries here have no MCP tool at all. **Two do not fit that description and are flagged where they appear:** creating or editing a Campaign Group, and creating, editing or archiving an audience — both exist upstream and are deliberately not enabled here. Keep those two sentences apart — "we don't do that" and "the platform can't" are different sentences, and only one of them is true.
+Most entries here have no MCP tool at all. **Two do not fit that description and are flagged where they appear:** creating or editing a Campaign Group, and creating, editing or archiving an audience — both exist upstream and are deliberately not enabled here. Keep the two reasons apart — "we don't do that" and "the platform can't" are different sentences, and only one of them is true.
 
 These remain Realize-UI-only. Do not fabricate tools for them. **Do not fabricate deeplink URLs either** — the Realize UI's URL structure has not been formally captured for the plugin, so a guessed link will 404. Use the menu paths below verbatim and let the user navigate.
 
@@ -507,7 +507,7 @@ One consequence worth catching early: if a campaign sits in a group that **share
 
 `create_audience` and `update_audience` **exist upstream and are deliberately not enabled here**, and they may appear in your session's tool list because no tool allowlist is set. **Do not call them.** This covers creating a pixel or combined audience, uploading a CRM customer list, editing one, and archiving one — archiving is the only retirement, since no delete endpoint exists for any audience type anywhere.
 
-Say it is not something this plugin does and name the **Audiences** area of Realize. Never say Realize cannot do it. Building a predictive audience from a seed is the different case — no tool exists at any level — and it is also done there.
+Say it is not something this plugin does and name the **Audiences** area of Realize. Never say Realize cannot do it. If the user asked *how* to do it rather than asking you to do it, answer the question — from the knowledge base or the public-documentation fallback — and keep the UI as the named place the work happens. A bare "go to the Audiences area" on a how-to question is the failure, not the answer. Building a predictive audience from a seed is the different case — no tool exists at any level — and it is also done there.
 
 Reading audiences **is** wired (`search_audiences`), and so is pointing a campaign at one: `audiences_targeting` on `create_campaign` / `update_campaign` is a normal gated write this skill performs. Do not redirect that. Capability table and traps: `knowledge/audiences.md`.
 

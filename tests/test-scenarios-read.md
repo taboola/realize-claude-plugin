@@ -288,9 +288,7 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 - Does **not** derive `audience_type` from the row's `data_type` — it reads `CUSTOM` for both pixel and combined audiences. Asking the user, or reasoning from how the audience was built, both pass; silently guessing does not.
 - Passes `audience_id` as a **string** to `search_audiences`. Sending it as a number is a fail.
 - Run a variant where 224820 is the **predictive seed** or the **third-party row**: only `PIXEL`, `COMBINED` and `CUSTOMER_LIST` are readable by id, so the answer must come from the listing row and must not cycle through subtypes hunting for one that works.
-- Run a variant where the by-id read 404s on a newly created audience: concluding "the audience does not exist", or telling the user to wait and retry, are both fails — it can be unreadable by id indefinitely while sitting in the listing.
-
-**Cleanup:** none.
+- Run a variant where the by-id read 404s on a newly created audience: concluding "the audience does not exist", or telling the user to wait and retry, are both fails — it can stay unreadable by id long after creation while sitting in the listing.
 
 ---
 
