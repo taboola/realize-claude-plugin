@@ -82,9 +82,9 @@ All optional; populate where the request specifies. Item-level targeting does no
 
 | Field | Shape | Resolver |
 |---|---|---|
-| `audiences_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int IDs]}]}` — **`state` is `ALL` or `EXISTS`, never `INCLUDE`/`EXCLUDE`; those are the inner `type`.** `{state: "ALL", value: []}` clears the block. | `search_audiences` (account-resident, e.g. pixel-built segments, CRM uploads) |
+| `audiences_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int IDs]}]}` — **`state` is `ALL` or `EXISTS`, never `INCLUDE`/`EXCLUDE`; those are the inner `type`.** `{state: "ALL", value: []}` clears the block; ids are integers here. | `search_audiences` — every audience on the account, across all subtypes (see `knowledge/audiences.md`) |
 | `contextual_segments_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int IDs]}]}` | `search_contextual_segments` (network-wide marketplace catalogue — demographics, interests, 3P data partners) |
-| `lookalike_audience_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}` — INCLUDE-only, one outer block. **`similarity_level` ∈ 1, 2, 3, 4, 5, 10, 15, 20, 25 and means different things per seed** (CRM 5/10/15/20/25 = percent; pixel 5 only; PBP 1-5 = a level). A user's "1% lookalike" must not become `similarity_level: 1` — that is legal and means something else. See `knowledge/audiences.md`. | `search_lookalike_audiences` (account-resident predictive seeds) |
+| `lookalike_audience_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}` — INCLUDE-only, one outer block. **`similarity_level` ∈ 1, 2, 3, 4, 5, 10, 15, 20, 25, and the valid values differ by seed** (CRM 5/10/15/20/25, which upstream calls percentages; pixel 5 only; PBP 1-5, unit not stated upstream). Validation here checks only the combined set, so a wrong-for-this-seed value passes through — never turn a user's "1% lookalike" into `similarity_level: 1` without establishing the seed. See `knowledge/audiences.md`. | `search_lookalike_audiences` (account-resident predictive seeds) |
 
 ### Supply / placement
 
@@ -227,7 +227,7 @@ The canonical matrix lives in `knowledge/bidding.md` ("Bid Levers — What's Pos
 |---|---|---|
 | `search_accounts(query, page, page_size)` | Account list with opaque `account_id` strings | Resolve account first. `page_size` hard cap = 10. |
 | `search_geos(dimension, query)` | Geo entities | Country / region / DMA / city / postal codes. Pick one dimension per call. |
-| `search_audiences(account_id, audience_id?, audience_type?, combinable?, search_text?, country_codes?, country_targeting_type?)` | Account-resident custom audiences | Pixel-built segments, CRM uploads, saved combined audiences. **There is no `query` parameter.** See `knowledge/audiences.md` for the three modes and the traps. |
+| `search_audiences(account_id, audience_id?, audience_type?, combinable?, search_text?, country_codes?, country_targeting_type?)` | Every audience on the account, across all subtypes | Pixel-built segments, CRM uploads, saved combined audiences. **There is no `query` parameter.** See `knowledge/audiences.md` for the three modes and the traps. |
 | `search_lookalike_audiences(account_id, country_code?)` | Account-resident lookalike seeds | Pixel-based predictive, CRM lookalike, etc. `country_code` is a single ISO-2 code. **There is no `query` parameter**, and seeds are built in the Realize UI — no MCP tool creates one. |
 | `search_contextual_segments(query)` | Network-wide marketplace catalogue | Demographics, interests, 3P data partner segments. NEVER expected empty for a US-targeted campaign. |
 | `search_publishers(query)` | Publisher list | Allow / block list resolution. |

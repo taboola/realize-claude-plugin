@@ -6,17 +6,23 @@ What the Realize MCP can read and write about audiences, and the traps that prod
 
 ## What exists, and what this plugin does with it
 
-| Capability | Upstream | Wired here |
+| Capability | Upstream tool | Wired here |
 |---|---|---|
 | List / read audiences | `search_audiences` | Yes |
-| Lookalike seeds available for targeting | `search_lookalike_audiences` | Yes (read-only discovery) |
+| Predictive seeds available for targeting | `search_lookalike_audiences` | Yes — read-only discovery |
 | Contextual segments | `search_contextual_segments` | Yes |
-| Create a pixel, combined or CRM audience | `create_audience` | **No — deliberately not enabled** |
-| Edit or archive an audience | `update_audience` | **No — deliberately not enabled** |
-| Build a lookalike / predictive audience from a seed | — | **No tool at any level** |
-| Delete an audience | — | **No endpoint exists anywhere** |
+| Point a campaign at an audience | `audiences_targeting` on the campaign writes | Yes — a normal gated write |
+| Create a pixel, combined or CRM audience | `create_audience` | **No — exists upstream, deliberately not enabled** |
+| Edit or archive an audience | `update_audience` | **No — exists upstream, deliberately not enabled** |
 
-Three different states, and they must not be collapsed into each other. *Not enabled here* is a decision this plugin made; say so, and never say Realize cannot do it. *No tool at any level* is a platform fact. *No endpoint exists* means not even the UI deletes — archiving is the only retirement, and it reverses.
+And two facts about the platform rather than about this plugin:
+
+| Capability | Upstream |
+|---|---|
+| Build a predictive / lookalike audience from a seed | **No tool at any level** |
+| Delete an audience | **No endpoint exists anywhere, not even in the UI** |
+
+Three different states, and they must not be collapsed into each other. *Not enabled here* is a decision this plugin made; say so, and never say Realize cannot do it. *No tool at any level* is a platform fact. *No endpoint exists* means not even the UI deletes — archiving is the only retirement. Upstream documents archiving as reversible for a pixel audience and says nothing either way for the others, so do not promise it reverses.
 
 `create_audience` and `update_audience` may appear in the session's tool list, because no tool allowlist is set. Do not call them. A CRM upload puts customer records on the wire, so enabling it is a reviewed decision rather than something to infer from the tool being reachable.
 
@@ -26,7 +32,7 @@ Three different states, and they must not be collapsed into each other. *Not ena
 
 1. **List** — omit `audience_id`. Every subtype at once (first-party, custom, combined, lookalike, third-party). Each row carries `id`, `audience_name`, `data_type`, `is_archived`. These ids are what `audiences_targeting` takes.
 2. **By id** — `audience_id` **plus** `audience_type`, which routes the lookup. This is the only way to see the writable detail: `condition` / `effects` / `status` on a pixel audience, `combined_audience_components` on a combined one. **Only `PIXEL`, `COMBINED` and `CUSTOMER_LIST` are readable this way.** The listing covers five subtypes, so a lookalike or third-party row has *no* `audience_type` that will fetch it — its listing row is all there is.
-   **Choosing `audience_type` is not something the data tells you.** `data_type` cannot do it (below), and a 404 does not identify the right one either, so there is no rule to derive it. Use what is known about how the audience was built — a CRM upload is `CUSTOMER_LIST`, a rule built on pixel events is `PIXEL`, one assembled from other audiences is `COMBINED` — and otherwise **ask the user**. If you must probe, try `PIXEL` then `COMBINED` then `CUSTOMER_LIST`, and read all three failing as *not readable by id right now*, never as *the audience does not exist*.
+   **Choosing `audience_type` is not something the data tells you.** `data_type` cannot do it (below), and a 404 does not identify the right one either, so there is no rule to derive it. Use what is known about how the audience was built — a CRM upload is `CUSTOMER_LIST`, a rule built on pixel events is `PIXEL`, one assembled from other audiences is `COMBINED` — and otherwise **ask the user**.
 3. **Combinable** — `combinable=true` lists what may go *inside* a combined audience. This is a **different population**, dominated by third-party marketplace segments, and it contains only some of the account's own audiences. Only `audience_id` and `search_text` apply; `audience_type` and the country filters are **refused**, not ignored.
 
 There is no `query` parameter on this tool, or on `search_lookalike_audiences`.
@@ -51,10 +57,12 @@ The envelope is the part that gets written wrong:
 
 `state` is **`ALL` or `EXISTS`** — never `INCLUDE` or `EXCLUDE`, which are the inner `type`. `{"state": "ALL", "value": []}` clears the block; `state: "ALL"` with a non-empty `value` is rejected outright. Audience ids are **integers inside the payload**, even though `search_audiences` takes `audience_id` as a string.
 
-The `lookalike_audience_targeting` block takes `{rule_id, similarity_level}` objects instead of bare ids, is INCLUDE-only, and allows one outer block. **`similarity_level` is a closed set — 1, 2, 3, 4, 5, 10, 15, 20, 25 — and it does not mean the same thing for every seed:** a CRM seed takes 5/10/15/20/25 and those are percentages; a pixel seed takes 5 and nothing else; a PBP seed takes 1–5 and those are *levels*, not percentages. Anything outside the set is rejected before the call leaves the server. **The dangerous case is the one that is accepted:** a user asking for "a 1% lookalike" — the vocabulary they bring from other platforms — must never be turned into `similarity_level: 1`, which is legal, means PBP level 1, and silently commits the campaign to the wrong audience width. Check the seed's subtype first, and if it is not known, ask. Those are wire names: to the user these are **predictive audiences / audience expansion**, never "lookalikes" — see the naming table in `os/guardrails.md`.
+The `lookalike_audience_targeting` block takes `{rule_id, similarity_level}` objects instead of bare ids, is INCLUDE-only, and allows one outer block. **`similarity_level` is a closed set — 1, 2, 3, 4, 5, 10, 15, 20, 25 — and the valid values differ by seed:** a CRM seed takes 5/10/15/20/25, which upstream describes as percentages; a pixel seed takes 5 and nothing else; a PBP seed takes 1-5. **Upstream does not state what the PBP numbers mean**, so do not translate a user's percentage onto them.
+
+This plugin's validation checks only membership of the combined set; the seed-specific resolution happens server-side. So a value that is wrong *for that seed* passes validation here untouched — nothing in this plugin will stop it, and what the Realize backend then does with it is not documented. That is why a user asking for "a 1% lookalike", the vocabulary they bring from other platforms, must not simply become `similarity_level: 1`. **The listing does not label a seed's subtype** — `search_lookalike_audiences` returns rule ids, not types — so unless the user or the audience's own name makes it unambiguous, offer the valid values and let them choose rather than picking one. Those are wire names: to the user these are **predictive audiences / audience expansion**, never "lookalikes" — see the naming table in `os/guardrails.md`.
 
 ## Where the capability boundary actually sits
 
-Predictive / lookalike creation is the one worth stating carefully, because upstream's own prose contradicts its enum — including in one tool description a caller can read. **The enum is the truth**, and it is enforced twice over, in the schema and again in the handler before the file is even fetched: `crm_targeting_type` is `TARGETING_SUPPRESSION` and nothing else, so a customer list can be uploaded only to target or suppress the people in it. Building a predictive audience from that seed is refused outright.
+Predictive / lookalike creation is the one worth stating carefully, because upstream's own prose contradicts its enum — including in one tool description a caller can read. **The enum is the truth**, and the handler enforces it before the file is even fetched (upstream notes that its schema enums are advisory on their own): `crm_targeting_type` is `TARGETING_SUPPRESSION` and nothing else, so a customer list can be uploaded only to target or suppress the people in it. Building a predictive audience from that seed is refused outright.
 
 A separate path fails far more quietly. A lookalike-subtype rule authored directly through the pixel route **is accepted** — and is then filtered out of every listing and reads back 403. It succeeds and is invisible, which is worse than an error. Neither path is a way in. Predictive audiences are built in the **Audiences** area of Realize; say that, and call them *predictive audiences* or *audience expansion* to the user, never "lookalikes".

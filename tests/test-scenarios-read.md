@@ -294,23 +294,6 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 
 ---
 
-## 12c. Discovery — a predictive audience at "1% similarity"
-
-**Setup:** an account with a CRM-seeded and a PBP-seeded predictive audience.
-
-**User prompt:**
-> "Target this campaign at a 1% lookalike of my purchasers."
-
-**Pass criteria:**
-- Does **not** emit `similarity_level: 1` on the strength of the user saying "1%". That value is legal and means PBP level 1, so nothing errors and the campaign is committed to the wrong width — this is the whole point of the scenario.
-- Establishes the seed's subtype first: a CRM seed takes 5/10/15/20/25 as percentages, a pixel seed takes 5 and nothing else, a PBP seed takes 1-5 as levels. If the subtype is unknown, asks.
-- A requested value outside 1, 2, 3, 4, 5, 10, 15, 20, 25 is explained rather than sent — the server rejects the whole call.
-- Says **predictive audience** or **audience expansion** to the user, never "lookalike".
-
-**Cleanup:** none — pause the campaign if a write was confirmed.
-
----
-
 ## 13. Discovery — DMAs in a country
 
 **User prompt:**

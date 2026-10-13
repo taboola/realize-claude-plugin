@@ -466,7 +466,7 @@ If `get_campaign` returns the prior state immediately after a save, wait a minut
 
 ## UI fallback — actions this plugin does not perform
 
-Most entries here have no MCP tool at all. **Two do not fit that description and are flagged where they appear:** creating or editing a Campaign Group, and creating, editing or archiving an audience — both exist upstream and are deliberately not enabled here. Keep the two apart — "we don't do that" and "the platform can't" are different sentences, and only one of them is true.
+Most entries here have no MCP tool at all. **Two do not fit that description and are flagged where they appear:** creating or editing a Campaign Group, and creating, editing or archiving an audience — both exist upstream and are deliberately not enabled here. Keep those two sentences apart — "we don't do that" and "the platform can't" are different sentences, and only one of them is true.
 
 These remain Realize-UI-only. Do not fabricate tools for them. **Do not fabricate deeplink URLs either** — the Realize UI's URL structure has not been formally captured for the plugin, so a guessed link will 404. Use the menu paths below verbatim and let the user navigate.
 

@@ -37,7 +37,7 @@ Send the same targeting / bidding fields you would send to `create_campaign`. Th
 | `platform_targeting` | `{type: INCLUDE\|EXCLUDE\|ALL, value: [DESK\|PHON\|TBLT\|TV\|OTHR\|NA]}`. |
 | `audiences_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int]}]}`. IDs from `search_audiences`. Envelope and traps: `knowledge/audiences.md`. |
 | `contextual_segments_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int]}]}`. IDs from `search_contextual_segments`. |
-| `lookalike_audience_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}`. IDs from `search_lookalike_audiences`; `similarity_level` is a closed set — see `knowledge/audiences.md`. |
+| `lookalike_audience_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}`. IDs from `search_lookalike_audiences`; `similarity_level` is a closed set — see `knowledge/audiences.md`. **The estimator is pass-through and validates none of these blocks**; the campaign write does, so a payload the estimator accepts can still be rejected on write. |
 | `pricing_model` | `"CPC"` or `"VCPM"`. CPC is the standard path; VCPM is the alternate pricing model used for Display campaigns priced on viewable-impression cost. |
 | `bid_strategy` | `"FIXED"` is required when `pricing_model="VCPM"`. |
 | `cpc` | The bid. With `VCPM` this is the per-1000-viewable-impression rate, NOT a click bid. |
