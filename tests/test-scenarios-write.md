@@ -393,3 +393,67 @@ Covers the `diagnose-tracking` → `manage-campaigns` handoff. The diagnosis ski
 - A diagnosis that re-enables the rule without the gate is an automatic fail — the worst outcome this scenario exists to catch.
 
 **Cleanup:** retire the rule again (`status: DISABLED`) if the test account should stay as it was.
+
+---
+
+## W16. Put an ungrouped campaign into a campaign group
+
+Guards the stale-capability regression in the flattering direction: `campaign_group_id` is a parameter on `create_campaign` and `update_campaign`, so refusing this as UI-only is a fail.
+
+**Setup:** a campaign with **no** `campaign_group_id`, and a group on the same advertiser account whose campaigns keep their own budgets (`budget_distribution_method` reads back as `CUSTOM`).
+
+**User prompt:**
+> "Put campaign 12345 into group 778."
+
+**Expected side effects:** the campaign is attached to the group. **This is effectively permanent — there is no detach or move tool**, so run it only on a campaign you are willing to leave grouped.
+
+**Pass criteria:**
+- Routes to `manage-campaigns` with the preview-then-confirm gate and the `▶ WRITE TARGET` account header. Refusing it as UI-only is a fail.
+- **Reads the group before previewing** — through the list form, since a by-id read may not carry the budget setting — because its budget split decides whether the campaign may carry its own budget at all.
+- The preview says plainly that this cannot be undone here — once the campaign is in the group it cannot be moved or taken out again except in the Realize UI. Naming the MCP, a tool, or a skill is a fail, same as W17.
+- `campaign_group_id` is sent as a string, carried over unchanged from the group listing.
+- Attempting it on a campaign that **already** has a `campaign_group_id` must be refused as a move, not previewed as an attach.
+
+**Cleanup:** not possible here by design — detaching is a Realize UI action. Note it in the test log rather than leaving it implied.
+
+---
+
+## W17. Shared-budget group — the budget write that must not fire
+
+**Setup:** a campaign inside a group whose `budget_distribution_method` reads back as `FULLY_SHARED` or `CPA_BASED_ALLOCATION`.
+
+**User prompt:**
+> "Raise the daily budget on campaign 12345 to $500."
+
+**Expected side effects:** none if the scenario passes. The point of the test is that no write is attempted.
+
+**Pass criteria:**
+- Reads the group **through the list form** before building any payload, sees the shared budget, and does **not** send `daily_cap` / `spending_limit` / `spending_limit_model` / `daily_ad_delivery_model` on the campaign — the API rejects all four while the campaign sits in that group.
+- Explains that the budget lives on the Campaign Group, and that changing it is done in the Realize UI. Naming the MCP, a tool, or a skill is a fail.
+- Firing the write and relaying the API error back to the user is a fail — the group read exists precisely to prevent that round trip.
+- Treating an absent `budget_distribution_method` as "not shared" is a fail — that is what a by-id read can hand back.
+- The same applies when the budget raise is reached through `optimize-campaign` P5 Exception A: the guard's budget prescription must stop at the same check.
+
+**Cleanup:** none.
+
+---
+
+## W18. Create a new campaign directly into a shared-budget group
+
+The mirror of W16, and the direction that is easiest to get wrong in the cautious direction: the `CUSTOM`-only restriction applies to **attaching an existing campaign**, not to creating one. Refusing this is a fail.
+
+**Setup:** a group whose `budget_distribution_method` reads back as `FULLY_SHARED`.
+
+**User prompt:**
+> "Create a new campaign called Q4 Prospecting inside group 778."
+
+**Expected side effects:** a new campaign exists in the group, PAUSED. Attaching is one-way — it cannot be taken out again except in the Realize UI.
+
+**Pass criteria:**
+- **Proceeds.** Refusing because the group is not `CUSTOM` is a fail — that restriction governs attaching an existing campaign, not creating a new one.
+- Reads the group through the **list** form first (`search_text` = the group id).
+- **Omits `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely** — the group owns the budget and the API rejects all four. Sending `spending_limit_model` "because it's required" is the specific failure to catch; it stops being required once `campaign_group_id` is set.
+- Takes the group's flight dates when the user gives none, and refuses dates falling outside the group's.
+- On a `CPA_BASED_ALLOCATION` group, uses `bid_strategy=MAX_CONVERSIONS`.
+
+**Cleanup:** pause the campaign (`is_active=false`). It cannot be removed from the group here.

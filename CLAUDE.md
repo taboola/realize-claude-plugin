@@ -18,7 +18,9 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
 └──────────┬──────────┘
            │
            ├──► accounts skill        → search_accounts
-           ├──► campaigns skill       → list_campaigns, get_campaign, list_items, get_item
+           ├──► campaigns skill       → list_campaigns, get_campaign, list_items, get_item,
+           │                            get_campaign_groups (read-only; the group is the
+           │                            middle step in the conversion-goal chain)
            ├──► discovery skill       → search_geos, search_techno, search_audiences,
            │                            search_lookalike_audiences, search_contextual_segments,
            │                            search_publishers, get_conversion_rules,
@@ -44,8 +46,9 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                             create_conversion_rule, update_conversion_rule.
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
-           │                             UI fallback for delete/duplicate/bulk ops
-           │                             and pixel install / test-fire.
+           │                             UI fallback for delete/duplicate/bulk ops,
+           │                             pixel install / test-fire, and campaign-group
+           │                             create/edit/move.
            │
            ├──► support skill  → NO MCP tools. Reads the local Claude Code
            │                             session transcript and renders one Markdown
@@ -62,7 +65,7 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
                      ▼
 ┌────────────────────────────────────────┐
 │ Realize MCP (https://mcp.realize.com)  │
-│  OAuth 2.1, 19 read + 8 write tools    │
+│  OAuth 2.1, 20 read + 8 write tools    │
 │  wired here. Writes routed exclusively │
 │  through the manage-campaigns skill.   │
 └────────────────────────────────────────┘
@@ -200,8 +203,10 @@ The conversion-rule sync surfaced a failure mode worth naming, because it will r
 So when syncing, grep for the capability by *name* rather than only diffing the tool list:
 
 ```bash
-grep -rniE 'conversion-rule creation|UI-only|does not expose|no MCP tool' --include='*.md' .
+grep -rniE 'conversion-rule creation|UI-only|does not expose|no MCP tool|not wired|not enabled here|does not wire|no tool at any level' --include='*.md' .
 ```
+
+**The campaign-group release added a second shape of this bug: *exists upstream, deliberately not wired here*.** That is not a stale claim — it is a standing choice — but it decays into one the same way, because the natural shorthand for it is "Realize can't do that", which is false. Three distinct states now have to stay distinct in the docs: **wired** (reading groups; attaching an ungrouped campaign via `campaign_group_id`), **exists upstream but not enabled here** (`create_campaign_group`, `update_campaign_group`), and **no tool at any level** (moving or detaching a campaign). Collapsing the middle one into either neighbour is the failure to watch for. The decision not to wire the two group writes is recorded in `CHANGELOG.md` rather than an issue; treat that entry as the record required by *How to sync with upstream MCP changes* step 4.
 
 Also check for a **deprecation** alongside the addition — this release renamed `search_conversion_rules` to `get_conversion_rules` with a hard removal date, and the old name appeared in seven files — two knowledge topics, the `discovery` skill, the agent's Tool Reference, the write-surface reference, this file's own architecture diagram, and `docs/realize-best-practices-gap.md`. A rename is a breaking change on a timer; note the date in the changelog.
 

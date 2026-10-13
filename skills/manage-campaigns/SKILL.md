@@ -1,6 +1,6 @@
 ---
 name: manage-campaigns
-description: Create and update Realize campaigns, native + display items, and account-level conversion rules via the Realize MCP write tools. Activates on any write-intent request — create, edit, pause/resume, launch, budget changes, bid changes, targeting edits, creative swaps, conversion-rule creation, attribution-window changes, retiring a conversion rule. Enforces a tiered preview-then-confirm pattern with a mandatory account-identity header on every confirmation so the user always sees which account is being mutated. Falls back to a UI reference for actions the MCP does not currently expose (delete, duplicate, bulk operations, pixel installation, codeless-conversion setup, pixel test-fire). Grounded in the realize-toolkit's setup guidance and Taboola's official setup guide for the input-validation heuristics (Marketing Objective enum, Bid Strategy × budget minimums, learning-phase defaults).
+description: Create and update Realize campaigns, native + display items, and account-level conversion rules via the Realize MCP write tools. Activates on any write-intent request — create, edit, pause/resume, launch, budget changes, bid changes, targeting edits, creative swaps, conversion-rule creation, attribution-window changes, retiring a conversion rule. Enforces a tiered preview-then-confirm pattern with a mandatory account-identity header on every confirmation so the user always sees which account is being mutated. Falls back to a UI reference for actions the MCP does not currently expose (delete, duplicate, bulk operations, pixel installation, codeless-conversion setup, pixel test-fire, moving a campaign between campaign groups) and for creating or editing a campaign group, which exists upstream but is deliberately not enabled here. Grounded in the realize-toolkit's setup guidance and Taboola's official setup guide for the input-validation heuristics (Marketing Objective enum, Bid Strategy × budget minimums, learning-phase defaults).
 allowed-tools: ["Read", "Bash", "AskUserQuestion"]
 ---
 
@@ -25,7 +25,7 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 
 | Tool | Required params | Idempotent? | Notes |
 |---|---|---|---|
-| `mcp__realize-mcp__create_campaign` | `account_id`, `name`, `marketing_objective`, `branding_text`, `spending_limit_model`, `bid_strategy` | No | Atomic. Ships PAUSED unless `is_active=true`. 15 optional targeting blocks (full-replace within block). |
+| `mcp__realize-mcp__create_campaign` | `account_id`, `name`, `marketing_objective`, `branding_text`, `spending_limit_model`, `bid_strategy` | No | Atomic. Ships PAUSED unless `is_active=true`. 15 optional targeting blocks (full-replace within block). **`spending_limit_model` is required *except* when `campaign_group_id` is set** — it then becomes optional (the campaign can take the group's budget). In a group that **shares** its budget you must omit the budget fields entirely; in a `CUSTOM` group the campaign may keep its own. See `references/mcp-write-surface.md`. |
 | `mcp__realize-mcp__update_campaign` | `account_id`, `campaign_id` | Yes | **Scalars partial-merge**; **targeting blocks full-replace within a section**. At least one updatable field required. |
 | `mcp__realize-mcp__create_native_item` | `account_id`, `campaign_id`, `url`, `title`, `description`, `thumbnail_url` | No | Optional `branding_text`, `cta`. New items typically PENDING_APPROVAL → RUNNING. |
 | `mcp__realize-mcp__update_native_item` | `account_id`, `campaign_id`, `item_id` | Yes | At least one updatable field required. |
@@ -192,7 +192,7 @@ Use `AskUserQuestion` for any required field the user did not supply. Validate a
 | `name` | Any text | Internal identifier. |
 | `marketing_objective` | `BRAND_AWARENESS`, `DRIVE_WEBSITE_TRAFFIC`, `LEADS_GENERATION`, `ONLINE_PURCHASES`, `MOBILE_APP_INSTALL` | See enum guidance below. |
 | `branding_text` | Any text | Shown publicly under each item — "site name or product you're promoting". |
-| `spending_limit_model` | `NONE`, `MONTHLY`, `ENTIRE` | If `MONTHLY` or `ENTIRE`, `spending_limit` is also required. |
+| `spending_limit_model` | `NONE`, `MONTHLY`, `ENTIRE` | If `MONTHLY` or `ENTIRE`, `spending_limit` is also required. Required on create **unless** `campaign_group_id` is set. |
 | `bid_strategy` | `SMART`, `FIXED`, `TARGET_CPA`, `MAX_CONVERSIONS`, `MAX_VALUE` | Drives the budget minimums — see below. |
 
 **Common optional scalars:**
@@ -214,7 +214,9 @@ Use `AskUserQuestion` for any required field the user did not supply. Validate a
 - `ONLINE_PURCHASES` — *"Get people to buy your products."*
 - `MOBILE_APP_INSTALL` — *"Get people to install your app."*
 
-**Bid Strategy × Budget minimums** (Taboola-published; enforce before submitting):
+**Conversion goal on a campaign in a group — a replace, not an add.** Writing `conversion_rules` on a campaign **overrides** every rule it inherits from its Campaign Group; the inherited ones stop applying to it. That changes what the bidder optimizes toward on a live campaign. If the campaign has a `campaign_group_id`, read the group first and put both sets in the preview — inherited now, campaign-only after. And when the user's premise is "this campaign has no conversion goal", check whether it is inheriting one before acting on that.
+
+**Bid Strategy × Budget minimums** (Taboola-published; enforce before submitting). **Exception: a campaign in a Campaign Group that shares its budget carries no budget of its own, so there is nothing to validate — skip the gate rather than blocking the create.** Check the group's budget against the minimum instead, and if it falls short say so as advice about the group, not as a refusal of the campaign.
 
 | Bid Strategy | Minimum daily budget |
 |---|---|
@@ -229,6 +231,13 @@ For non-conversion campaigns (objective = `BRAND_AWARENESS` / `DRIVE_WEBSITE_TRA
 If the user supplies a budget below the relevant minimum, refuse the submission, write the math out loud (`$25 CPA × 10 = $250/day minimum`), and ask them to either raise the budget or pick a different bid strategy. Do not silently submit an under-funded campaign.
 
 **Targeting recommendation at launch:** Leave targeting broad on a fresh campaign — narrow only after real performance data exists. If the user pre-narrows aggressively, surface the toolkit's "stay broad at launch" guidance once and let the user override.
+
+### 1b. If the campaign is being created into a Campaign Group, read the group first
+
+`create_campaign` with a `campaign_group_id` inherits from the group, and the user cannot see any of it in the fields they gave you. Read the group per `knowledge/campaign-structure.md` → *Reading a campaign group* and carry two things into the preview:
+
+- **Flight dates.** The campaign's dates must fall inside the group's, and **dates you omit are taken from the group**. A "Q4" campaign created into a group whose flight ends 31 Oct will end 31 Oct. Show the inherited dates as explicit lines — `start_date: (from the group) 2026-07-01` — never as blanks.
+- **Budget.** Setting `campaign_group_id` at all makes `spending_limit_model` optional. In a `CUSTOM` group the campaign may still carry its own budget — send the budget fields if that is what the user wants. In a **shared-budget** group you must omit `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely; the API rejects them. Say in the preview that the campaign carries no budget of its own and is paced by the group — a preview with no budget line at all reads as an oversight.
 
 ### 2. Render preview and confirm
 
@@ -275,7 +284,8 @@ If the user did not explicitly say to launch, set `is_active=false` (or omit, si
 
 1. Resolve `account_id`, `campaign_id`.
 2. Call `get_campaign` to capture current state.
-3. Render diff preview:
+3. **If the response carries a `campaign_group_id` that is a positive number** (`0` / `null` / `""` / absent all mean ungrouped — do not search for them), and any field you are about to change is `spending_limit_model` / `spending_limit` / `daily_cap` / `daily_ad_delivery_model`, read the group before previewing anything. Read it per `knowledge/campaign-structure.md` → *Reading a campaign group*. An unread group is **not** an unshared one — if you cannot confirm the budget setup, say so instead of previewing the write. If the group shares its budget across its campaigns, **stop**: those four fields are locked on the campaign and the API rejects them. Say the budget lives on the Campaign Group and name the Realize UI, instead of previewing a write that cannot land. Non-budget scalars (name, bid, tracking code) are unaffected — carry on to step 4.
+4. Render diff preview:
    ```
    ▶ WRITE TARGET: <account_name> (<account_id>)
 
@@ -283,8 +293,8 @@ If the user did not explicitly say to launch, set `is_active=false` (or omit, si
      <field>: <old> → <new>
      <field>: <old> → <new>
    ```
-4. `AskUserQuestion`: "Submit this `update_campaign` call?" Yes / Edit / Cancel.
-5. On Yes, call `update_campaign`. Echo the response. Remind that the edit re-enters the 24–48h review.
+5. `AskUserQuestion`: "Submit this `update_campaign` call?" Yes / Edit / Cancel.
+6. On Yes, call `update_campaign`. Echo the response. Remind that the edit re-enters the 24–48h review.
 
 ### Targeting blocks (geo, device, OS, browser, connection, audience, lookalike, contextual, publisher, dayparting, conversion-rules)
 
@@ -451,7 +461,9 @@ Every write changes a resource that needs Realize approval (24–48 hours) befor
 
 If `get_campaign` returns the prior state immediately after a save, wait a minute and retry once — there can be brief lag between the write and read paths.
 
-## UI fallback — actions the MCP does not expose
+## UI fallback — actions this plugin does not perform
+
+Most entries here have no MCP tool at all. **One does not fit that description and is flagged where it appears:** creating or editing a Campaign Group exists upstream and is deliberately not enabled here. Keep the two apart — "we don't do that" and "the platform can't" are different sentences, and only one of them is true.
 
 These remain Realize-UI-only. Do not fabricate tools for them. **Do not fabricate deeplink URLs either** — the Realize UI's URL structure has not been formally captured for the plugin, so a guessed link will 404. Use the menu paths below verbatim and let the user navigate.
 
@@ -470,6 +482,16 @@ The duplicated campaign re-enters the 24–48 hour review.
 ### Bulk operations
 
 Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-only. The MCP write tools handle one entity at a time. For "pause everything except X", surface that there's no batch API and offer to either (a) script the per-entity calls one by one (each gets its own confirmation) or (b) point the user to the UI for the bulk action.
+
+### Campaign groups — create, edit, move
+
+Three shapes, and only one of them is a write this skill performs. Classify before answering.
+
+- **Create a group, or edit one** (name, objective, how its budget is split, flight dates) — **not enabled here.** This exists in Realize; it is not something you can do here. Say it is not something you can do and send the user to the **Campaign Groups** area of the Realize UI. **Do not state a more precise menu path than that** — the exact navigation has not been captured for the plugin, and per the rule above a guessed path is worse than a general one.
+- **Move a campaign to a different group, or take it out of one** — no MCP tool at any level. **First check it really is a move:** read the campaign and look at `campaign_group_id`. **"Has a group" means `campaign_group_id` is a positive number — `0`, `null`, `""` and an absent key all mean ungrouped, and none of them is a group id to search for.** If it is ungrouped, the user said "move" but means attach — that is the next bullet, and refusing it is a wrong answer. Only when the campaign already sits in a group is this a move: `campaign_group_id` on `update_campaign` attaches only, and there is no detach parameter. Same redirect to the **Campaign Groups** area of the Realize UI, which is where it is done. Say it is a Realize UI action — not that Realize cannot do it.
+- **Putting a still-ungrouped campaign into a group is NOT on this list.** `campaign_group_id` on `create_campaign` / `update_campaign` is a gated write this skill performs — see `references/mcp-write-surface.md` → *Campaign groups and the budget they own*. On `update_campaign` it is **attach only**, and only to a group whose campaigns keep their own budgets. On `create_campaign` the new campaign may go into **any** group — including one that shares its budget, where you then omit the campaign's budget fields entirely. Do not redirect either case here. **The preview must say the attach cannot be undone here** — there is no detach or move anywhere in the MCP, so once the campaign is in the group it only comes out in the Realize UI. In a shared-budget group it also hands budget control to the group permanently. A user confirming an ordinary-looking diff must not discover that afterwards.
+
+One consequence worth catching early: if a campaign sits in a group that **shares its budget across campaigns**, the campaign's own budget fields are locked and the API rejects them. Check that by reading the group through the **list** form (`search_text` = the group id) — a by-id read may not carry the budget setting at all, and an absent setting reads as "not shared". "Raise the daily budget on campaign X" is then a group-level change — first bullet, not a campaign write.
 
 ### Tracking setup that stays UI-only
 
