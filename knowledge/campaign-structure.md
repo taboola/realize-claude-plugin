@@ -20,6 +20,8 @@ Campaign structure determines how budgets are distributed, how the algorithm opt
 
 ### The group sets the conversion goal for campaigns that don't set their own
 
+> **A group's conversion rules are the group's *selection*, not a statement about its campaigns.** Any member campaign may carry its own, which replaces the group's for that campaign and is not visible in Realize. So never report a group's conversions as what its campaigns optimize toward — describe them as what the group selects, and resolve the goal per campaign when the question is about a campaign. This matters most on duplicated campaigns, which bring the original's goal with them into the group.
+
 This is the part that changes answers, not just planning. A campaign's conversion goal resolves in this order:
 
 1. **The campaign's own `conversion_rules`** — if it has any **active** ones, they win. They **replace** the group's for that campaign; they are not added to them.

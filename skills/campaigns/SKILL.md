@@ -52,6 +52,7 @@ Inspection of campaigns and their items (creatives) for a given account using th
 3. Read `total` from the first page when it is there — both this tool and `list_campaigns` report it whenever upstream supplies one. Page until you hold it; if `total` is absent, page until one comes back shorter than `page_size`.
 4. **Past a couple of dozen groups, summarize instead of listing** — counts by status, then ask how the user wants it narrowed. A 100-row dump is not an answer.
 5. `STOPPED` means the group was deleted. Don't offer those as live options, and don't describe one as "stopped".
+6. **If you report a group's conversion rules, say they are what the **group** selects — not what its campaigns optimize toward.** A member campaign can carry its own goal that replaces the group's and is invisible in Realize. Answering "this group optimizes toward X" as though it settles every campaign in it is the failure; resolve per campaign when the question is about a campaign.
 
 **"What's the deal with campaign 98765?"**
 1. `get_campaign(account_id=..., campaign_id=98765)` for configuration and status.
