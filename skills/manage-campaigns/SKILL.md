@@ -307,6 +307,13 @@ Mandatory pattern:
 
 1. Resolve `account_id`, `campaign_id`.
 2. Call `get_campaign` and **read the current targeting block** the user wants to touch.
+2b. **`conversion_rules` only — the current list is not the whole story.** An empty `rules` array means the campaign inherits from its Campaign Group, not that it has no goal. If `campaign_group_id` is a positive number, read the group per `knowledge/campaign-structure.md` → *Reading a campaign group* **before** building the preview, and render the inheritance rather than the empty list:
+   ```
+   Inherited from Campaign Group <id> today: [Purchase, Add to cart, Lead]
+   On the campaign after this write:          [Purchase]
+   ⚠ Writing rules on the campaign REPLACES what it inherits. The other two stop applying to it.
+   ```
+   Rendering `Current: [] → After update: [Purchase]` here is the specific failure to avoid: it tells the user they are adding a goal to a campaign that has none, while silently dropping the ones it was actually optimizing toward.
 3. Merge the user's change into the current list client-side. Examples:
    - "Also target Canada" with current `country_targeting.include=['US']` → merged value `['US','CA']`.
    - "Remove Florida" with current `region_country_targeting.include=['FL','TX','NY']` → merged value `['TX','NY']`.

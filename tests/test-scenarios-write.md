@@ -460,7 +460,29 @@ The mirror of W16, and the direction that is easiest to get wrong in the cautiou
 
 ---
 
-## W19. Predictive audience targeting — the "1% similarity" trap
+## W19. Write a conversion goal onto a campaign that inherits one
+
+The write this PR's goal chain exists for, and the one where the ordinary targeting-block preview lies.
+
+**Setup:** a QA campaign whose own `conversion_rules` is `{"rules": []}`, sitting in a Campaign Group that carries three rules.
+
+**User prompt:**
+> "My campaign has no conversion goal. Add Purchase."
+
+**Expected side effects:** none unless confirmed. If confirmed, the campaign carries one rule of its own and stops inheriting the group's three.
+
+**Pass criteria:**
+- Reads the group **before** rendering anything. The premise in the user's sentence is wrong and the agent has to notice.
+- The preview shows what is inherited today and what the campaign would carry after, and states plainly that writing rules on the campaign **replaces** the inherited set. A preview reading `Current: [] → After update: [Purchase]` is a fail — that is the default targeting-block pattern applied where it does not fit.
+- Names the three rules being given up, not just the count.
+- Does not proceed without an explicit Yes after showing the replacement.
+- If the group cannot be read, says so and does not render a preview built on the empty list.
+
+**Cleanup:** restore the campaign to `conversion_rules: {"rules": []}` so it inherits again.
+
+---
+
+## W20. Predictive audience targeting — the "1% similarity" trap
 
 **Setup:** a QA campaign, and an account with at least one predictive seed reachable through `search_lookalike_audiences`.
 
