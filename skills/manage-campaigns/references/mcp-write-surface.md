@@ -82,7 +82,7 @@ All optional; populate where the request specifies. Item-level targeting does no
 
 | Field | Shape | Resolver |
 |---|---|---|
-| `audiences_targeting` | `{state: INCLUDE|EXCLUDE, value: [{type, value: [int IDs]}]}` | `search_audiences` (account-resident, e.g. pixel-built segments, CRM uploads) |
+| `audiences_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int IDs]}]}` — **`state` is `ALL` or `EXISTS`, never `INCLUDE`/`EXCLUDE`; those are the inner `type`.** `{state: "ALL", value: []}` clears the block. | `search_audiences` (account-resident, e.g. pixel-built segments, CRM uploads) |
 | `contextual_segments_targeting` | `{state, value: [{type, value: [int IDs]}]}` | `search_contextual_segments` (network-wide marketplace catalogue — demographics, interests, 3P data partners) |
 | `lookalike_audience_targeting` | `{state, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}` | `search_lookalike_audiences` (account-resident lookalike seeds) |
 
@@ -227,8 +227,8 @@ The canonical matrix lives in `knowledge/bidding.md` ("Bid Levers — What's Pos
 |---|---|---|
 | `search_accounts(query, page, page_size)` | Account list with opaque `account_id` strings | Resolve account first. `page_size` hard cap = 10. |
 | `search_geos(dimension, query)` | Geo entities | Country / region / DMA / city / postal codes. Pick one dimension per call. |
-| `search_audiences(account_id, query)` | Account-resident custom audiences | Pixel-built segments, CRM uploads, saved combined audiences. |
-| `search_lookalike_audiences(account_id, query)` | Account-resident lookalike seeds | Pixel-based predictive, CRM lookalike, etc. |
+| `search_audiences(account_id, audience_id?, audience_type?, combinable?, search_text?, country_codes?, country_targeting_type?)` | Account-resident custom audiences | Pixel-built segments, CRM uploads, saved combined audiences. **There is no `query` parameter.** See `knowledge/audiences.md` for the three modes and the traps. |
+| `search_lookalike_audiences(account_id, country_code?)` | Account-resident lookalike seeds | Pixel-based predictive, CRM lookalike, etc. `country_code` is a single ISO-2 code. **There is no `query` parameter**, and seeds are built in the Realize UI — no MCP tool creates one. |
 | `search_contextual_segments(query)` | Network-wide marketplace catalogue | Demographics, interests, 3P data partner segments. NEVER expected empty for a US-targeted campaign. |
 | `search_publishers(query)` | Publisher list | Allow / block list resolution. |
 | `get_conversion_rules(account_id, [rule_id], [page], [page_size], [status], [search_text])` | Account conversion rules — a page of them, or one by id | Required for performance objectives. Replaces the deprecated `search_conversion_rules` (removed after 2026-11-01). Also the mandatory pre-read before any conversion-rule write. Paginated (default 25, **max 50**, ordered by rule id; response states the true `total`). **The pre-read is two narrowed calls, not one unfiltered page-through.** Name collision: `search_text=<display_name>` with no `status` (status-agnostic, matches `display_name`), then compare names **exactly** — it is a *contains* match — and page if `total` exceeds a page. Event collision: `status="ACTIVE"` paged to `total`; the rule is one ACTIVE rule per event, so that filter is sound and roughly halves the reads. Only `ARCHIVED` is lossy. A full unfiltered listing is needed just for ownership reporting. |

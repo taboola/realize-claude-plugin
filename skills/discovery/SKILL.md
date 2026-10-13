@@ -33,7 +33,7 @@ For pulling **performance numbers**, route to the `reports` skill instead. For c
 |---|---|---|---|
 | `mcp__realize-mcp__search_geos` | `dimension` ∈ {`countries`, `regions`, `dma`, `cities`, `postal_codes`} | `country_code` (ISO-2 — **required** when `dimension` ≠ `countries`) | `{dimension, values: [{code, name}, ...]}` |
 | `mcp__realize-mcp__search_techno` | `dimension` ∈ {`operating_system_versions`, `browsers`} | `os_family` (**required** when `dimension=operating_system_versions`) | `{dimension, values: [...]}` |
-| `mcp__realize-mcp__search_audiences` | `account_id` | `country_codes` (comma-separated ISO-2), `country_targeting_type` ∈ {`ALL`, `INCLUDE`, `EXCLUDE`} | Audience list with `audience_id`, `name`, ... |
+| `mcp__realize-mcp__search_audiences` | `account_id` | `audience_id` + `audience_type` ∈ {`PIXEL`, `COMBINED`, `CUSTOMER_LIST`} (read one in full), `combinable` (list what may go inside a combined audience — a different population), `search_text` (only with `combinable`), `country_codes` (comma-separated ISO-2), `country_targeting_type` ∈ {`ALL`, `INCLUDE`, `EXCLUDE`} | Audience list with `audience_id`, `name`, ... |
 | `mcp__realize-mcp__search_lookalike_audiences` | `account_id` | `country_code` (ISO-2) | Lookalike rules with `rule_id`, ... |
 | `mcp__realize-mcp__search_contextual_segments` | `account_id` | `country_codes`, `country_targeting_type` | Segments with `segment_id`, ... |
 | `mcp__realize-mcp__search_publishers` | `account_id`, `query` (use `"*"` for all) | `publisher_ids` (array of int), `page` (default 1), `page_size` (max **50**, default 10) | Paginated publisher list `{id, name, account_id, country, is_active}` |
@@ -47,6 +47,7 @@ For pulling **performance numbers**, route to the `reports` skill instead. For c
 - *"List regions in Brazil."* → `search_geos(dimension="regions", country_code="BR")`.
 - *"All Windows OS versions I can target?"* → `search_techno(dimension="operating_system_versions", os_family="Windows")`.
 - *"Audiences on account advertiser_12345_prod for US/CA, include-mode."* → `search_audiences(account_id="advertiser_12345_prod", country_codes="US,CA", country_targeting_type="INCLUDE")`.
+- *"What is audience 224820?"* → it is a two-step: find the row in the plain listing first, then `search_audiences(account_id="...", audience_id="224820", audience_type="PIXEL")` for the detail. **`audience_type` cannot be taken from the listing's `data_type`** — that reads `CUSTOM` for both pixel and combined audiences. A 404 here does not mean the wrong subtype; see `knowledge/audiences.md`.
 - *"Lookalike audiences for account X in Canada."* → `search_lookalike_audiences(account_id="...", country_code="CA")`.
 - *"Contextual segments for account X."* → `search_contextual_segments(account_id="...")`.
 - *"Publishers matching 'news' on account X."* → `search_publishers(account_id="...", query="news")`.

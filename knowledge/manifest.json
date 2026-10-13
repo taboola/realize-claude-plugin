@@ -4,6 +4,30 @@
   "pathConvention": "Every topic.path is relative to the directory containing this manifest file (i.e., the /knowledge directory).",
   "topics": [
     {
+      "slug": "audiences",
+      "title": "Audiences",
+      "path": "audiences.md",
+      "tags": [
+        "audiences",
+        "audience",
+        "retargeting",
+        "pixel audience",
+        "combined audience",
+        "customer list",
+        "CRM upload",
+        "CRM audience",
+        "lookalike",
+        "lookalike seed",
+        "predictive audience",
+        "contextual segments",
+        "audiences_targeting",
+        "archive an audience",
+        "search_audiences",
+        "combinable"
+      ],
+      "description": "What the MCP can read and write about audiences: the three modes of the audience read, the traps that return plausible wrong results (data_type is not audience_type, a 404 by id, the combinable population), the audiences_targeting envelope, and where the capability boundary actually sits for CRM upload and lookalike creation."
+    },
+    {
       "slug": "bidding",
       "title": "Bidding",
       "path": "bidding.md",
