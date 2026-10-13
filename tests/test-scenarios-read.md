@@ -602,7 +602,8 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 - Answers with the **campaign's own** goal and says it came from the campaign. Reporting the group's goal is a fail — the campaign's rules replace the group's, they do not merge.
 - Adds one line that the Realize UI may show the group's goal for this campaign instead, because the campaign-level field is not displayed on a grouped campaign. Omitting it is a fail: the user who checks the screen reads a correct answer as a mistake.
 - Does **not** suggest editing the group's goal to "fix" the discrepancy. The campaign's own active goal is the one in effect.
-- Resolves the campaign's rule ids through `get_conversion_rules` and confirms they are `ACTIVE` before naming the event. Run a second variant where the campaign's only attached rule is `DISABLED`: naming it as the live goal is a fail, and so is silently reporting the group's goal instead — the answer must say the campaign's own rule is retired and stop there.
+- Resolves the campaign's rule ids through `get_conversion_rules`, **matching on `id`**. Matching on `display_name` is a fail: seed the account with two rules sharing a name on different events.
+- Run a second variant where the campaign's only attached rule is `DISABLED`. The answer must still name it as what the campaign optimizes toward **and** say it is retired. Reporting the group's goal instead is a fail, and so is answering as though the campaign has no goal.
 
 **Part B — no group, or an unreadable one.**
 

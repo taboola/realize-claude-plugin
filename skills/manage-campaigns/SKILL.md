@@ -254,10 +254,9 @@ About to call create_campaign with:
   bid_strategy: <enum>
   daily_cap: <amount> <currency>      # if supplied
   cpa_goal: <amount> <currency>       # if supplied
-  start_date / end_date: <date>       # say "(taken from the group)" when inherited
   cpc: <amount> <currency>            # if supplied
-  start_date: <YYYY-MM-DD>            # if supplied
-  end_date: <YYYY-MM-DD>              # if supplied
+  start_date: <YYYY-MM-DD>            # if supplied, or "(taken from the group)"
+  end_date: <YYYY-MM-DD>              # if supplied, or "(taken from the group)"
   is_active: <true|false>
   <targeting blocks, one per line if supplied>
 
@@ -288,8 +287,8 @@ If the user did not explicitly say to launch, set `is_active=false` (or omit, si
 1. Resolve `account_id`, `campaign_id`.
 2. Call `get_campaign` to capture current state.
 3. **If the response carries a `campaign_group_id` that is a positive number** (`0` / `null` / `""` / absent all mean ungrouped — do not search for them), and any field you are about to change is `spending_limit_model` / `spending_limit` / `daily_cap` / `daily_ad_delivery_model`, read the group before previewing anything. Read it per `knowledge/campaign-structure.md` → *Reading a campaign group*. An unread group is **not** an unshared one — if you cannot confirm the budget setup, say so instead of previewing the write. If the group shares its budget across its campaigns, **stop**: those four fields are locked on the campaign and the API rejects them. Say the budget lives on the Campaign Group and name the Realize UI, instead of previewing a write that cannot land. Non-budget scalars (name, bid, tracking code) are unaffected — carry on to step 4.
-3b. **If `campaign_group_id` is one of the fields being changed, it is an attach and nothing else.** `update_campaign` can only put a campaign that is currently in **no** group into a group, and only into a `CUSTOM`-budget one. If the campaign already has a positive `campaign_group_id`, refuse: moving or detaching has no MCP tool at any level and is a Realize UI action. If it is ungrouped, read the target group per `knowledge/campaign-structure.md` → *Reading a campaign group* and refuse if it is `AUTOMATIC`. **The preview must say the attach cannot be undone from here** — once the campaign is in the group it only comes out in the Realize UI, and in an `AUTOMATIC` group it hands over budget control for good. A user confirming an ordinary-looking diff must not discover that afterwards.
-4. Render diff preview:
+4. **If `campaign_group_id` is one of the fields being changed, it is an attach and nothing else.** `update_campaign` can only put a campaign that is currently in **no** group into a group, and only into a `CUSTOM`-budget one. If the campaign already has a positive `campaign_group_id`, refuse: moving or detaching has no MCP tool at any level and is a Realize UI action. If it is ungrouped, read the target group per `knowledge/campaign-structure.md` → *Reading a campaign group* and refuse if it is `AUTOMATIC`. **The preview must say the attach cannot be undone from here** — once the campaign is in the group it only comes out in the Realize UI, and in an `AUTOMATIC` group it hands over budget control for good. A user confirming an ordinary-looking diff must not discover that afterwards.
+5. Render diff preview:
    ```
    ▶ WRITE TARGET: <account_name> (<account_id>)
 
@@ -297,8 +296,8 @@ If the user did not explicitly say to launch, set `is_active=false` (or omit, si
      <field>: <old> → <new>
      <field>: <old> → <new>
    ```
-5. `AskUserQuestion`: "Submit this `update_campaign` call?" Yes / Edit / Cancel.
-6. On Yes, call `update_campaign`. Echo the response. Remind that the edit re-enters the 24–48h review.
+6. `AskUserQuestion`: "Submit this `update_campaign` call?" Yes / Edit / Cancel.
+7. On Yes, call `update_campaign`. Echo the response. Remind that the edit re-enters the 24–48h review.
 
 ### Targeting blocks (geo, device, OS, browser, connection, audience, lookalike, contextual, publisher, dayparting, conversion-rules)
 
