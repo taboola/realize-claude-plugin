@@ -14,12 +14,12 @@ A given Realize account does NOT need to "contain" demographic, interest, intent
 
 | Discovery tool | Returns | When it's empty for a fresh account, that's fine |
 |---|---|---|
-| `search_audiences` | Everything saved on the account, across **all** subtypes — pixel-built segments, CRM uploads, "All Website Visits", combined audiences, predictive seeds and third-party rows. Surface and traps: `knowledge/audiences.md`. | ✅ Yes — a brand-new account has no pixel data + no CRM uploads yet. |
+| `search_audiences` | Everything saved on the account, across **all** subtypes — pixel-built segments, CRM uploads, "All Website Visits", combined audiences, predictive seeds and third-party rows. Surface and traps: `knowledge/audiences.md`. | ✅ Yes for the account's **own** audiences — a brand-new account has no pixel data + no CRM uploads yet. |
 | `search_contextual_segments` | Network-wide marketplace catalogue — demographics (age / gender), interest verticals (health-conscious, weight management, immune health, energy / focus, etc.), 3P data partners (Audience One, Bombora, Connexity, Eyeota), MRT bundles. | ❌ Never expected to be empty for a US-targeted campaign. |
 | `search_lookalike_audiences` | Account-RESIDENT lookalike seeds (pixel-based predictive, CRM lookalike, PBP). | ✅ Yes — these require a seed (pixel data or CRM upload) which a fresh account won't have. Mark "seed pending" rather than failing. |
 | `get_conversion_rules` | Account-RESIDENT conversion rules (Taboola Pixel events, S2S events, engagement rules). Returns ACTION rules only — pixel audience rules are excluded. | ✅ Yes — fresh accounts have no pixel installed yet. |
 
-**Operating rule:** If the user calls for "Women 35-64, health-conscious, weight-management interest," resolve those via `search_contextual_segments`. `search_contextual_segments` is the right resolver for those; `search_audiences` may also surface third-party rows, so a hit there is not a wrong-tool signal. If `search_audiences` is empty for a fresh activation account, proceed and note: "no account-resident custom audiences yet — using marketplace segments + targeting will broaden once pixel/CRM seeds land." NEVER raise this as a blocking error.
+**Operating rule:** If the user calls for "Women 35-64, health-conscious, weight-management interest," resolve those via `search_contextual_segments`. `search_audiences` may also return third-party rows, so a hit there is not a sign you used the wrong tool — it is just not the resolver. If `search_audiences` is empty for a fresh activation account, proceed and note: "no account-resident custom audiences yet — using marketplace segments + targeting will broaden once pixel/CRM seeds land." NEVER raise this as a blocking error.
 
 ### Declared demographics (age, gender) — exist platform-wide even when MCP queries don't surface them
 
@@ -31,7 +31,7 @@ When demographic targeting is required and MCP search results don't surface a ma
 
 Gender-specific exact age ranges (e.g., F35-64) may need to be composed from broader buckets (e.g., F25+ + F65- excluding) in the UI.
 
-**Capability boundary for audiences: `knowledge/audiences.md` has the table — this is the summary.** Of the per-account writes, only predictive / lookalike seeds have no tool at any level. Conversion-rule create / update / retire are wired in this plugin and go through the `manage-campaigns` gate. CRM customer-list upload exists upstream (`create_audience`) but is **not enabled here** — say so, rather than that Realize cannot do it. Building a lookalike from a seed has no MCP tool at all and is done in the Realize UI.
+**Capability boundary for audiences: `knowledge/audiences.md` has the table — this is the summary.** Of the per-account writes, predictive seeds and deleting an audience have no tool at any level. Conversion-rule create / update / retire are wired in this plugin and go through the `manage-campaigns` gate. CRM customer-list upload exists upstream (`create_audience`) but is **not enabled here** — say so, rather than that Realize cannot do it. Building a lookalike from a seed has no MCP tool at all and is done in the Realize UI.
 
 ---
 

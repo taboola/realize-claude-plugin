@@ -4,7 +4,7 @@ All notable changes to this plugin will be documented here. Format loosely follo
 
 ## [Unreleased]
 
-> **Versioning note.** `0.5.4` below is frozen while it awaits the Anthropic directory review, so work landing after it moves on from there — **0.5.6** as of this entry — in the three Claude-plugin places (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.mcp.json`'s `X-Realize-Client` header). `.codex-plugin/plugin.json` is versioned separately and is not touched.
+> **Versioning note.** `0.5.4` below is frozen while it awaits the Anthropic directory review, so work landing after it carries the next version in the three Claude-plugin places (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.mcp.json`'s `X-Realize-Client` header). `.codex-plugin/plugin.json` is versioned separately and is not touched.
 
 ### Added
 - **The audience surface is brought in line with the MCP.** The audience reads have been on the MCP since April and the plugin documented them from an old signature; the two write tools landed 2026-09-07 and were never mentioned. Nothing new is wired as a write — this corrects what the plugin says and knows.

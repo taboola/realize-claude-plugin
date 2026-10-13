@@ -47,7 +47,7 @@ For pulling **performance numbers**, route to the `reports` skill instead. For c
 - *"List regions in Brazil."* → `search_geos(dimension="regions", country_code="BR")`.
 - *"All Windows OS versions I can target?"* → `search_techno(dimension="operating_system_versions", os_family="Windows")`.
 - *"Audiences on account advertiser_12345_prod for US/CA, include-mode."* → `search_audiences(account_id="advertiser_12345_prod", country_codes="US,CA", country_targeting_type="INCLUDE")`.
-- *"What is audience 224820?"* → it is a two-step: find the row in the plain listing first, then `search_audiences(account_id="...", audience_id="224820", audience_type="PIXEL")` for the detail. **`audience_type` cannot be taken from the listing's `data_type`** — that reads `CUSTOM` for both pixel and combined audiences. A 404 here does not mean the wrong subtype; see `knowledge/audiences.md`.
+- *"What is audience 224820?"* → it is a two-step: find the row in the plain listing first, then read it in full. The subtype has to come from somewhere real — if the row is one the user built on pixel events, `search_audiences(account_id="...", audience_id="224820", audience_type="PIXEL")`; if nothing identifies it, ask rather than picking one. **`audience_type` cannot be taken from the listing's `data_type`** — that reads `CUSTOM` for both pixel and combined audiences. A 404 here does not mean the wrong subtype; see `knowledge/audiences.md`.
 - *"Lookalike audiences for account X in Canada."* → `search_lookalike_audiences(account_id="...", country_code="CA")`.
 - *"Contextual segments for account X."* → `search_contextual_segments(account_id="...")`.
 - *"Publishers matching 'news' on account X."* → `search_publishers(account_id="...", query="news")`.

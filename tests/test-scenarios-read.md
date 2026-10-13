@@ -270,9 +270,9 @@ Scenarios are roughly ordered from simplest to most involved; later ones depend 
 **Expected behavior:**
 1. The `discovery` skill activates.
 2. Calls `search_audiences(account_id=...)` (no country filter unless the user supplied one).
-3. Summarizes top results in prose with `audience_id` alongside display name so they can be pasted into a campaign-creation flow.
+3. Summarizes top results in prose with each row's `id` alongside its name so they can be pasted into a campaign-creation flow.
 
-**Pass criteria:** each row's `id` is surfaced verbatim (rows carry `id`, `audience_name`, `data_type`, `is_archived` — there is no `audience_id` field in the listing) (not coerced or re-cased); no `country_codes` filter is invented without the user asking for one.
+**Pass criteria:** each row's `id` is surfaced verbatim, not coerced or re-cased (rows carry `id`, `audience_name`, `data_type` and `is_archived` — the listing has no `audience_id` field); no `country_codes` filter is invented without the user asking for one.
 
 ---
 

@@ -23,7 +23,9 @@
         "search_audiences",
         "combinable",
         "audience expansion",
-        "similarity level"
+        "similarity level",
+        "predictive audience",
+        "similarity_level"
       ],
       "description": "What the MCP can read and write about audiences: the three modes of the audience read, the traps that return plausible wrong results (data_type is not audience_type, a 404 by id, the combinable population), the audiences_targeting envelope, and where the capability boundary actually sits for CRM upload and lookalike creation."
     },

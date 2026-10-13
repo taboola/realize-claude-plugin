@@ -9,7 +9,7 @@ What the Realize MCP can read and write about audiences, and the traps that prod
 | Capability | Upstream tool | Wired here |
 |---|---|---|
 | List / read audiences | `search_audiences` | Yes |
-| Predictive seeds available for targeting | `search_lookalike_audiences` | Yes — read-only discovery |
+| Predictive seeds available for targeting (the `lookalike` wire name) | `search_lookalike_audiences` | Yes — read-only discovery |
 | Contextual segments | `search_contextual_segments` | Yes |
 | Point a campaign at an audience | `audiences_targeting` on the campaign writes | Yes — a normal gated write |
 | Create a pixel, combined or CRM audience | `create_audience` | **No — exists upstream, deliberately not enabled** |
@@ -19,7 +19,7 @@ And two facts about the platform rather than about this plugin:
 
 | Capability | Upstream |
 |---|---|
-| Build a predictive / lookalike audience from a seed | **No tool at any level** |
+| Build a predictive audience (audience expansion) from a seed | **No tool at any level** |
 | Delete an audience | **No endpoint exists anywhere, not even in the UI** |
 
 Three different states, and they must not be collapsed into each other. *Not enabled here* is a decision this plugin made; say so, and never say Realize cannot do it. *No tool at any level* is a platform fact. *No endpoint exists* means not even the UI deletes — archiving is the only retirement. Upstream documents archiving as reversible for a pixel audience and says nothing either way for the others, so do not promise it reverses.
@@ -59,7 +59,7 @@ The envelope is the part that gets written wrong:
 
 The `lookalike_audience_targeting` block takes `{rule_id, similarity_level}` objects instead of bare ids, is INCLUDE-only, and allows one outer block. **`similarity_level` is a closed set — 1, 2, 3, 4, 5, 10, 15, 20, 25 — and the valid values differ by seed:** a CRM seed takes 5/10/15/20/25, which upstream describes as percentages; a pixel seed takes 5 and nothing else; a PBP seed takes 1-5. **Upstream does not state what the PBP numbers mean**, so do not translate a user's percentage onto them.
 
-This plugin's validation checks only membership of the combined set; the seed-specific resolution happens server-side. So a value that is wrong *for that seed* passes validation here untouched — nothing in this plugin will stop it, and what the Realize backend then does with it is not documented. That is why a user asking for "a 1% lookalike", the vocabulary they bring from other platforms, must not simply become `similarity_level: 1`. **The listing does not label a seed's subtype** — `search_lookalike_audiences` returns rule ids, not types — so unless the user or the audience's own name makes it unambiguous, offer the valid values and let them choose rather than picking one. Those are wire names: to the user these are **predictive audiences / audience expansion**, never "lookalikes" — see the naming table in `os/guardrails.md`.
+This plugin's validation checks only membership of the combined set; the seed-specific resolution happens server-side. So a value that is wrong *for that seed* passes validation here untouched — nothing in this plugin will stop it, and what Realize then does with it is not documented. That is why a user asking for "a 1% lookalike", the vocabulary they bring from other platforms, must not simply become `similarity_level: 1`. **The listing does not label a seed's subtype** — `search_lookalike_audiences` returns rule ids, not types — so unless the user or the audience's own name makes it unambiguous, offer the valid values and let them choose rather than picking one. Those are wire names: to the user these are **predictive audiences / audience expansion**, never "lookalikes" — see the naming table in `os/guardrails.md`.
 
 ## Where the capability boundary actually sits
 

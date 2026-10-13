@@ -305,6 +305,8 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 
 Planned next on the skill side:
 
+- **Decide the four unwired upstream writes.** `create_campaign_group` / `update_campaign_group` and `create_audience` / `update_audience` all exist upstream and are deliberately not enabled here. Two things are open: whether to wire them at all (a CRM upload puts customer records on the wire, so it is a safety review, not a refactor), and the fact that nothing *enforces* the decision — `.mcp.json` sets no tool allowlist, so all four are reachable and only prose holds them back. This repo treats "a control, not a suggestion" as a standard elsewhere; four writes held by instruction alone does not meet it. Investigate a deny-rule.
+
 - **Live browser capture for `diagnose-tracking`** — decided 2026-08-22, priority raised because the
   HAR path makes the *user* do the work (capture and hand over a recording), and removing user effort
   is a product goal. Scope: the plugin drives a browser to the page under diagnosis and watches the

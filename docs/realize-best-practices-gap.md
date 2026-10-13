@@ -126,12 +126,13 @@ Listed with the source article, a one-line description of what the ability would
 
 **Closed gaps in this section:**
 - ~~`update_blocklist`~~ — **covered** as of upstream Jun 15 2026 ("Add structured support: Block List via MCP" — Chris Hall) via `update_campaign(publisher_targeting={type:"EXCLUDE", value:[<ids>]})`. Read current state with `get_campaign.publisher_targeting`, merge client-side (full-replace within the dimension), preview, write. See `skills/manage-campaigns/SKILL.md` → "Publisher block-list edits — recipe".
+- ~~`attach_audience_to_campaign`~~ — **never a gap.** Pointing a campaign at an audience has always been wired, via `audiences_targeting` on `create_campaign` / `update_campaign`. Listed here in error.
+- ~~`list_audiences`~~ — **covered** by `search_audiences`, which lists every subtype on the account. There is no separate list-all tool and none is needed.
+- `create_audience` / `update_audience` — **exist upstream** (2026-09-07) and are deliberately **not enabled** in this plugin, so they are not a gap either. They belong in the `manage-campaigns` UI-fallback section, not here. See `knowledge/audiences.md`.
 
 | Future ability | Does what | Today's UI path | Source |
 |---|---|---|---|
 | `update_targeting` | Adjust Location / Platform / Device / Connection / OS / Browser on a campaign | Campaign → Targeting | Setup + Optimization |
-| `list_audiences` | List account audiences (reading them is wired — `search_audiences`; a dedicated list-all tool is not) | `Audiences` | Retargeting |
-| ~~`attach_audience_to_campaign`~~ **(already wired — `audiences_targeting` on `create_campaign` / `update_campaign`)** | Add `My Audiences` / Taboola First Party Audiences / Contextual or suppression audience to a campaign | Campaign → Audience Targeting | Setup Step 7 |
 | `toggle_brand_safety_pre_bid` | Enable/disable the brand-safety filter | Advanced Options | Setup Step 6 |
 | `setup_campaign_clicker_retargeting` | The IMG-tag-in-3rd-party-pixels flow that builds an audience from campaign clickers (~2 week build) | `Audiences → New Audience → From Pixel → Campaign Clickers`, then paste IMG tag into the originating campaign | Retargeting article |
 
