@@ -36,7 +36,7 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 | `mcp__realize-mcp__create_campaign_group` | `account_id`, `name`, `spending_limit_model` | No | **Group-level.** Closed schema — a misspelled field is rejected, not dropped. The budget period is required even when the split is `CUSTOM`. `marketing_objective` and `kpi` must travel together. See `references/mcp-write-surface.md` §3c. |
 | `mcp__realize-mcp__update_campaign_group` | `account_id`, `campaign_group_id` | Yes | **Group-level, and the widest blast radius on this surface** — changing the budget split or a shared group's budget reaches every campaign in the group, and `is_active=false` pauses them all. Closed schema, partial-merge. No delete. See §3c. |
 
-For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, `mcp__realize-mcp__get_conversion_rules`, and `mcp__realize-mcp__get_campaign_groups` — the last **by id**, per `knowledge/campaign-structure.md` → *Reading a campaign group*.
+For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, `mcp__realize-mcp__get_conversion_rules`, `mcp__realize-mcp__get_campaign_groups` — **by id**, per `knowledge/campaign-structure.md` → *Reading a campaign group* — and `mcp__realize-mcp__list_campaigns`, which is how a group's member campaigns are counted for a group-write preview (no tool returns them directly).
 
 ## Conversion rules — account-level writes
 
@@ -149,8 +149,8 @@ The skill never submits a write without first showing the user a preview and get
 | `update_campaign`, `update_native_item` (non-`is_active`) | Diff preview |
 | `update_conversion_rule` (fields other than `status`) | Diff preview + account-level impact line |
 | `update_conversion_rule` (`status` → `DISABLED` / `ARCHIVED`) | Full preview — **retire is the closest thing to a delete** |
-| `create_campaign_group` | Full preview |
-| `update_campaign_group` (any field) | Full preview **+ the blast-radius line** — never a one-line confirm, including for `is_active` |
+| `create_campaign_group` | Full preview — the plain-language group preview, not the generic field-list template |
+| `update_campaign_group` (any field) | Full preview **+ the blast-radius line** — never a one-line confirm, including for `is_active`. Uses the plain-language group preview in *Creating or updating a campaign group*, **not** the generic field-list template below. |
 | `update_native_item` (`is_active` toggle only) | One-line confirm |
 
 Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
@@ -311,7 +311,7 @@ Mandatory pattern:
 
 1. Resolve `account_id`, `campaign_id`.
 2. Call `get_campaign` and **read the current targeting block** the user wants to touch.
-2b. **`conversion_rules` only — the current list is not the whole story.** An empty `rules` array means the campaign inherits from its Campaign Group, not that it has no goal. If `campaign_group_id` is a positive number, read the group per `knowledge/campaign-structure.md` → *Reading a campaign group* **before** building the preview, and render the inheritance rather than the empty list:
+   - **`conversion_rules` only — the current list is not the whole story.** An empty `rules` array means the campaign inherits from its Campaign Group, not that it has no goal. If `campaign_group_id` is a positive number, read the group per `knowledge/campaign-structure.md` → *Reading a campaign group* **before** building the preview, and render the inheritance rather than the empty list:
    ```
    Inherited from Campaign Group <id> today: [Purchase, Add to cart, Lead]
    On the campaign after this write:          [Purchase]
@@ -465,6 +465,30 @@ Same status-gated pattern as `update_native_item`:
 
 For `update_display_item` arrays (`verification_pixel`, `viewability_tag`): same full-replace-within-section semantics as `update_native_item`. Read with `get_item`, modify locally, send the merged result.
 
+## Creating or updating a campaign group
+
+`create_campaign_group` and `update_campaign_group` are wired here. They are the widest-reaching writes on this surface, so they get their own procedure rather than borrowing the campaign one. Field-by-field reference: `references/mcp-write-surface.md` §3c.
+
+**Why they are not like the other writes.** Every other write in this skill changes one object. A group write can change every campaign in the group — switching how the budget is split takes budget control away from all of them, changing a shared group's budget reaches all of them, and `is_active=false` pauses all of them. That is what the preview has to carry.
+
+### Workflow
+
+1. **Resolve `account_id`** — the **owning advertiser**, from `search_accounts` or a campaign's `advertiser_id`. Never a parent or network account.
+2. **On an update, read the group first** — `get_campaign_groups(account_id, campaign_group_id="<id>")`, **by id**, per `knowledge/campaign-structure.md` → *Reading a campaign group*. If the user named the group instead of giving an id, find it with the list form, then read the match by id. A preview built on values you did not read is a preview of blanks.
+3. **Count what it reaches.** No tool returns a group's members, so page `list_campaigns` for the account and count the rows whose `campaign_group_id` matches; name them if there are only a few. If the account cannot be paged, say *"every campaign in this group — I could not count them"*. Never guess a number, and never drop the sentence because the number is missing.
+4. **Settle the pairs before building the payload.**
+   - `marketing_objective` and `kpi` travel together — upstream does not say what a lone objective produces, so ask for both. The allowed pairings are in §3c.
+   - On create, `spending_limit_model` is required whatever the budget split, and `NONE` additionally requires `daily_cap` **and** `daily_ad_delivery_model: STRICT`.
+   - `AUTOMATIC` rejects `spending_limit_model: NONE` — settle the budget in the same conversation rather than firing a call the API will refuse.
+5. **Render a full preview — in the user's words, never the API's.** This is the one place the generic full-preview template does **not** apply: field names and enum values do not go in front of the user. `os/guardrails.md` carries the approved plain-English phrasing, and §3c has a worked example. The preview must lead with the `▶ WRITE TARGET` header, say what the change is, and say what it reaches.
+6. **Wait for an explicit Yes.** There is no one-line tier for a group write, including for `is_active`.
+7. **Read the response back.** It reports anything the tool changed about the request — a `daily_cap` sent with `BALANCED` comes back as `STRICT`, for instance. Tell the user what actually landed, not what you sent.
+
+### Two things to say out loud
+
+- **There is no delete.** Deleting a group terminates all its campaigns, so `is_active=false` is the retirement. Never imply a group can be removed.
+- **Switching the budget split to `AUTOMATIC` is one-way in practice.** Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so do not present it as a toggle that can be undone.
+
 ## Post-write verification
 
 Every write changes a resource that needs Realize approval (24–48 hours) before it goes live. After any successful write, offer the verification step:
@@ -477,7 +501,7 @@ If `get_campaign` returns the prior state immediately after a save, wait a minut
 
 ## UI fallback — actions this plugin does not perform
 
-Everything in this section has no MCP tool at all, so the honest sentence is that the platform does not expose it — not that this plugin chose not to.
+Everything in this section has no MCP tool at all, so the honest sentence is that the platform does not expose it — not that this plugin chose not to. **One exception is flagged inline:** the campaign-group subsection below opens by naming the two group writes that *are* wired, because the request that reaches them ("move this campaign") looks identical to the one that cannot be served.
 
 These remain Realize-UI-only. Do not fabricate tools for them. **Do not fabricate deeplink URLs either** — the Realize UI's URL structure has not been formally captured for the plugin, so a guessed link will 404. Use the menu paths below verbatim and let the user navigate.
 
@@ -497,11 +521,11 @@ The duplicated campaign re-enters the 24–48 hour review.
 
 Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-only. The MCP write tools handle one entity at a time. For "pause everything except X", surface that there's no batch API and offer to either (a) script the per-entity calls one by one (each gets its own confirmation) or (b) point the user to the UI for the bulk action.
 
-### Campaign groups — create, edit, move
+### Campaign groups — moving or detaching a campaign
 
 Three shapes, and only one of them is a write this skill performs. Classify before answering.
 
-- **Creating or editing a group is NOT on this list** — `create_campaign_group` / `update_campaign_group` are wired, and this skill performs them behind the usual preview-then-confirm gate. The preview must say what the write reaches, in plain language and with a count where one can be had: switching how the budget is split takes budget control away from **every campaign in the group**, a shared group's budget change reaches all of them, and `is_active=false` pauses them all. `references/mcp-write-surface.md` §3c carries the counting procedure and a worked preview. There is no delete — deleting a group terminates its campaigns, so the supported retirement is `is_active=false`.
+- **Creating or editing a group is NOT on this list** — `create_campaign_group` / `update_campaign_group` are wired, and this skill performs them behind the usual preview-then-confirm gate. The preview must say what the write reaches, in plain language and with a count where one can be had: switching how the budget is split takes budget control away from **every campaign in the group**, a shared group's budget change reaches all of them, and `is_active=false` pauses them all. The procedure is in *Creating or updating a campaign group* above; §3c of `references/mcp-write-surface.md` carries the fields. There is no delete — deleting a group terminates its campaigns, so the supported retirement is `is_active=false`.
 - **Move a campaign to a different group, or take it out of one** — no MCP tool at any level. **First check it really is a move:** read the campaign and look at `campaign_group_id`. **"Has a group" means `campaign_group_id` is a positive number — `0`, `null`, `""` and an absent key all mean ungrouped, and none of them is a group id to search for.** If it is ungrouped, the user said "move" but means attach — that is the next bullet, and refusing it is a wrong answer. Only when the campaign already sits in a group is this a move: `campaign_group_id` on `update_campaign` attaches only, and there is no detach parameter. Same redirect to the **Campaign Groups** area of the Realize UI, which is where it is done. Say it is a Realize UI action — not that Realize cannot do it.
 - **Putting a still-ungrouped campaign into a group is NOT on this list.** `campaign_group_id` on `create_campaign` / `update_campaign` is a gated write this skill performs — see `references/mcp-write-surface.md` → *Campaign groups and the budget they own*. On `update_campaign` it is **attach only**, and only to a group whose campaigns keep their own budgets. On `create_campaign` the new campaign may go into **any** group — including one that shares its budget, where you then omit the campaign's budget fields entirely. Do not redirect either case here. **The preview must say the attach cannot be undone here** — there is no detach or move anywhere in the MCP, so once the campaign is in the group it only comes out in the Realize UI. In a shared-budget group it also hands budget control to the group permanently. A user confirming an ordinary-looking diff must not discover that afterwards.
 

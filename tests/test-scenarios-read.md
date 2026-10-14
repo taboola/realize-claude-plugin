@@ -576,9 +576,9 @@ Covers the `diagnose-tracking` skill and the routing that replaced the pixel-hea
 
 ---
 
-## 23. Campaign groups — the goal chain, and the two requests that are not writes
+## 23. Campaign groups — the goal chain, and two lookalike requests where only one is a write
 
-Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaigns/SKILL.md`, the resolution order in `knowledge/campaign-structure.md`, and P2 / P5 in `skills/optimize-campaign/SKILL.md`. The one thing every part is testing: **a campaign whose `conversion_rules.rules` is empty is not therefore on the account default** — the Campaign Group sits between them. The write paths live in `tests/test-scenarios-write.md` as W16–W18.
+Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaigns/SKILL.md`, the resolution order in `knowledge/campaign-structure.md`, and P2 / P5 in `skills/optimize-campaign/SKILL.md`. The one thing every part is testing: **a campaign whose `conversion_rules.rules` is empty is not therefore on the account default** — the Campaign Group sits between them. The write paths live in `tests/test-scenarios-write.md` as W16–W21b.
 
 **Part A — an inherited group goal is reported as the group's, not the account's.**
 
@@ -607,12 +607,12 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 
 **Part B — no group, or an unreadable one.**
 
-**Setup:** run four variants — (i) a campaign with `conversion_rules.rules` empty and **no** `campaign_group_id`; (ii) one whose group comes back with `conversion_rules: {"rules": []}` — the key present and the array empty; (iii) one whose group read is made against the wrong account, so the group does not come back (whether it errors or returns empty); (iv) one whose group comes back **without a `conversion_rules` key at all** — the shape the list form returns for a group that reads back `{"rules": []}` by id.
+**Setup:** run four variants — (i) a campaign with `conversion_rules.rules` empty and **no** `campaign_group_id`; (ii) one whose group comes back with `conversion_rules: {"rules": []}` — the key present and the array empty; (iii) one whose group read is made against the wrong account, so the group does not come back (whether it errors or returns empty); (iv) one whose group comes back with **`conversion_rules: null`** — the shape the list form returns for a group that reads back `{"rules": []}` by id.
 
 **Pass criteria:**
 - (i) and (ii) answer with the account's ACTIVE include-in-total rules **and say it is the account default**. Variant (i) must not make a pointless group call.
 - (iii) says the group could not be read and presents the account default as the **fallback being reported**, not as the verified goal. Presenting it as verified is a fail.
-- (iv) does **not** report "no group goal". The absent key means unread, not empty, so the answer either resolves it (re-reading the group by id) or says the group could not be read — falling through to the account default as if it were verified is a fail. **Also check the call it made in the first place:** re-reading a group whose id is already known through the list form (`search_text`) instead of `campaign_group_id` is itself a fail — the listing is the read that returns `conversion_rules: null`.
+- (iv) does **not** report "no group goal". The `null` means unread, not empty, so the answer either resolves it (re-reading the group by id) or says the group could not be read — falling through to the account default as if it were verified is a fail. **Also check the call it made in the first place:** re-reading a group whose id is already known through the list form (`search_text`) instead of `campaign_group_id` is itself a fail — the listing is the read that returns `conversion_rules: null`.
 - All four state which level the goal came from. Getting the right answer without saying which level is a partial fail — the user cannot otherwise tell an inherited goal from a deliberate one.
 
 **Part C — P5's not-applicable row needs both levels empty.**

@@ -517,7 +517,7 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - Sends `spending_limit_model` — it is required on create even when the budget split is `CUSTOM`. Omitting it is a fail.
 - Resolves **"€20k for the quarter"** rather than assuming it: `ENTIRE` + `spending_limit: 20000` if the €20k covers the whole flight, `MONTHLY` if the user means per month. Picking one silently is the failure this prompt is built to catch — the phrase is genuinely ambiguous and the two readings differ threefold.
 - Settles the conversions question too — the account default, or rules picked manually — rather than leaving it off the preview. It decides what every campaign in the group optimizes toward.
-- Asks for a `kpi` rather than sending `marketing_objective` alone: on create the two travel together, and an objective sent alone leaves the KPI to the backend, which may land on one `BRAND_AWARENESS` does not offer. Offers only `CTR`, `CPC`, `CPM`.
+- Asks for a `kpi` rather than sending `marketing_objective` alone: on create the two travel together, and upstream does not say what a lone objective produces. Offers only `CTR`, `CPC`, `CPM`.
 - Does **not** set `status`, `bid_strategy`, `cpa_goal` or `language` — the API manages those.
 - If the user gives CPA numbers, does not treat `kpi_data` as a Target CPA, and maps the two fields by their UI wording rather than their names.
 - A misspelled field is a rejected call here, not a silent drop — these two tools are closed schemas, unlike the campaign writes.
@@ -536,7 +536,7 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 **Expected side effects:** none unless confirmed. If confirmed, the group moves to `AUTOMATIC` and its campaigns stop owning their budgets.
 
 **Pass criteria:**
-- Reads the group **by id** first, and counts the member campaigns by paging `list_campaigns` and matching `campaign_group_id`.
+- Reads the group **by id** first, and counts the member campaigns by paging `list_campaigns` and matching `campaign_group_id` — or says "every campaign in this group — I could not count them" if the account cannot be paged. Inventing a number is a fail.
 - The preview states, in plain language, that **every campaign in the group loses control of its own budget** and that Taboola will allocate the group's budget across them. Naming the field or the enum value instead is a fail.
 - Says this is **not symmetrical**: switching back to `CUSTOM` does not restore the budgets those campaigns had. A preview that implies it is a reversible toggle is a fail.
 - Checks the group has a limited budget before sending — `AUTOMATIC` rejects `spending_limit_model: NONE`, so a group on `NONE` needs the budget settled in the same conversation rather than a rejected call and a relayed API error.

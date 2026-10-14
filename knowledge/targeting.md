@@ -31,7 +31,7 @@ When demographic targeting is required and MCP search results don't surface a ma
 
 Gender-specific exact age ranges (e.g., F35-64) may need to be composed from broader buckets (e.g., F25+ + F65- excluding) in the UI.
 
-**Conversion-rule writes are wired here** — create, update and retire all go through the `manage-campaigns` preview-then-confirm gate, so do not send a user to the Realize UI for them. Building a **lookalike or predictive audience from a seed** is the one thing in this area with no tool at any level; that one is a Realize UI action.
+**Conversion-rule writes are wired here** — create, update and retire all go through the `manage-campaigns` preview-then-confirm gate, so do not send a user to the Realize UI for them. Two things in this area have no tool here: building a **lookalike or predictive audience from a seed**, and uploading a **CRM segment**. Both are Realize UI actions.
 
 ---
 
