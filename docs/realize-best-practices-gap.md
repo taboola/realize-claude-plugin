@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **20 read tools + 10 write tools** from the upstream MCP. Eight of the writes have field-level guidance in `skills/manage-campaigns/references/mcp-write-surface.md`; `create_campaign_group` / `update_campaign_group` are routed through the same preview-then-confirm gate and get their field reference in a follow-up:
+This plugin wires **20 read tools + 10 write tools** from the upstream MCP. All ten have field-level guidance in `skills/manage-campaigns/references/mcp-write-surface.md`:
 
 | Area | Tools |
 |---|---|
@@ -45,9 +45,9 @@ This plugin wires **20 read tools + 10 write tools** from the upstream MCP. Eigh
 | Resources | `list_time_zones`, `list_cta_types` |
 | Reports (CSV) | `get_dynamic_report_settings`, `get_dynamic_report_data` (metamodel-driven performance), `get_campaign_breakdown_report` (campaign grain; the only *performance* report serving GROUP / admin-network accounts — the change log carries no account-type restriction upstream), `get_campaign_history_report` (change log) |
 | Reach estimation | `get_campaign_reach_estimate` |
-| Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule` |
+| Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`, `create_campaign_group`, `update_campaign_group` |
 
-Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI-fallback section — *actions this plugin does not perform* — for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, lookalike seed creation, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Campaign-group writes sit outside both lists:** `create_campaign_group` / `update_campaign_group` exist upstream and this plugin deliberately does not wire them, so they belong in the `manage-campaigns` UI-fallback section and *not* in Part 3, whose entries are capabilities the MCP does not expose at all. Attaching a still-ungrouped campaign to a group is a normal wired write (`campaign_group_id` on `create_campaign` / `update_campaign`); only moving or detaching one has no tool.
+Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI-fallback section — *actions this plugin does not perform* — for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, lookalike seed creation, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Campaign-group writes are wired** — `create_campaign_group` / `update_campaign_group` go through the same gate, with the widest blast radius on the surface, since some group edits reach every campaign in the group. Attaching a still-ungrouped campaign to a group is a normal wired write too (`campaign_group_id` on `create_campaign` / `update_campaign`); only **moving or detaching** one has no tool at any level, which is why that one alone belongs in Part 3.
 
 ---
 

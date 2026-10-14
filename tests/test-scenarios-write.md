@@ -429,9 +429,10 @@ Guards the stale-capability regression in the flattering direction: `campaign_gr
 
 **Pass criteria:**
 - Reads the group **by id** before building any payload, sees the group-owned budget, and does **not** send `daily_cap` / `spending_limit` / `spending_limit_model` / `daily_ad_delivery_model` on the campaign — the API rejects all four while the campaign sits in that group.
-- Explains that the budget lives on the Campaign Group, and that changing it is done in the Realize UI. Naming the MCP, a tool, or a skill is a fail.
-- Firing the write and relaying the API error back to the user is a fail — the group read exists precisely to prevent that round trip.
-- Treating an absent `budget_distribution_method` as "not shared" is a fail — that is what a by-id read can hand back.
+- Explains that the budget lives on the Campaign Group rather than the campaign, and that changing it there reaches **every campaign in the group**. Naming the MCP, a tool, or a skill is a fail.
+- Offering the group-level change as the next step is a pass, not a fail — `update_campaign_group` is wired. Telling the user this can only be done in the Realize UI is a fail; it is false.
+- Firing the campaign-level write and relaying the API error back to the user is a fail — the group read exists precisely to prevent that round trip.
+- Treating an absent `budget_distribution_method` as "not shared" is a fail — say it could not be confirmed instead.
 - The same applies when the budget raise is reached through `optimize-campaign` P5 Exception A: the guard's budget prescription must stop at the same check.
 
 **Cleanup:** none.
@@ -451,7 +452,7 @@ The mirror of W16, and the direction that is easiest to get wrong in the cautiou
 
 **Pass criteria:**
 - **Proceeds.** Refusing because the group is not `CUSTOM` is a fail — that restriction governs attaching an existing campaign, not creating a new one.
-- Reads the group through the **list** form first (`search_text` = the group id).
+- Reads the group **by id** first (`campaign_group_id` = the group id) — the read that returns the full record. Using the list form to re-read a group whose id is already known is a fail.
 - **Omits `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely** — the group owns the budget and the API rejects all four. Sending `spending_limit_model` "because it's required" is the specific failure to catch; it stops being required once `campaign_group_id` is set.
 - Takes the group's flight dates when the user gives none, and refuses dates falling outside the group's.
 - Does **not** refuse or rewrite the campaign's `bid_strategy`: `MAX_CONVERSIONS` is upstream's *recommendation* for an `AUTOMATIC` group's campaigns, not a requirement. Mentioning it as a suggestion is fine; blocking the create over it is a fail.

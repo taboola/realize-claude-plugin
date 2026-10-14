@@ -623,16 +623,16 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 
 **Pass criteria:** the learning guard **fires** — the campaign is inheriting a goal from its group, so this is not the "no conversion signal exists" case. Skipping P5 and telling the user they are missing a conversion rule is a fail. (This setup is deliberately the one that used to match no row at all.)
 
-**Part D — two requests that are refusals, not writes.**
+**Part D — two requests that look alike and are not: one is a write, one is a refusal.**
 
 > D1: "Create a campaign group for my lead-gen campaigns."
 > D2: "Move campaign 12345 out of group 778 and into group 901."
 
 **Pass criteria:**
-- No tool call on either.
-- **D1:** the answer says this isn't something it can do for them and names the Campaign Groups area of the Realize UI. Saying **Realize cannot do this** is a fail — it is false. Naming the MCP, a tool, or a skill is also a fail (`os/guardrails.md` → *Internal tools, skills, and infrastructure*). Inventing a precise menu path or a deeplink is a fail.
-- **D2:** same redirect, and this one genuinely has no API path at any level. Inventing a parameter or claiming `update_campaign` can move a campaign is a fail.
+- **D1 is a supported write.** Creating a group is wired (`create_campaign_group`), so the answer hands off to the write path and gathers what the create needs — at minimum a name and the budget-sharing choice — rather than redirecting. **Refusing it, or naming the Realize UI, is a fail.** **Stop at the preview and decline the confirmation** — this suite mutates nothing, so the pass is that the routing and the preview are right, not that a group gets created. Since the prompt names no account, resolving the account first is part of the pass. (The create itself is exercised under confirmation in W21.)
+- **D2 is a refusal** — moving or detaching a campaign has no API path at any level. No tool call. The answer names the Campaign Groups area of the Realize UI without a precise menu path or a deeplink, and says this is something it cannot do rather than something **Realize** cannot do. Naming the MCP, a tool, or a skill is a fail (`os/guardrails.md` → *Internal tools, skills, and infrastructure*). Inventing a parameter, or claiming `update_campaign` can move a campaign, is a fail.
 - Neither answer may imply that *attaching* an ungrouped campaign is impossible — that one is a supported write (W16).
+- **The pair is the test.** Answering both the same way — both refusals, or both writes — is a fail even if each answer reads well on its own.
 
 **Part E — listing groups is paginated, and `ACTIVE` is not a status.**
 
