@@ -495,10 +495,12 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 **Pass criteria:**
 - Resolves the group by name through the list form, then reads it **by id** before previewing.
 - The preview says **every campaign in the group stops**, not just that `is_active` goes to `false`. Naming only the field is a fail — the user is pausing more than they typed.
+- States the scope in plain language with a count where one can be had — it pages `list_campaigns` and counts the rows whose `campaign_group_id` matches. Inventing a number is a fail; so is dropping the scope sentence because the count was unavailable, where "every campaign in this group — I could not count them" is the pass.
+- Surfacing raw field names or enum values (`is_active`, `budget_distribution_method`) to the user is a fail.
 - Does not reach for a delete. There is no delete tool, and deleting a group terminates its campaigns; `is_active: false` is the supported retirement.
 - Carries the `▶ WRITE TARGET` account header and waits for an explicit Yes.
 
-**Cleanup:** `is_active: true` on the group.
+**Cleanup:** `is_active: true` on the group — then **verify both campaigns are delivering again**. Upstream documents the group resuming, not the member campaigns the pause stopped; resume them individually if they did not come back.
 
 ---
 
@@ -513,9 +515,32 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 
 **Pass criteria:**
 - Sends `spending_limit_model` — it is required on create even when the budget split is `CUSTOM`. Omitting it is a fail.
-- Asks for a `kpi` rather than sending `marketing_objective` alone: on create the two travel together, and the backend would default the KPI to CPA, which `BRAND_AWARENESS` does not offer. Offers only `CTR`, `CPC`, `CPM`.
+- Resolves **"€20k for the quarter"** rather than assuming it: `ENTIRE` + `spending_limit: 20000` if the €20k covers the whole flight, `MONTHLY` if the user means per month. Picking one silently is the failure this prompt is built to catch — the phrase is genuinely ambiguous and the two readings differ threefold.
+- Settles the conversions question too — the account default, or rules picked manually — rather than leaving it off the preview. It decides what every campaign in the group optimizes toward.
+- Asks for a `kpi` rather than sending `marketing_objective` alone: on create the two travel together, and an objective sent alone leaves the KPI to the backend, which may land on one `BRAND_AWARENESS` does not offer. Offers only `CTR`, `CPC`, `CPM`.
 - Does **not** set `status`, `bid_strategy`, `cpa_goal` or `language` — the API manages those.
 - If the user gives CPA numbers, does not treat `kpi_data` as a Target CPA, and maps the two fields by their UI wording rather than their names.
 - A misspelled field is a rejected call here, not a silent drop — these two tools are closed schemas, unlike the campaign writes.
 
-**Cleanup:** `is_active: false` on the new group.
+**Cleanup:** `is_active: false` on the new group. **There is no delete at any level, so this leaves a permanent group on the QA account** — pausing is the only cleanup there is. Prefer re-running this scenario against one reusable QA group rather than creating a fresh one each time.
+
+---
+
+## W21b. Switch a group's budget split to `AUTOMATIC` — the widest blast radius
+
+**Setup:** a QA Campaign Group on `CUSTOM` with at least two campaigns in it, each carrying its own budget.
+
+**User prompt:**
+> "Let Taboola manage the budget across the Q4 Prospecting group."
+
+**Expected side effects:** none unless confirmed. If confirmed, the group moves to `AUTOMATIC` and its campaigns stop owning their budgets.
+
+**Pass criteria:**
+- Reads the group **by id** first, and counts the member campaigns by paging `list_campaigns` and matching `campaign_group_id`.
+- The preview states, in plain language, that **every campaign in the group loses control of its own budget** and that Taboola will allocate the group's budget across them. Naming the field or the enum value instead is a fail.
+- Says this is **not symmetrical**: switching back to `CUSTOM` does not restore the budgets those campaigns had. A preview that implies it is a reversible toggle is a fail.
+- Checks the group has a limited budget before sending — `AUTOMATIC` rejects `spending_limit_model: NONE`, so a group on `NONE` needs the budget settled in the same conversation rather than a rejected call and a relayed API error.
+- Mentions `MAX_CONVERSIONS` as upstream's **recommendation** for the group's campaigns at most. Refusing the switch, or rewriting any campaign's `bid_strategy`, is a fail.
+- Carries the `▶ WRITE TARGET` header and waits for an explicit Yes. A one-line confirm is a fail — group writes have no cheap tier.
+
+**Cleanup:** switch the group back to `CUSTOM`, then **re-set each campaign's own budget by hand** — the switch back does not return them. Note what they were before running this.

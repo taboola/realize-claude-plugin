@@ -6,9 +6,9 @@ allowed-tools: ["Read", "Bash", "AskUserQuestion"]
 
 # Manage Campaigns
 
-Writes for Realize campaigns and native + display items via MCP. Every destructive call is gated behind a preview and an explicit user confirmation; the preview always identifies the target account by name and opaque `account_id`. This skill is the only place in the plugin that calls the MCP write tools.
+Writes for Realize campaigns, campaign groups, native + display items, and account-level conversion rules via MCP. Every destructive call is gated behind a preview and an explicit user confirmation; the preview always identifies the target account by name and opaque `account_id`. This skill is the only place in the plugin that calls the MCP write tools.
 
-**Depth:** the full field-by-field MCP write-surface reference (every scalar on `create_campaign`, every field on `create_native_item` / `create_display_item`, per-strategy bid-lever gates, common payload patterns, failure modes) lives in `references/mcp-write-surface.md`. Read it when a payload needs detailed field coverage or when debugging a write rejection.
+**Depth:** the full field-by-field MCP write-surface reference (every scalar on `create_campaign`, every field on `create_native_item` / `create_display_item`, the account-level conversion-rule fields in §3b, the campaign-group fields in §3c, per-strategy bid-lever gates, common payload patterns, failure modes) lives in `references/mcp-write-surface.md`. Read it when a payload needs detailed field coverage or when debugging a write rejection.
 
 ## When to use
 
@@ -19,7 +19,7 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 ## Prerequisites
 
 - `account_id` resolved via the `accounts` skill. If missing, hand off there first.
-- For **updates**, the relevant `get_campaign` / `get_item` read MUST precede the write — both to render a diff preview and (for `update_campaign` targeting blocks) to merge client-side so the full-replace semantics do not wipe dimensions the user didn't mention.
+- For **updates**, the relevant `get_campaign` / `get_item` / `get_campaign_groups` read MUST precede the write — both to render a diff preview and (for `update_campaign` targeting blocks) to merge client-side so the full-replace semantics do not wipe dimensions the user didn't mention.
 
 ## Tools this skill wraps
 
@@ -33,8 +33,10 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 | `mcp__realize-mcp__update_display_item` | `account_id`, `campaign_id`, `item_id` | Yes | At least one updatable field required. Arrays like `verification_pixel` are full-replace. |
 | `mcp__realize-mcp__create_conversion_rule` | `account_id`, `display_name`, `event_name`, `type`, `category`, `condition`, `look_back_window`, `include_in_total_conversions`, `status`, `effects` | No | **Account-level.** No tool-side defaults — every required field must be supplied. `type` / `category` / `event_name` immutable afterwards. Returns the server-assigned `id`. |
 | `mcp__realize-mcp__update_conversion_rule` | `account_id`, `rule_id` | Yes | **Partial-merge on every field, including `condition` and `effects`** — omitted fields keep their stored value. The only way to retire a rule (`status=DISABLED` / `ARCHIVED`); there is no delete tool. |
+| `mcp__realize-mcp__create_campaign_group` | `account_id`, `name`, `spending_limit_model` | No | **Group-level.** Closed schema — a misspelled field is rejected, not dropped. The budget period is required even when the split is `CUSTOM`. `marketing_objective` and `kpi` must travel together. See `references/mcp-write-surface.md` §3c. |
+| `mcp__realize-mcp__update_campaign_group` | `account_id`, `campaign_group_id` | Yes | **Group-level, and the widest blast radius on this surface** — changing the budget split or a shared group's budget reaches every campaign in the group, and `is_active=false` pauses them all. Closed schema, partial-merge. No delete. See §3c. |
 
-For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, and `mcp__realize-mcp__get_conversion_rules`.
+For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, `mcp__realize-mcp__get_conversion_rules`, and `mcp__realize-mcp__get_campaign_groups` — the last **by id**, per `knowledge/campaign-structure.md` → *Reading a campaign group*.
 
 ## Conversion rules — account-level writes
 
@@ -147,11 +149,13 @@ The skill never submits a write without first showing the user a preview and get
 | `update_campaign`, `update_native_item` (non-`is_active`) | Diff preview |
 | `update_conversion_rule` (fields other than `status`) | Diff preview + account-level impact line |
 | `update_conversion_rule` (`status` → `DISABLED` / `ARCHIVED`) | Full preview — **retire is the closest thing to a delete** |
+| `create_campaign_group` | Full preview |
+| `update_campaign_group` (any field) | Full preview **+ the blast-radius line** — never a one-line confirm, including for `is_active` |
 | `update_native_item` (`is_active` toggle only) | One-line confirm |
 
 Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
 
-**There is no one-line tier for conversion rules.** They look like small edits — one window value, one boolean — while reaching every campaign on the account that references the rule. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item.
+**There is no one-line tier for conversion rules, or for campaign groups.** Both look like small edits — one window value, one boolean — while reaching every campaign that references the rule, or every campaign in the group. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item. Note the asymmetry worth saying out loud in a preview: `is_active=false` on an *item* pauses one ad; on a *group* it pauses every campaign in it.
 
 ### Mandatory: `▶ WRITE TARGET` header on every confirmation
 
@@ -497,7 +501,7 @@ Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-
 
 Three shapes, and only one of them is a write this skill performs. Classify before answering.
 
-- **Creating or editing a group is NOT on this list** — `create_campaign_group` / `update_campaign_group` are wired, and this skill performs them behind the usual preview-then-confirm gate. The preview must say what the write reaches: a group's budget split, and a shared group's budget, copy down to **every campaign in it**, and `is_active=false` pauses them all. There is no delete — deleting a group terminates its campaigns, so the supported retirement is `is_active=false`.
+- **Creating or editing a group is NOT on this list** — `create_campaign_group` / `update_campaign_group` are wired, and this skill performs them behind the usual preview-then-confirm gate. The preview must say what the write reaches, in plain language and with a count where one can be had: switching how the budget is split takes budget control away from **every campaign in the group**, a shared group's budget change reaches all of them, and `is_active=false` pauses them all. `references/mcp-write-surface.md` §3c carries the counting procedure and a worked preview. There is no delete — deleting a group terminates its campaigns, so the supported retirement is `is_active=false`.
 - **Move a campaign to a different group, or take it out of one** — no MCP tool at any level. **First check it really is a move:** read the campaign and look at `campaign_group_id`. **"Has a group" means `campaign_group_id` is a positive number — `0`, `null`, `""` and an absent key all mean ungrouped, and none of them is a group id to search for.** If it is ungrouped, the user said "move" but means attach — that is the next bullet, and refusing it is a wrong answer. Only when the campaign already sits in a group is this a move: `campaign_group_id` on `update_campaign` attaches only, and there is no detach parameter. Same redirect to the **Campaign Groups** area of the Realize UI, which is where it is done. Say it is a Realize UI action — not that Realize cannot do it.
 - **Putting a still-ungrouped campaign into a group is NOT on this list.** `campaign_group_id` on `create_campaign` / `update_campaign` is a gated write this skill performs — see `references/mcp-write-surface.md` → *Campaign groups and the budget they own*. On `update_campaign` it is **attach only**, and only to a group whose campaigns keep their own budgets. On `create_campaign` the new campaign may go into **any** group — including one that shares its budget, where you then omit the campaign's budget fields entirely. Do not redirect either case here. **The preview must say the attach cannot be undone here** — there is no detach or move anywhere in the MCP, so once the campaign is in the group it only comes out in the Realize UI. In a shared-budget group it also hands budget control to the group permanently. A user confirming an ordinary-looking diff must not discover that afterwards.
 

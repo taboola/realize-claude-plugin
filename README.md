@@ -75,7 +75,7 @@ This plugin wraps the remote [realize-mcp](https://github.com/taboola/realize-mc
 | [`reports`](skills/reports/SKILL.md) | Build any-dimension performance reports via the dynamic report (metamodel-driven), fall back to the classic campaign-breakdown report for GROUP / admin-network accounts, pull the campaign change log, and interpret the CSV output |
 | [`optimize-campaign`](skills/optimize-campaign/SKILL.md) | Diagnose underperforming campaigns against the toolkit's signal-quality thresholds (100+ clicks per item, daily spend ≥ 8× CPA goal) and the campaign's own reported learning status, then prescribe concrete actions (most now applied via `manage-campaigns`) |
 | [`diagnose-tracking`](skills/diagnose-tracking/SKILL.md) | Verify the Taboola Pixel on your site: install check from your page, firing check from a browser recording (HAR) you capture in one minute, cross-check against your conversion rules and spend. Site-side fixes come back as copy-paste instructions; rule fixes apply through `manage-campaigns`' write gate; Taboola-side gaps route to the support escalation |
-| [`manage-campaigns`](skills/manage-campaigns/SKILL.md) | Create and update campaigns, Native + Display items, account-level conversion rules (including attribution windows and retiring a rule), and putting an ungrouped campaign into a campaign group. Tiered preview-and-confirm pattern surfaces the target account on every write. Falls back to a UI reference for actions not supported here (delete, duplicate, bulk ops, Custom Rules, CRM uploads, pixel installation, codeless-conversion setup, pixel test-fire, creating or editing a campaign group, moving a campaign between groups) |
+| [`manage-campaigns`](skills/manage-campaigns/SKILL.md) | Create and update campaigns, Native + Display items, account-level conversion rules (including attribution windows and retiring a rule), campaign groups, and putting an ungrouped campaign into a group. Tiered preview-and-confirm pattern surfaces the target account on every write. Falls back to a UI reference for actions with no API at all (delete, duplicate, bulk ops, Custom Rules, CRM uploads, pixel installation, codeless-conversion setup, pixel test-fire, and moving a campaign between groups or taking it out of one) |
 | [`support`](skills/support/SKILL.md) | Package the conversation into one file you can email to Taboola Support — see [`/realize-plugin:support`](#getting-help-with-a-problem) |
 | [`web-fallback`](skills/web-fallback/SKILL.md) | Answer in-scope questions the plugin's own knowledge base doesn't cover, by looking the topic up in Taboola's public advertiser help documentation. Fires only on a real miss, flags the answer as coming from online sources, and always yields to the plugin's own guidance when the two disagree |
 
@@ -101,7 +101,7 @@ This plugin wraps the remote [realize-mcp](https://github.com/taboola/realize-mc
 "My pixel shows inactive in Realize — the site is https://example.com"
 "Conversions stopped tracking — can you check the pixel? Here's a recording from my browser."
 
-# campaign groups (read-only)
+# campaign groups
 "What is campaign 12345 optimizing toward?"
 "Show me the campaign groups on this account."
 

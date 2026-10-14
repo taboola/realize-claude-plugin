@@ -50,8 +50,8 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
            │                             UI fallback for delete/duplicate/bulk ops,
-           │                             pixel install / test-fire, and campaign-group
-           │                             create/edit/move.
+           │                             pixel install / test-fire, and moving or
+           │                             detaching a campaign between groups.
            │
            ├──► support skill  → NO MCP tools. Reads the local Claude Code
            │                             session transcript and renders one Markdown
