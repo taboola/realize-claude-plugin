@@ -47,7 +47,7 @@ This plugin wires **20 read tools + 10 write tools** from the upstream MCP. All 
 | Reach estimation | `get_campaign_reach_estimate` |
 | Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`, `create_campaign_group`, `update_campaign_group` |
 
-Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI-fallback section — *actions this plugin does not perform* — for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, CRM uploads, lookalike seed creation, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Campaign-group writes are wired** — `create_campaign_group` / `update_campaign_group` go through the same gate, with the widest blast radius on the surface, since some group edits reach every campaign in the group. Attaching a still-ungrouped campaign to a group is a normal wired write too (`campaign_group_id` on `create_campaign` / `update_campaign`); only **moving or detaching** one has no tool at any level, which is why that one alone belongs in Part 3.
+Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI-fallback section — *actions this plugin does not perform* — for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, lookalike seed creation, pixel installation, codeless-conversion setup, pixel test-fire), plus the CRM customer-list upload, which **is** exposed upstream (`create_audience`) and is deliberately not wired in this revision — see Part 3 for that catalog. **Campaign-group writes are wired** — `create_campaign_group` / `update_campaign_group` go through the same gate, with the widest blast radius on the surface, since some group edits reach every campaign in the group. Attaching a still-ungrouped campaign to a group is a normal wired write too (`campaign_group_id` on `create_campaign` / `update_campaign`); only **moving or detaching** one has no tool at any level, which is why that one alone belongs in Part 3.
 
 ---
 
@@ -125,13 +125,12 @@ Listed with the source article, a one-line description of what the ability would
 ### 3.C — Targeting & audience writes
 
 **Closed gaps in this section:**
-- ~~`update_blocklist`~~ — **covered** as of upstream Jun 15 2026 ("Add structured support: Block List via MCP" — Chris Hall) via `update_campaign(publisher_targeting={type:"EXCLUDE", value:[<ids>]})`. Read current state with `get_campaign.publisher_targeting`, merge client-side (full-replace within the dimension), preview, write. See `skills/manage-campaigns/SKILL.md` → "Publisher block-list edits — recipe".
+- ~~`update_blocklist`~~ — **covered** as of upstream Jun 15 2026 ("Add structured support: Block List via MCP") via `update_campaign(publisher_targeting={type:"EXCLUDE", value:[<ids>]})`. Read current state with `get_campaign.publisher_targeting`, merge client-side (full-replace within the dimension), preview, write. See `skills/manage-campaigns/SKILL.md` → "Publisher block-list edits — recipe".
 
 | Future ability | Does what | Today's UI path | Source |
 |---|---|---|---|
 | `update_targeting` | Adjust Location / Platform / Device / Connection / OS / Browser on a campaign | Campaign → Targeting | Setup + Optimization |
-| `list_audiences` / `create_audience` | List account audiences or create from pixel/events | `Audiences → New Audience` | Retargeting |
-| `attach_audience_to_campaign` | Add `My Audiences` / Taboola First Party Audiences / Contextual or suppression audience to a campaign | Campaign → Audience Targeting | Setup Step 7 |
+| `create_audience` *(exists upstream; not wired in this revision — not a platform gap)* | List account audiences or create from pixel/events | `Audiences → New Audience` | Retargeting |
 | `toggle_brand_safety_pre_bid` | Enable/disable the brand-safety filter | Advanced Options | Setup Step 6 |
 | `setup_campaign_clicker_retargeting` | The IMG-tag-in-3rd-party-pixels flow that builds an audience from campaign clickers (~2 week build) | `Audiences → New Audience → From Pixel → Campaign Clickers`, then paste IMG tag into the originating campaign | Retargeting article |
 

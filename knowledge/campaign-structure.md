@@ -8,7 +8,7 @@ Campaign structure determines how budgets are distributed, how the algorithm opt
 
 ## Campaign Groups
 
-> **MCP support status (updated 2026-10-13).** Reading groups **is** exposed: `get_campaign_groups` returns a group's objective, KPI, conversion rules, budget, flight dates and status. A campaign's `campaign_group_id` (from `get_campaign` / `list_campaigns`) is the way in — read the group **by that id**; see *Reading a campaign group* below for the one procedure.
+> **MCP support status (updated 2026-10-14).** Reading groups **is** exposed: `get_campaign_groups` returns a group's objective, KPI, conversion rules, budget, flight dates and status. A campaign's `campaign_group_id` (from `get_campaign` / `list_campaigns`) is the way in — read the group **by that id**; see *Reading a campaign group* below for the one procedure.
 >
 > **Group creation and editing are wired** (`create_campaign_group`, `update_campaign_group`), through the `manage-campaigns` preview-then-confirm gate like every other write. They are account-shaped: a group write reaches **every campaign in the group** — switching how the budget is split takes budget control away from each of them, and a shared group's budget change reaches all of them, and `is_active=false` pauses them all — so the preview has to say what will be affected, not just which fields change. There is no delete: deleting a group terminates its campaigns, and the supported retirement is `is_active=false`.
 >

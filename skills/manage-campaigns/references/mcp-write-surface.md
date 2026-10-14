@@ -253,7 +253,7 @@ while the group is paused. Their own settings are not changed.
 Proceed?
 ```
 
-Not: `is_active: true → false on campaign_group_id 690724`.
+Not: `is_active: true → false on campaign_group_id 778`.
 
 ## 4. Per-strategy bid-lever gate matrix
 
