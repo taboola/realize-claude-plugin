@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **20 read tools + 8 write tools** from the upstream MCP:
+This plugin wires **20 read tools + 12 write tools** from the upstream MCP. Eight of the writes have field-level guidance in `skills/manage-campaigns/references/mcp-write-surface.md`; the four added most recently (`create_campaign_group`, `update_campaign_group`, `create_audience`, `update_audience`) are routed through the same preview-then-confirm gate and get their field reference in a follow-up:
 
 | Area | Tools |
 |---|---|

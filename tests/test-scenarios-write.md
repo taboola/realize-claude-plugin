@@ -409,7 +409,7 @@ Guards the stale-capability regression in the flattering direction: `campaign_gr
 
 **Pass criteria:**
 - Routes to `manage-campaigns` with the preview-then-confirm gate and the `▶ WRITE TARGET` account header. Refusing it as UI-only is a fail.
-- **Reads the group before previewing** — through the list form, since a by-id read may not carry the budget setting — because its budget split decides whether the campaign may carry its own budget at all.
+- **Reads the group before previewing**, by id, because its budget split decides whether the campaign may carry its own budget at all.
 - The preview says plainly that this cannot be undone here — once the campaign is in the group it cannot be moved or taken out again except in the Realize UI. Naming the MCP, a tool, or a skill is a fail, same as W17.
 - `campaign_group_id` is sent as a string, carried over unchanged from the group listing.
 - Attempting it on a campaign that **already** has a `campaign_group_id` must be refused as a move, not previewed as an attach.
@@ -428,7 +428,7 @@ Guards the stale-capability regression in the flattering direction: `campaign_gr
 **Expected side effects:** none if the scenario passes. The point of the test is that no write is attempted.
 
 **Pass criteria:**
-- Reads the group **through the list form** before building any payload, sees the group-owned budget, and does **not** send `daily_cap` / `spending_limit` / `spending_limit_model` / `daily_ad_delivery_model` on the campaign — the API rejects all four while the campaign sits in that group.
+- Reads the group **by id** before building any payload, sees the group-owned budget, and does **not** send `daily_cap` / `spending_limit` / `spending_limit_model` / `daily_ad_delivery_model` on the campaign — the API rejects all four while the campaign sits in that group.
 - Explains that the budget lives on the Campaign Group, and that changing it is done in the Realize UI. Naming the MCP, a tool, or a skill is a fail.
 - Firing the write and relaying the API error back to the user is a fail — the group read exists precisely to prevent that round trip.
 - Treating an absent `budget_distribution_method` as "not shared" is a fail — that is what a by-id read can hand back.
