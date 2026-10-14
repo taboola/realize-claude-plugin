@@ -521,10 +521,6 @@ The duplicated campaign re-enters the 24–48 hour review.
 
 Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-only. The MCP write tools handle one entity at a time. For "pause everything except X", surface that there's no batch API and offer to either (a) script the per-entity calls one by one (each gets its own confirmation) or (b) point the user to the UI for the bulk action.
 
-### Audiences — the CRM customer-list upload
-
-`create_audience` / `update_audience` **exist on the Realize MCP** and are not wired in this revision. That is a plugin decision, not a platform limit, so the sentence is *"that is not something I can do here"* — never *"Realize cannot do that"*. Point at the **Audiences** area of the Realize UI without inventing a menu path or a link. Building a **predictive audience from a seed** is the one audience action with no tool at any level, and there is **no delete** for an audience anywhere; archiving is how one is retired.
-
 ### Campaign groups — moving or detaching a campaign
 
 Three shapes, and only one of them is a write this skill performs. Classify before answering.
