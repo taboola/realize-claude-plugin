@@ -6,7 +6,7 @@ allowed-tools: ["Read", "WebSearch", "WebFetch"]
 
 # Web Fallback
 
-The knowledge base is finite; the questions aren't. There are 12 topic files, and an advertiser can ask hundreds of reasonable "how do I…" questions that fall just outside them. Before this skill existed, those questions got a thin answer from model priors or a shrug — neither of which is what the user came for, and the first is worse than the second.
+The knowledge base is finite; the questions aren't. There are 13 topic files, and an advertiser can ask hundreds of reasonable "how do I…" questions that fall just outside them. Before this skill existed, those questions got a thin answer from model priors or a shrug — neither of which is what the user came for, and the first is worse than the second.
 
 This skill closes that gap with one narrow move: look the topic up in Taboola's public advertiser help documentation, and answer with a *"this is what I found online"* framing. It is the last tier of the sourcing ladder in `os/guardrails.md` → *Sourcing — prioritize the plugin's own sources*, and it never outranks anything above it.
 
