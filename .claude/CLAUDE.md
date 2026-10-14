@@ -42,12 +42,11 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                              rule/report cross-checks. Rule fixes hand off
            │                              to manage-campaigns; Taboola-side gaps to the
            │                              support escalation. No pixel MCP tool exists.
-           ├──► manage-campaigns skill → 12 write tools: create_campaign, update_campaign,
+           ├──► manage-campaigns skill → 10 write tools: create_campaign, update_campaign,
            │                             create_native_item, update_native_item,
            │                             create_display_item, update_display_item,
            │                             create_conversion_rule, update_conversion_rule,
-           │                             create_campaign_group, update_campaign_group,
-           │                             create_audience, update_audience.
+           │                             create_campaign_group, update_campaign_group.
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
            │                             UI fallback for delete/duplicate/bulk ops,
@@ -69,7 +68,7 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
                      ▼
 ┌────────────────────────────────────────┐
 │ Realize MCP (https://mcp.realize.com)  │
-│  OAuth 2.1, 20 read + 12 write tools   │
+│  OAuth 2.1, 20 read + 10 write tools   │
 │  wired here. Writes routed exclusively │
 │  through the manage-campaigns skill.   │
 └────────────────────────────────────────┘

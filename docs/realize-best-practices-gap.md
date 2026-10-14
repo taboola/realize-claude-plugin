@@ -32,7 +32,7 @@ This document serves three jobs, in order of size:
 
 ## Current MCP capability baseline
 
-This plugin wires **20 read tools + 12 write tools** from the upstream MCP. Eight of the writes have field-level guidance in `skills/manage-campaigns/references/mcp-write-surface.md`; the four added most recently (`create_campaign_group`, `update_campaign_group`, `create_audience`, `update_audience`) are routed through the same preview-then-confirm gate and get their field reference in a follow-up:
+This plugin wires **20 read tools + 10 write tools** from the upstream MCP. Eight of the writes have field-level guidance in `skills/manage-campaigns/references/mcp-write-surface.md`; `create_campaign_group` / `update_campaign_group` are routed through the same preview-then-confirm gate and get their field reference in a follow-up:
 
 | Area | Tools |
 |---|---|
@@ -130,7 +130,7 @@ Listed with the source article, a one-line description of what the ability would
 | Future ability | Does what | Today's UI path | Source |
 |---|---|---|---|
 | `update_targeting` | Adjust Location / Platform / Device / Connection / OS / Browser on a campaign | Campaign → Targeting | Setup + Optimization |
-| `list_audiences` | List account audiences (reading them is wired — `search_audiences`; a dedicated list-all tool is not) | `Audiences` | Retargeting |
+| `list_audiences` / `create_audience` | List account audiences or create from pixel/events | `Audiences → New Audience` | Retargeting |
 | `attach_audience_to_campaign` | Add `My Audiences` / Taboola First Party Audiences / Contextual or suppression audience to a campaign | Campaign → Audience Targeting | Setup Step 7 |
 | `toggle_brand_safety_pre_bid` | Enable/disable the brand-safety filter | Advanced Options | Setup Step 6 |
 | `setup_campaign_clicker_retargeting` | The IMG-tag-in-3rd-party-pixels flow that builds an audience from campaign clickers (~2 week build) | `Audiences → New Audience → From Pixel → Campaign Clickers`, then paste IMG tag into the originating campaign | Retargeting article |
