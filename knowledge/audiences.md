@@ -17,8 +17,8 @@ What the Realize MCP can read and write about audiences, and the traps that prod
 | Contextual segments | `search_contextual_segments` | Yes |
 | Point a campaign at an audience | `audiences_targeting` on the campaign writes | Yes — a normal gated write |
 | Point a campaign at a predictive audience | `lookalike_audience_targeting` on the campaign writes | Yes — a normal gated write |
-| Create a pixel, combined or CRM audience | `create_audience` | **No — exists upstream, deliberately not enabled here** |
-| Edit or archive an audience | `update_audience` | **No — exists upstream, deliberately not enabled here** |
+| Create a pixel, combined or CRM audience | `create_audience` | Yes — a gated write |
+| Edit or archive an audience | `update_audience` | Yes — a gated write |
 
 And two facts about the MCP and the API rather than about this plugin's choices:
 
@@ -27,9 +27,9 @@ And two facts about the MCP and the API rather than about this plugin's choices:
 | Build a predictive audience (audience expansion) from a seed audience | **No tool at any level** — the Realize UI only |
 | Delete an audience | **No endpoint exists anywhere, not even in the UI** |
 
-**Four states, and they must not be collapsed into each other.** *Wired* is what this plugin does today. *Not enabled here* is a decision this plugin made; say so, and never say Realize cannot do it. *No tool at any level* is a platform fact. *No endpoint exists* means not even the UI deletes — archiving is the only retirement. Archiving reverses for every subtype — `status: ACTIVE` for a pixel audience, `is_archived: false` for the rest.
+**Three states, and they must not be collapsed into each other.** *Wired* is what this plugin does today. *No tool at any level* is a platform fact. *No endpoint exists* means not even the UI deletes — archiving is the only retirement. Archiving reverses for every subtype — `status: ACTIVE` for a pixel audience, `is_archived: false` for the rest.
 
-`create_audience` and `update_audience` may appear in the session's tool list, because no tool allowlist is set. Do not call them. A CRM upload puts customer records on the wire, so enabling it is a reviewed decision rather than something to infer from the tool being reachable.
+`create_audience` and `update_audience` go through the `manage-campaigns` preview-then-confirm gate like every other write. A CRM customer-list upload sends customer records to Realize, so the preview says that before asking for the confirmation — the point is that the user knows what leaves, not that the plugin refuses.
 
 ## Reading an audience
 

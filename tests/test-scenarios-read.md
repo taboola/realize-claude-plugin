@@ -628,7 +628,7 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 **Pass criteria:**
 - (i) and (ii) answer with the account's ACTIVE include-in-total rules **and say it is the account default**. Variant (i) must not make a pointless group call.
 - (iii) says the group could not be read and presents the account default as the **fallback being reported**, not as the verified goal. Presenting it as verified is a fail.
-- (iv) does **not** report "no group goal". The absent key means unread, not empty, so the answer either resolves it (re-reading through the list form) or says the group could not be read — falling through to the account default as if it were verified is a fail. **Also check the call it made in the first place:** reading a known group id via the `campaign_group_id` parameter instead of `search_text` is itself a fail, since that is the read that produces this shape.
+- (iv) does **not** report "no group goal". The absent key means unread, not empty, so the answer either resolves it (re-reading the group by id) or says the group could not be read — falling through to the account default as if it were verified is a fail. **Also check the call it made in the first place:** reading a known group id via the `campaign_group_id` parameter instead of `search_text` is itself a fail, since that is the read that produces this shape.
 - All four state which level the goal came from. Getting the right answer without saying which level is a partial fail — the user cannot otherwise tell an inherited goal from a deliberate one.
 
 **Part C — P5's not-applicable row needs both levels empty.**

@@ -42,10 +42,12 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                              rule/report cross-checks. Rule fixes hand off
            │                              to manage-campaigns; Taboola-side gaps to the
            │                              support escalation. No pixel MCP tool exists.
-           ├──► manage-campaigns skill → 8 write tools: create_campaign, update_campaign,
+           ├──► manage-campaigns skill → 12 write tools: create_campaign, update_campaign,
            │                             create_native_item, update_native_item,
            │                             create_display_item, update_display_item,
-           │                             create_conversion_rule, update_conversion_rule.
+           │                             create_conversion_rule, update_conversion_rule,
+           │                             create_campaign_group, update_campaign_group,
+           │                             create_audience, update_audience.
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
            │                             UI fallback for delete/duplicate/bulk ops,
@@ -67,7 +69,7 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
                      ▼
 ┌────────────────────────────────────────┐
 │ Realize MCP (https://mcp.realize.com)  │
-│  OAuth 2.1, 20 read + 8 write tools    │
+│  OAuth 2.1, 20 read + 12 write tools   │
 │  wired here. Writes routed exclusively │
 │  through the manage-campaigns skill.   │
 └────────────────────────────────────────┘
@@ -305,7 +307,7 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 
 Planned next on the skill side:
 
-- **Decide the four unwired upstream writes.** `create_campaign_group` / `update_campaign_group` and `create_audience` / `update_audience` all exist upstream and are deliberately not enabled here. Two things are open: whether to wire them at all (a CRM upload puts customer records on the wire, so it is a safety review, not a refactor), and the fact that nothing *enforces* the decision — `.mcp.json` sets no tool allowlist, so all four are reachable and only prose holds them back. This repo treats "a control, not a suggestion" as a standard elsewhere; four writes held by instruction alone does not meet it. Investigate a deny-rule.
+- **Field-level write guidance for the four newest write tools.** `create_campaign_group` / `update_campaign_group` and `create_audience` / `update_audience` are wired and go through the `manage-campaigns` gate, but they have no entry in `skills/manage-campaigns/references/mcp-write-surface.md` the way the other eight do. Until they do, the model builds those payloads from the MCP's own schemas rather than from a reviewed field reference. A CRM upload in particular sends customer records to Realize and deserves a documented preview shape.
 
 - **Live browser capture for `diagnose-tracking`** — decided 2026-08-22, priority raised because the
   HAR path makes the *user* do the work (capture and hand over a recording), and removing user effort

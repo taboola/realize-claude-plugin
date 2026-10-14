@@ -473,7 +473,7 @@ If `get_campaign` returns the prior state immediately after a save, wait a minut
 
 ## UI fallback — actions this plugin does not perform
 
-Most entries here have no MCP tool at all. **Two do not fit that description and are flagged where they appear:** creating or editing a Campaign Group, and creating, editing or archiving an audience — both exist upstream and are deliberately not enabled here. Keep the two reasons apart — "we don't do that" and "the platform can't" are different sentences, and only one of them is true.
+Everything in this section has no MCP tool at all, so the honest sentence is that the platform does not expose it — not that this plugin chose not to.
 
 These remain Realize-UI-only. Do not fabricate tools for them. **Do not fabricate deeplink URLs either** — the Realize UI's URL structure has not been formally captured for the plugin, so a guessed link will 404. Use the menu paths below verbatim and let the user navigate.
 
@@ -497,19 +497,23 @@ Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-
 
 Three shapes, and only one of them is a write this skill performs. Classify before answering.
 
-- **Create a group, or edit one** (name, objective, how its budget is split, flight dates) — **not enabled here.** This exists in Realize; it is not something you can do here. Say it is not something you can do and send the user to the **Campaign Groups** area of the Realize UI. **Do not state a more precise menu path than that** — the exact navigation has not been captured for the plugin, and per the rule above a guessed path is worse than a general one.
+- **Creating or editing a group is NOT on this list** — `create_campaign_group` / `update_campaign_group` are wired, and this skill performs them behind the usual preview-then-confirm gate. The preview must say what the write reaches: a group's budget split, and a shared group's budget, copy down to **every campaign in it**, and `is_active=false` pauses them all. There is no delete — deleting a group terminates its campaigns, so the supported retirement is `is_active=false`.
 - **Move a campaign to a different group, or take it out of one** — no MCP tool at any level. **First check it really is a move:** read the campaign and look at `campaign_group_id`. **"Has a group" means `campaign_group_id` is a positive number — `0`, `null`, `""` and an absent key all mean ungrouped, and none of them is a group id to search for.** If it is ungrouped, the user said "move" but means attach — that is the next bullet, and refusing it is a wrong answer. Only when the campaign already sits in a group is this a move: `campaign_group_id` on `update_campaign` attaches only, and there is no detach parameter. Same redirect to the **Campaign Groups** area of the Realize UI, which is where it is done. Say it is a Realize UI action — not that Realize cannot do it.
 - **Putting a still-ungrouped campaign into a group is NOT on this list.** `campaign_group_id` on `create_campaign` / `update_campaign` is a gated write this skill performs — see `references/mcp-write-surface.md` → *Campaign groups and the budget they own*. On `update_campaign` it is **attach only**, and only to a group whose campaigns keep their own budgets. On `create_campaign` the new campaign may go into **any** group — including one that shares its budget, where you then omit the campaign's budget fields entirely. Do not redirect either case here. **The preview must say the attach cannot be undone here** — there is no detach or move anywhere in the MCP, so once the campaign is in the group it only comes out in the Realize UI. In a shared-budget group it also hands budget control to the group permanently. A user confirming an ordinary-looking diff must not discover that afterwards.
 
 One consequence worth catching early: if a campaign sits in a group that **shares its budget across campaigns**, the campaign's own budget fields are locked and the API rejects them. Check that by reading the group through the **list** form (`search_text` = the group id) — a by-id read may not carry the budget setting at all, and an absent setting reads as "not shared". "Raise the daily budget on campaign X" is then a group-level change — first bullet, not a campaign write.
 
-### Audiences — create, edit, archive, CRM upload
+### Audiences — what is and is not on this list
 
-`create_audience` and `update_audience` **exist upstream and are deliberately not enabled here**, and they may appear in your session's tool list because no tool allowlist is set. **Do not call them.** This covers creating a pixel or combined audience, uploading a CRM customer list, editing one, and archiving one — archiving is the only retirement, since no delete endpoint exists for any audience type anywhere.
+**`create_audience` and `update_audience` are wired**, so they are **not** UI fallbacks. Creating a pixel or combined audience, uploading a CRM customer list, editing one and archiving one all go through this skill's preview-then-confirm gate like every other write. A CRM upload sends customer records to Realize — say so in the preview, before asking for the confirmation, not after.
 
-Say it is not something this plugin does and name the **Audiences** area of Realize. Never say Realize cannot do it. If the user asked *how* to do it rather than asking you to do it, answer the question — from the knowledge base or the public-documentation fallback — and keep the UI as the named place the work happens. A bare "go to the Audiences area" on a how-to question is the failure, not the answer. Building a predictive audience from a seed is the different case — no tool exists at any level — and it is also done there.
+Archiving is the only retirement: no delete endpoint exists for any audience type anywhere, and archiving reverses (`status: ACTIVE` for a pixel audience, `is_archived: false` for the rest).
 
-Reading audiences **is** wired (`search_audiences`), and so is pointing a campaign at one: `audiences_targeting` and `lookalike_audience_targeting` on `create_campaign` / `update_campaign` are normal gated writes this skill performs — including targeting an existing predictive audience, which is not the same as building one. Do not redirect that. Capability table and traps: `knowledge/audiences.md`.
+Reading audiences is wired too (`search_audiences`), and so is pointing a campaign at one — `audiences_targeting` and `lookalike_audience_targeting` on `create_campaign` / `update_campaign`, including targeting an existing predictive audience, which is not the same as building one.
+
+**The one audience thing that does belong on this list: building a predictive audience from a seed.** No tool exists at any level, so that stays a Realize UI action, in the **Audiences** area. If the user asks *how*, answer the question rather than only naming the screen.
+
+Capability table and traps: `knowledge/audiences.md`.
 
 ### Tracking setup that stays UI-only
 
