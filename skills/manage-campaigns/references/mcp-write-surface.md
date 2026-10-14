@@ -190,6 +190,78 @@ Field reference for the two account-scoped writes. The workflow, tiers, and acco
 
 Read-only fields the update tool rejects as unknown parameters: `id`, `advertiser_id`, `pixel_id`, `exclude_from_campaigns`, `external_id`, `partner`, `tracked_elements`.
 
+## 3c. Campaign-group write tools — `create_campaign_group` / `update_campaign_group`
+
+Both are **closed schemas** (`additionalProperties: false`), unlike the campaign and item writes: a misspelled field is rejected rather than silently dropped. `update_campaign_group` is a **partial merge** — omit a field and it keeps its stored value.
+
+| Tool | Required |
+|---|---|
+| `create_campaign_group` | `account_id`, `name`, `spending_limit_model` — the budget period is required even when the split is `CUSTOM` |
+| `update_campaign_group` | `account_id`, `campaign_group_id` |
+
+**Fields the API manages itself cannot be set**: `status`, `bid_strategy`, `cpa_goal`, `language`.
+
+| Field | Values | Notes |
+|---|---|---|
+| `name` | string | |
+| `marketing_objective` + `kpi` | see the pairing below | **On create they travel together — send both or neither.** The backend defaults a missing `kpi` to CPA, which two objectives do not offer, so an objective alone can build a group the UI could not. On update, changing the objective alone fails when the stored `kpi` is not offered for the new one. |
+| `kpi_data` | `{kpi_threshold_value, kpi_goal_value}` | **The field names do not mean what they say.** `kpi_threshold_value` is *"increase spend if CPA is **below** this"*; `kpi_goal_value` is *"reduce spend if CPA is **above** this"*. Both in account currency, both > 0. Feeds recommendations only, and only when `kpi` is CPA **and both are set** — it is not a Target CPA. |
+| `conversion_rules` | `{rules: [{id}]}` | Two choices, as in the UI. **Account default:** omit on create, or send `{rules: []}` on update. **Manual:** ACTIVE rule ids from `get_conversion_rules`. On update, omitting the field keeps the group's current rules. These apply to every campaign in the group that sets none of its own. |
+| `budget_distribution_method` | `CUSTOM` / `AUTOMATIC` | `CUSTOM` (default): each campaign keeps its own budget. `AUTOMATIC`: Taboola allocates the group's budget; it needs a limited budget, so `spending_limit_model: NONE` is rejected. |
+| `spending_limit_model` | `NONE` / `MONTHLY` / `ENTIRE` | Required on create. `MONTHLY` / `ENTIRE` take `spending_limit`; `NONE` requires **both** `daily_cap` and `daily_ad_delivery_model: STRICT`. |
+| `spending_limit` | number | For the chosen period, in account currency. |
+| `daily_cap` | number | Works only with `STRICT` pacing. Send a cap with `BALANCED` and the tool keeps the cap, switches to `STRICT`, and says so in the response. `0` means no cap. |
+| `daily_ad_delivery_model` | `BALANCED` / `STRICT` | `BALANCED` is the default and allows no cap — switching to it **clears** the group's cap. |
+| `start_date` / `end_date` | `yyyy-MM-dd` | Start defaults to today on create; omit `end_date` for no end. Campaigns in the group must start on or after, and end on or before. |
+| `is_active` | boolean | `false` pauses **the whole group**, `true` resumes it. |
+
+**Objective → KPI.** The backend accepts any pairing; this is the Realize UI's own table and the tool enforces it, so a group built outside it would carry a combination the UI never produces.
+
+| `marketing_objective` | Allowed `kpi` |
+|---|---|
+| `BRAND_AWARENESS` | `CTR`, `CPC`, `CPM` |
+| `DRIVE_WEBSITE_TRAFFIC` | `CTR`, `CPC`, `CPQV` |
+| `LEADS_GENERATION` | `CTR`, `CPC`, `CPA`, `CPL`, `ROAS` |
+| `ONLINE_PURCHASES` | `ROAS`, `CPA`, `CTR`, `CPC` |
+| `MOBILE_APP_INSTALL` | `CPI`, `ROAS`, `CPA`, `CTR`, `CPC` |
+
+**What the preview must say, beyond the field diff.** A group write is not scoped to one object:
+
+- Changing `budget_distribution_method`, or the budget of a shared group, **updates every campaign in the group**. Moving a group to `AUTOMATIC` copies its budget onto all of them.
+- `is_active: false` pauses every campaign in the group.
+- A `REALIZE_PLUS` group cannot change `marketing_objective`, `kpi`, `kpi_data` or `budget_distribution_method`.
+- **There is no delete.** Deleting a group terminates all its campaigns, so the supported retirement is `is_active: false`.
+
+Read the group first with `get_campaign_groups` — by id, per `knowledge/campaign-structure.md` → *Reading a campaign group* — so the preview shows real current values rather than blanks.
+
+## 3d. Audience write tools — `create_audience` / `update_audience`
+
+Both are **closed schemas**, and here that matters more than usual: the backend's own deserializer throws on an unknown field, so a name a loose schema dropped would turn a loud upstream 400 into a success that created the *wrong* audience.
+
+`audience_type` (`PIXEL` / `COMBINED` / `CUSTOMER_LIST`) selects the endpoint and decides what else is required.
+
+| `audience_type` | Also required on create |
+|---|---|
+| `PIXEL` | `display_name`, `type`, `category`, `event_name`, `status`, `condition`, `effects`, `include_in_total_conversions`, `include_in_total_value` |
+| `COMBINED` | `audience_name`, `combined_audience_components` (max 4 blocks, at most one `NOT`) |
+| `CUSTOMER_LIST` | `audience_name`, `crm_targeting_type`, `crm_file_type`, `file_url` |
+
+`update_audience` always needs `account_id`, `audience_type` and `audience_id`, and partial-merges. **`CUSTOMER_LIST` updates take a different, five-field body** — `audience_name`, `audience_description`, `exclude_from_campaigns`, `is_archived`, `country` — not the create fields.
+
+**The CRM upload is the one to slow down on.** `crm_targeting_type` accepts **`TARGETING_SUPPRESSION` and nothing else**; `crm_file_type` is `EMAIL` or `MOBILE_ADVERTISING_ID`. `file_url` must point at the file itself, not a viewer page — a Drive `/view` link, a Docs or Sheets `/edit` link, or any `?usp=sharing` URL is refused. The server fetches the URL and forwards the bytes; plaintext emails are hashed server-side and the rows never enter the conversation. **Say in the preview that customer records are being sent to Realize, and from which URL, before asking for the confirmation.**
+
+**Traps that make a write look like it worked:**
+
+- **The returned id is often not readable.** A new audience can stay unreadable by its own id long after creation while appearing in the plain listing immediately — so a 404 does **not** mean the create failed, and re-creating is the wrong recovery. For `CUSTOMER_LIST` the returned id is the underlying rule's, a different id from the one the listing shows; find it in the listing by name.
+- **`exclude_from_campaigns` on a `COMBINED` audience reports success and does nothing** — the tool now refuses it. Exclude the member audiences instead.
+- **Immutable after create on `PIXEL`:** `type`, `category`, `event_name`. Changing one returns a read-only error.
+- **`combined_audience_components` is full-replace on update**, not a merge.
+- **The read payload is not a valid update body** — `id`, `advertiser_id`, `audience_size`, `provider`, `data_type`, `size`, `last_modified_by`, `last_modified_at` are all rejected as unknown.
+- **Archiving is the only retirement** — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — and it reverses. No delete endpoint exists for any audience type anywhere. Once a `COMBINED` audience is archived, archiving state is the only thing an update may change.
+- **Membership is never editable.** Nothing here changes who is in an audience; to change a customer list's members, create a new one from a new file. A new list also matches slowly, so it will be small or empty right after creation.
+
+Read the audience first per `knowledge/audiences.md` → *Reading an audience*, which also carries the subtype traps the preview depends on.
+
 ## 4. Per-strategy bid-lever gate matrix
 
 The canonical matrix lives in `knowledge/bidding.md` ("Bid Levers — What's Possible at Each Level"). Quick reference for write payloads:

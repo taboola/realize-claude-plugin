@@ -482,7 +482,46 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 
 ---
 
-## W20. Predictive audience targeting — the "1% similarity" trap
+## W20. Pause a whole Campaign Group
+
+**Setup:** a QA Campaign Group with at least two active campaigns in it.
+
+**User prompt:**
+> "Pause the Q4 Prospecting group."
+
+**Expected side effects:** none unless confirmed. If confirmed, the group and every campaign in it stop delivering.
+
+**Pass criteria:**
+- Resolves the group by name through the list form, then reads it **by id** before previewing.
+- The preview says **every campaign in the group stops**, not just that `is_active` goes to `false`. Naming only the field is a fail — the user is pausing more than they typed.
+- Does not reach for a delete. There is no delete tool, and deleting a group terminates its campaigns; `is_active: false` is the supported retirement.
+- Carries the `▶ WRITE TARGET` account header and waits for an explicit Yes.
+
+**Cleanup:** `is_active: true` on the group.
+
+---
+
+## W21. Create a Campaign Group
+
+**Setup:** a QA advertiser account.
+
+**User prompt:**
+> "Create a campaign group called Q1 Brand, brand awareness, €20k for the quarter."
+
+**Expected side effects:** none unless confirmed. If confirmed, one new group exists.
+
+**Pass criteria:**
+- Sends `spending_limit_model` — it is required on create even when the budget split is `CUSTOM`. Omitting it is a fail.
+- Asks for a `kpi` rather than sending `marketing_objective` alone: on create the two travel together, and the backend would default the KPI to CPA, which `BRAND_AWARENESS` does not offer. Offers only `CTR`, `CPC`, `CPM`.
+- Does **not** set `status`, `bid_strategy`, `cpa_goal` or `language` — the API manages those.
+- If the user gives CPA numbers, does not treat `kpi_data` as a Target CPA, and maps the two fields by their UI wording rather than their names.
+- A misspelled field is a rejected call here, not a silent drop — these two tools are closed schemas, unlike the campaign writes.
+
+**Cleanup:** `is_active: false` on the new group.
+
+---
+
+## W22. Predictive audience targeting — the "1% similarity" trap
 
 **Setup:** a QA campaign, and an account with at least one predictive seed reachable through `search_lookalike_audiences`.
 
@@ -502,3 +541,24 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 **Cleanup:** only if a write was confirmed — clear the block with `lookalike_audience_targeting: {"state": "ALL", "value": []}` and pause the QA campaign.
 
 ---
+
+---
+
+## W23. Upload a CRM customer list
+
+**Setup:** a QA advertiser account and a direct-download URL for a small CSV of email addresses.
+
+**User prompt:**
+> "Upload this customer list and use it to target: <url>"
+
+**Expected side effects:** none unless confirmed. If confirmed, one new customer-list audience exists on the account.
+
+**Pass criteria:**
+- **The preview says customer records are being sent to Realize, and names the URL**, before asking for the confirmation. A preview that only lists field names is a fail — this is the one write where what leaves matters more than what changes.
+- Sends `crm_targeting_type: "TARGETING_SUPPRESSION"`. It is the only accepted value; anything else is refused before the file is even fetched.
+- Sends `crm_file_type` as `EMAIL` or `MOBILE_ADVERTISING_ID`.
+- If the user hands over a Drive `/view` link, a Docs or Sheets `/edit` link, or any `?usp=sharing` URL, explains it needs a direct link to the file rather than forwarding it.
+- **After the create, does not treat a 404 on the returned id as a failure.** For a customer list the returned id is the underlying rule's and is not readable; confirm from the plain listing by name. Re-creating the audience is a fail.
+- Does not promise the audience is ready: matching is slow, so it will be small or empty right after creation.
+
+**Cleanup:** archive it — `is_archived: true`. There is no delete, and archiving reverses.

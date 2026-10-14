@@ -307,7 +307,6 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 
 Planned next on the skill side:
 
-- **Field-level write guidance for the four newest write tools.** `create_campaign_group` / `update_campaign_group` and `create_audience` / `update_audience` are wired and go through the `manage-campaigns` gate, but they have no entry in `skills/manage-campaigns/references/mcp-write-surface.md` the way the other eight do. Until they do, the model builds those payloads from the MCP's own schemas rather than from a reviewed field reference. A CRM upload in particular sends customer records to Realize and deserves a documented preview shape.
 
 - **Live browser capture for `diagnose-tracking`** — decided 2026-08-22, priority raised because the
   HAR path makes the *user* do the work (capture and hand over a recording), and removing user effort
