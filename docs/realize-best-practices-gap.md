@@ -45,9 +45,9 @@ This plugin wires **20 read tools + 12 write tools** from the upstream MCP. All 
 | Resources | `list_time_zones`, `list_cta_types` |
 | Reports (CSV) | `get_dynamic_report_settings`, `get_dynamic_report_data` (metamodel-driven performance), `get_campaign_breakdown_report` (campaign grain; the only *performance* report serving GROUP / admin-network accounts — the change log carries no account-type restriction upstream), `get_campaign_history_report` (change log) |
 | Reach estimation | `get_campaign_reach_estimate` |
-| Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`, `create_campaign_group`, `update_campaign_group` |
+| Writes — via `manage-campaigns` only | `create_campaign`, `update_campaign`, `create_native_item`, `update_native_item`, `create_display_item`, `update_display_item`, `create_conversion_rule`, `update_conversion_rule`, `create_campaign_group`, `update_campaign_group`, `create_audience`, `update_audience` |
 
-Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI-fallback section — *actions this plugin does not perform* — for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, predictive-audience creation, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Campaign-group and audience writes sit outside both lists:** `create_audience` / `update_audience` and `create_campaign_group` / `update_campaign_group` all exist upstream and this plugin deliberately does not wire them, so they belong in the `manage-campaigns` UI-fallback section and *not* in Part 3, whose entries are capabilities the MCP does not expose at all. Attaching a still-ungrouped campaign to a group is a normal wired write (`campaign_group_id` on `create_campaign` / `update_campaign`); only moving or detaching one has no tool.
+Write tools are routed exclusively through the `manage-campaigns` skill (preview-then-confirm gate, mandatory `▶ WRITE TARGET` account header). The skill also retains a UI-fallback section — *actions this plugin does not perform* — for capabilities still not exposed by MCP (delete, duplicate, bulk ops, Custom Rules, predictive-audience creation, pixel installation, codeless-conversion setup, pixel test-fire) — see Part 3 for that catalog. **Campaign-group and audience writes are wired** — all four go through the same gate. The group writes carry the widest blast radius on the surface, since some group edits reach every campaign in the group; the CRM customer-list upload carries the other kind, since it sends customer records to Taboola. Attaching a still-ungrouped campaign to a group is a normal wired write too (`campaign_group_id` on `create_campaign` / `update_campaign`). What has no tool at any level is **moving or detaching** a campaign between groups, **building a predictive audience from a seed**, and **deleting** either a group or an audience — those are the Part 3 entries.
 
 ---
 
@@ -125,12 +125,12 @@ Listed with the source article, a one-line description of what the ability would
 ### 3.C — Targeting & audience writes
 
 **Closed gaps in this section:**
-- ~~`update_blocklist`~~ — **covered** as of upstream Jun 15 2026 ("Add structured support: Block List via MCP" — Chris Hall) via `update_campaign(publisher_targeting={type:"EXCLUDE", value:[<ids>]})`. Read current state with `get_campaign.publisher_targeting`, merge client-side (full-replace within the dimension), preview, write. See `skills/manage-campaigns/SKILL.md` → "Publisher block-list edits — recipe".
+- ~~`update_blocklist`~~ — **covered** as of upstream Jun 15 2026 ("Add structured support: Block List via MCP") via `update_campaign(publisher_targeting={type:"EXCLUDE", value:[<ids>]})`. Read current state with `get_campaign.publisher_targeting`, merge client-side (full-replace within the dimension), preview, write. See `skills/manage-campaigns/SKILL.md` → "Publisher block-list edits — recipe".
 
 **Never gaps (listed here in error, kept for audit):**
 - `attach_audience_to_campaign` — pointing a campaign at an audience has always been wired, via `audiences_targeting` on `create_campaign` / `update_campaign`.
 - ~~`list_audiences`~~ — **covered** by `search_audiences`, which lists every subtype on the account. There is no separate list-all tool and none is needed.
-- `create_audience` / `update_audience` — **wired** as of this release (upstream 2026-09-07), through the `manage-campaigns` gate, so they are not a gap either. They belong in the `manage-campaigns` UI-fallback section, not here. See `knowledge/audiences.md`.
+- `create_audience` / `update_audience` — **wired** as of this release, through the `manage-campaigns` gate, so they are not a gap. What remains here is building a **predictive audience from a seed**, which has no tool at any level.
 
 | Future ability | Does what | Today's UI path | Source |
 |---|---|---|---|

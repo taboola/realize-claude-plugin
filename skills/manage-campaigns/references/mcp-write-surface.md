@@ -238,6 +238,23 @@ Both are **closed schemas** (`additionalProperties: false`), unlike the campaign
 
 Read the group first with `get_campaign_groups` — by id, per `knowledge/campaign-structure.md` → *Reading a campaign group* — so the preview shows real current values rather than blanks.
 
+**Counting what it reaches.** No tool returns a group's members: `get_campaign_groups` does not list them, and `list_campaigns` has no group filter and caps at `page_size` 10. So page `list_campaigns` for the account and count the rows whose `campaign_group_id` matches — name them if there are only a few. If the account is too large to page, or a page fails, say **"every campaign in this group — I could not count them"**. Never guess a number, and never drop the scope sentence because the number is missing.
+
+**Say it in the user's words, not the API's.** Field names and enum values do not go in a preview — `os/guardrails.md` carries the approved plain-English phrasing for `budget_distribution_method`, and the same rule applies to every row above. A group preview reads like this:
+
+```
+▶ WRITE TARGET: Acme Retail (advertiser_12345_prod)
+
+Pause campaign group "Q4 Prospecting"
+
+This stops all 7 campaigns in the group. None of them will deliver
+while the group is paused. Their own settings are not changed.
+
+Proceed?
+```
+
+Not: `is_active: true → false on campaign_group_id 778`.
+
 ## 3d. Audience write tools — `create_audience` / `update_audience`
 
 Both are **closed schemas**, and here that matters more than usual: the backend's own deserializer throws on an unknown field, so a name a loose schema dropped would turn a loud upstream 400 into a success that created the *wrong* audience.
@@ -265,22 +282,6 @@ Both are **closed schemas**, and here that matters more than usual: the backend'
 - **Membership is never editable.** Nothing here changes who is in an audience; to change a customer list's members, create a new one from a new file. A new list also matches slowly, so it will be small or empty right after creation.
 
 Read the audience first per `knowledge/audiences.md` → *Reading an audience*, which also carries the subtype traps the preview depends on.
-**Counting what it reaches.** No tool returns a group's members: `get_campaign_groups` does not list them, and `list_campaigns` has no group filter and caps at `page_size` 10. So page `list_campaigns` for the account and count the rows whose `campaign_group_id` matches — name them if there are only a few. If the account is too large to page, or a page fails, say **"every campaign in this group — I could not count them"**. Never guess a number, and never drop the scope sentence because the number is missing.
-
-**Say it in the user's words, not the API's.** Field names and enum values do not go in a preview — `os/guardrails.md` carries the approved plain-English phrasing for `budget_distribution_method`, and the same rule applies to every row above. A group preview reads like this:
-
-```
-▶ WRITE TARGET: Acme Retail (advertiser_12345_prod)
-
-Pause campaign group "Q4 Prospecting"
-
-This stops all 7 campaigns in the group. None of them will deliver
-while the group is paused. Their own settings are not changed.
-
-Proceed?
-```
-
-Not: `is_active: true → false on campaign_group_id 690724`.
 
 ## 4. Per-strategy bid-lever gate matrix
 

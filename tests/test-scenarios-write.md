@@ -522,7 +522,28 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - If the user gives CPA numbers, does not treat `kpi_data` as a Target CPA, and maps the two fields by their UI wording rather than their names.
 - A misspelled field is a rejected call here, not a silent drop — these two tools are closed schemas, unlike the campaign writes.
 
-**Cleanup:** `is_active: false` on the new group.
+**Cleanup:** `is_active: false` on the new group. **There is no delete at any level, so this leaves a permanent group on the QA account** — pausing is the only cleanup there is. Prefer re-running this scenario against one reusable QA group rather than creating a fresh one each time.
+
+---
+
+## W21b. Switch a group's budget split to `AUTOMATIC` — the widest blast radius
+
+**Setup:** a QA Campaign Group on `CUSTOM` with at least two campaigns in it, each carrying its own budget.
+
+**User prompt:**
+> "Let Taboola manage the budget across the Q4 Prospecting group."
+
+**Expected side effects:** none unless confirmed. If confirmed, the group moves to `AUTOMATIC` and its campaigns stop owning their budgets.
+
+**Pass criteria:**
+- Reads the group **by id** first, and counts the member campaigns by paging `list_campaigns` and matching `campaign_group_id` — or says "every campaign in this group — I could not count them" if the account cannot be paged. Inventing a number is a fail.
+- The preview states, in plain language, that **every campaign in the group loses control of its own budget** and that Taboola will allocate the group's budget across them. Naming the field or the enum value instead is a fail.
+- Does **not** present the switch as a reversible toggle. Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so asserting either way is a fail; treating it as one-way is the pass.
+- Checks the group has a limited budget before sending — `AUTOMATIC` rejects `spending_limit_model: NONE`, so a group on `NONE` needs the budget settled in the same conversation rather than a rejected call and a relayed API error.
+- Mentions `MAX_CONVERSIONS` as upstream's **recommendation** for the group's campaigns at most. Refusing the switch, or rewriting any campaign's `bid_strategy`, is a fail.
+- Carries the `▶ WRITE TARGET` header and waits for an explicit Yes. A one-line confirm is a fail — group writes have no cheap tier.
+
+**Cleanup:** switch the group back to `CUSTOM`, then **check each campaign's own budget and re-set it by hand if it did not come back** — upstream does not document which happens. Note what they were before running this.
 
 ---
 
@@ -547,7 +568,6 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 
 ---
 
----
 
 ## W23. Upload a CRM customer list
 
@@ -567,25 +587,3 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - Does not promise the audience is ready: matching is slow, so it will be small or empty right after creation.
 
 **Cleanup:** archive it — `is_archived: true`. There is no delete, and archiving reverses.
-**Cleanup:** `is_active: false` on the new group. **There is no delete at any level, so this leaves a permanent group on the QA account** — pausing is the only cleanup there is. Prefer re-running this scenario against one reusable QA group rather than creating a fresh one each time.
-
----
-
-## W21b. Switch a group's budget split to `AUTOMATIC` — the widest blast radius
-
-**Setup:** a QA Campaign Group on `CUSTOM` with at least two campaigns in it, each carrying its own budget.
-
-**User prompt:**
-> "Let Taboola manage the budget across the Q4 Prospecting group."
-
-**Expected side effects:** none unless confirmed. If confirmed, the group moves to `AUTOMATIC` and its campaigns stop owning their budgets.
-
-**Pass criteria:**
-- Reads the group **by id** first, and counts the member campaigns by paging `list_campaigns` and matching `campaign_group_id` — or says "every campaign in this group — I could not count them" if the account cannot be paged. Inventing a number is a fail.
-- The preview states, in plain language, that **every campaign in the group loses control of its own budget** and that Taboola will allocate the group's budget across them. Naming the field or the enum value instead is a fail.
-- Does **not** present the switch as a reversible toggle. Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so asserting either way is a fail; treating it as one-way is the pass.
-- Checks the group has a limited budget before sending — `AUTOMATIC` rejects `spending_limit_model: NONE`, so a group on `NONE` needs the budget settled in the same conversation rather than a rejected call and a relayed API error.
-- Mentions `MAX_CONVERSIONS` as upstream's **recommendation** for the group's campaigns at most. Refusing the switch, or rewriting any campaign's `bid_strategy`, is a fail.
-- Carries the `▶ WRITE TARGET` header and waits for an explicit Yes. A one-line confirm is a fail — group writes have no cheap tier.
-
-**Cleanup:** switch the group back to `CUSTOM`, then **check each campaign's own budget and re-set it by hand if it did not come back** — upstream does not document which happens. Note what they were before running this.

@@ -1,14 +1,14 @@
 ---
 name: manage-campaigns
-description: Create and update Realize campaigns, campaign groups, native + display items, and account-level conversion rules via the Realize MCP write tools. Activates on any write-intent request — create, edit, pause/resume, launch, budget changes, bid changes, targeting edits, creative swaps, conversion-rule creation, attribution-window changes, retiring a conversion rule. Enforces a tiered preview-then-confirm pattern with a mandatory account-identity header on every confirmation so the user always sees which account is being mutated. Falls back to a UI reference for actions the MCP does not currently expose (delete, duplicate, bulk operations, pixel installation, codeless-conversion setup, pixel test-fire, moving or detaching a campaign between campaign groups). Grounded in the realize-toolkit's setup guidance and Taboola's official setup guide for the input-validation heuristics (Marketing Objective enum, Bid Strategy × budget minimums, learning-phase defaults).
+description: Create and update Realize campaigns, campaign groups, audiences, native + display items, and account-level conversion rules via the Realize MCP write tools. Activates on any write-intent request — create, edit, pause/resume, launch, budget changes, bid changes, targeting edits, creative swaps, conversion-rule creation, attribution-window changes, retiring a conversion rule, uploading a CRM customer list, editing or archiving an audience. Enforces a tiered preview-then-confirm pattern with a mandatory account-identity header on every confirmation so the user always sees which account is being mutated. Falls back to a UI reference for actions the MCP does not currently expose (delete, duplicate, bulk operations, pixel installation, codeless-conversion setup, pixel test-fire, moving or detaching a campaign between campaign groups). Grounded in the realize-toolkit's setup guidance and Taboola's official setup guide for the input-validation heuristics (Marketing Objective enum, Bid Strategy × budget minimums, learning-phase defaults).
 allowed-tools: ["Read", "Bash", "AskUserQuestion"]
 ---
 
 # Manage Campaigns
 
-Writes for Realize campaigns, campaign groups, native + display items, and account-level conversion rules via MCP. Every destructive call is gated behind a preview and an explicit user confirmation; the preview always identifies the target account by name and opaque `account_id`. This skill is the only place in the plugin that calls the MCP write tools.
+Writes for Realize campaigns, campaign groups, audiences, native + display items, and account-level conversion rules via MCP. Every destructive call is gated behind a preview and an explicit user confirmation; the preview always identifies the target account by name and opaque `account_id`. This skill is the only place in the plugin that calls the MCP write tools.
 
-**Depth:** the full field-by-field MCP write-surface reference (every scalar on `create_campaign`, every field on `create_native_item` / `create_display_item`, the account-level conversion-rule fields in §3b, the campaign-group fields in §3c, per-strategy bid-lever gates, common payload patterns, failure modes) lives in `references/mcp-write-surface.md`. Read it when a payload needs detailed field coverage or when debugging a write rejection.
+**Depth:** the full field-by-field MCP write-surface reference (every scalar on `create_campaign`, every field on `create_native_item` / `create_display_item`, the account-level conversion-rule fields in §3b, the campaign-group fields in §3c, the audience fields in §3d, per-strategy bid-lever gates, common payload patterns, failure modes) lives in `references/mcp-write-surface.md`. Read it when a payload needs detailed field coverage or when debugging a write rejection.
 
 ## When to use
 
@@ -34,6 +34,8 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 | `mcp__realize-mcp__create_conversion_rule` | `account_id`, `display_name`, `event_name`, `type`, `category`, `condition`, `look_back_window`, `include_in_total_conversions`, `status`, `effects` | No | **Account-level.** No tool-side defaults — every required field must be supplied. `type` / `category` / `event_name` immutable afterwards. Returns the server-assigned `id`. |
 | `mcp__realize-mcp__update_conversion_rule` | `account_id`, `rule_id` | Yes | **Partial-merge on every field, including `condition` and `effects`** — omitted fields keep their stored value. The only way to retire a rule (`status=DISABLED` / `ARCHIVED`); there is no delete tool. |
 | `mcp__realize-mcp__create_campaign_group` | `account_id`, `name`, `spending_limit_model` | No | **Group-level.** Closed schema — a misspelled field is rejected, not dropped. The budget period is required even when the split is `CUSTOM`. `marketing_objective` and `kpi` must travel together. See `references/mcp-write-surface.md` §3c. |
+| `mcp__realize-mcp__create_audience` | `account_id`, `audience_type` | No | **Account-level.** Closed schema, and the backend's deserializer throws on an unknown field. `audience_type` (`PIXEL` / `COMBINED` / `CUSTOMER_LIST`) decides what else is required. A `CUSTOMER_LIST` create **sends customer records to Taboola** — see §3d. |
+| `mcp__realize-mcp__update_audience` | `account_id`, `audience_type`, `audience_id` | Yes | **Account-level.** Partial-merge, closed schema. `CUSTOMER_LIST` updates take a different five-field body, not the create fields. **No delete exists anywhere** — archiving is the retirement, and it reverses. |
 | `mcp__realize-mcp__update_campaign_group` | `account_id`, `campaign_group_id` | Yes | **Group-level, and the widest blast radius on this surface** — changing the budget split or a shared group's budget reaches every campaign in the group, and `is_active=false` pauses them all. Closed schema, partial-merge. No delete. See §3c. |
 
 For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, `mcp__realize-mcp__get_conversion_rules`, `mcp__realize-mcp__get_campaign_groups` — **by id**, per `knowledge/campaign-structure.md` → *Reading a campaign group* — and `mcp__realize-mcp__list_campaigns`, which is how a group's member campaigns are counted for a group-write preview (no tool returns them directly).
@@ -151,11 +153,14 @@ The skill never submits a write without first showing the user a preview and get
 | `update_conversion_rule` (`status` → `DISABLED` / `ARCHIVED`) | Full preview — **retire is the closest thing to a delete** |
 | `create_campaign_group` | Full preview — the plain-language group preview, not the generic field-list template |
 | `update_campaign_group` (any field) | Full preview **+ the blast-radius line** — never a one-line confirm, including for `is_active`. Uses the plain-language group preview in *Creating or updating a campaign group*, **not** the generic field-list template below. |
+| `create_audience` (`PIXEL` / `COMBINED`) | Full preview |
+| `create_audience` (`CUSTOMER_LIST`) | Full preview **+ what is being sent and from where** — the one write where what leaves matters more than what changes |
+| `update_audience` (including archiving) | Diff preview; archiving gets a full preview, since it is the closest thing to a delete |
 | `update_native_item` (`is_active` toggle only) | One-line confirm |
 
 Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
 
-**There is no one-line tier for conversion rules, or for campaign groups.** Both look like small edits — one window value, one boolean — while reaching every campaign that references the rule, or every campaign in the group. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item. Note the asymmetry worth saying out loud in a preview: `is_active=false` on an *item* pauses one ad; on a *group* it pauses every campaign in it.
+**There is no one-line tier for conversion rules, campaign groups, or a CRM upload.** Both look like small edits — one window value, one boolean — while reaching every campaign that references the rule, or every campaign in the group. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item. Note the asymmetry worth saying out loud in a preview: `is_active=false` on an *item* pauses one ad; on a *group* it pauses every campaign in it.
 
 ### Mandatory: `▶ WRITE TARGET` header on every confirmation
 
@@ -489,6 +494,30 @@ For `update_display_item` arrays (`verification_pixel`, `viewability_tag`): same
 - **There is no delete.** Deleting a group terminates all its campaigns, so `is_active=false` is the retirement. Never imply a group can be removed.
 - **Switching the budget split to `AUTOMATIC` is one-way in practice.** Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so do not present it as a toggle that can be undone.
 
+## Creating or updating an audience
+
+`create_audience` and `update_audience` are wired here. Field-by-field reference: `references/mcp-write-surface.md` §3d. The audience surface itself — subtypes, what each read returns, and the traps — is `knowledge/audiences.md`, which wins on any disagreement.
+
+**What makes these different from the other writes.** Three things:
+
+- A **CRM customer-list upload sends customer records to Taboola.** That is the one write where what leaves the user's side matters more than what changes on the account, and the preview has to say so.
+- **Nothing here is deletable.** No audience type has a delete endpoint at any level. Archiving — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — is the retirement, and it **reverses**.
+- **A successful create can read back as missing.** A new audience is often not readable by its own id for a while, and for a `CUSTOMER_LIST` the returned id is the underlying rule's and is not readable at all. A 404 after a create does **not** mean the create failed.
+
+### Workflow
+
+1. **Resolve `account_id`** — the owning advertiser.
+2. **Settle `audience_type` before anything else** — `PIXEL`, `COMBINED` or `CUSTOMER_LIST`. It selects the endpoint and decides which other fields are required, and **nothing in the data tells you which one the user means**: `data_type` does not identify it, and a 404 does not either. Ask rather than infer.
+3. **On an update, read the audience first**, per `knowledge/audiences.md` → *Reading an audience*. Only three of the five subtypes are readable by id, so if the read does not come back, say so instead of previewing against blanks. Never echo a read payload back as an update body — its extra fields are rejected as unknown.
+4. **For a `CUSTOMER_LIST`, check the file URL before previewing.** It must point at the file itself. A Drive `/view` link, a Docs or Sheets `/edit` link, or a `?usp=sharing` URL will not fetch — say so rather than forwarding it.
+5. **Render a full preview.** For a CRM upload it must name **what is being sent and from where**, in plain language, before asking. `crm_targeting_type` accepts `TARGETING_SUPPRESSION` and nothing else; `crm_file_type` is `EMAIL` or `MOBILE_ADVERTISING_ID`.
+6. **Wait for an explicit Yes.** There is no one-line tier here, including for archiving.
+7. **After the write, do not re-create on a 404.** Confirm from the plain listing by name. And do not promise the audience is ready — matching is slow, so a new customer list will be small or empty at first.
+
+### What is not here
+
+Building a **predictive audience from a seed** has no tool at any level — that one is a Realize UI action, and the honest sentence is that the platform does not expose it. Membership is never editable either: nothing here changes who is in an audience. To change a customer list's members, create a new one from a new file.
+
 ## Post-write verification
 
 Every write changes a resource that needs Realize approval (24–48 hours) before it goes live. After any successful write, offer the verification step:
@@ -501,7 +530,7 @@ If `get_campaign` returns the prior state immediately after a save, wait a minut
 
 ## UI fallback — actions this plugin does not perform
 
-Everything in this section has no MCP tool at all, so the honest sentence is that the platform does not expose it — not that this plugin chose not to. **One exception is flagged inline:** the campaign-group subsection below opens by naming the two group writes that *are* wired, because the request that reaches them ("move this campaign") looks identical to the one that cannot be served.
+Everything in this section has no MCP tool at all, so the honest sentence is that the platform does not expose it — not that this plugin chose not to. **Two subsections below open by naming writes that *are* wired** — campaign groups and audiences — because in both, the request that reaches a wired write looks identical to the one that cannot be served ("move this campaign", "archive this audience"). Read those two openings before refusing anything in their area.
 
 These remain Realize-UI-only. Do not fabricate tools for them. **Do not fabricate deeplink URLs either** — the Realize UI's URL structure has not been formally captured for the plugin, so a guessed link will 404. Use the menu paths below verbatim and let the user navigate.
 
@@ -520,6 +549,10 @@ The duplicated campaign re-enters the 24–48 hour review.
 ### Bulk operations
 
 Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-only. The MCP write tools handle one entity at a time. For "pause everything except X", surface that there's no batch API and offer to either (a) script the per-entity calls one by one (each gets its own confirmation) or (b) point the user to the UI for the bulk action.
+
+### Audiences — the CRM customer-list upload
+
+`create_audience` / `update_audience` **exist on the Realize MCP** and are not wired in this revision. That is a plugin decision, not a platform limit, so the sentence is *"that is not something I can do here"* — never *"Realize cannot do that"*. Point at the **Audiences** area of the Realize UI without inventing a menu path or a link. Building a **predictive audience from a seed** is the one audience action with no tool at any level, and there is **no delete** for an audience anywhere; archiving is how one is retired.
 
 ### Campaign groups — moving or detaching a campaign
 
