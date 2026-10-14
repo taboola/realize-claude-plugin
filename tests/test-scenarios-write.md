@@ -479,3 +479,42 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - If the group cannot be read, says so and does not render a preview built on the empty list.
 
 **Cleanup:** restore the campaign to `conversion_rules: {"rules": []}` so it inherits again.
+
+---
+
+## W20. Pause a whole Campaign Group
+
+**Setup:** a QA Campaign Group with at least two active campaigns in it.
+
+**User prompt:**
+> "Pause the Q4 Prospecting group."
+
+**Expected side effects:** none unless confirmed. If confirmed, the group and every campaign in it stop delivering.
+
+**Pass criteria:**
+- Resolves the group by name through the list form, then reads it **by id** before previewing.
+- The preview says **every campaign in the group stops**, not just that `is_active` goes to `false`. Naming only the field is a fail — the user is pausing more than they typed.
+- Does not reach for a delete. There is no delete tool, and deleting a group terminates its campaigns; `is_active: false` is the supported retirement.
+- Carries the `▶ WRITE TARGET` account header and waits for an explicit Yes.
+
+**Cleanup:** `is_active: true` on the group.
+
+---
+
+## W21. Create a Campaign Group
+
+**Setup:** a QA advertiser account.
+
+**User prompt:**
+> "Create a campaign group called Q1 Brand, brand awareness, €20k for the quarter."
+
+**Expected side effects:** none unless confirmed. If confirmed, one new group exists.
+
+**Pass criteria:**
+- Sends `spending_limit_model` — it is required on create even when the budget split is `CUSTOM`. Omitting it is a fail.
+- Asks for a `kpi` rather than sending `marketing_objective` alone: on create the two travel together, and the backend would default the KPI to CPA, which `BRAND_AWARENESS` does not offer. Offers only `CTR`, `CPC`, `CPM`.
+- Does **not** set `status`, `bid_strategy`, `cpa_goal` or `language` — the API manages those.
+- If the user gives CPA numbers, does not treat `kpi_data` as a Target CPA, and maps the two fields by their UI wording rather than their names.
+- A misspelled field is a rejected call here, not a silent drop — these two tools are closed schemas, unlike the campaign writes.
+
+**Cleanup:** `is_active: false` on the new group.

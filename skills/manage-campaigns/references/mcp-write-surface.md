@@ -190,6 +190,50 @@ Field reference for the two account-scoped writes. The workflow, tiers, and acco
 
 Read-only fields the update tool rejects as unknown parameters: `id`, `advertiser_id`, `pixel_id`, `exclude_from_campaigns`, `external_id`, `partner`, `tracked_elements`.
 
+## 3c. Campaign-group write tools — `create_campaign_group` / `update_campaign_group`
+
+Both are **closed schemas** (`additionalProperties: false`), unlike the campaign and item writes: a misspelled field is rejected rather than silently dropped. `update_campaign_group` is a **partial merge** — omit a field and it keeps its stored value.
+
+| Tool | Required |
+|---|---|
+| `create_campaign_group` | `account_id`, `name`, `spending_limit_model` — the budget period is required even when the split is `CUSTOM` |
+| `update_campaign_group` | `account_id`, `campaign_group_id` |
+
+**Fields the API manages itself cannot be set**: `status`, `bid_strategy`, `cpa_goal`, `language`.
+
+| Field | Values | Notes |
+|---|---|---|
+| `name` | string | |
+| `marketing_objective` + `kpi` | see the pairing below | **On create they travel together — send both or neither.** The backend defaults a missing `kpi` to CPA, which two objectives do not offer, so an objective alone can build a group the UI could not. On update, changing the objective alone fails when the stored `kpi` is not offered for the new one. |
+| `kpi_data` | `{kpi_threshold_value, kpi_goal_value}` | **The field names do not mean what they say.** `kpi_threshold_value` is *"increase spend if CPA is **below** this"*; `kpi_goal_value` is *"reduce spend if CPA is **above** this"*. Both in account currency, both > 0. Feeds recommendations only, and only when `kpi` is CPA **and both are set** — it is not a Target CPA. |
+| `conversion_rules` | `{rules: [{id}]}` | Two choices, as in the UI. **Account default:** omit on create, or send `{rules: []}` on update. **Manual:** ACTIVE rule ids from `get_conversion_rules`. On update, omitting the field keeps the group's current rules. These apply to every campaign in the group that sets none of its own. |
+| `budget_distribution_method` | `CUSTOM` / `AUTOMATIC` | `CUSTOM` (default): each campaign keeps its own budget. `AUTOMATIC`: Taboola allocates the group's budget; it needs a limited budget, so `spending_limit_model: NONE` is rejected. |
+| `spending_limit_model` | `NONE` / `MONTHLY` / `ENTIRE` | Required on create. `MONTHLY` / `ENTIRE` take `spending_limit`; `NONE` requires **both** `daily_cap` and `daily_ad_delivery_model: STRICT`. |
+| `spending_limit` | number | For the chosen period, in account currency. |
+| `daily_cap` | number | Works only with `STRICT` pacing. Send a cap with `BALANCED` and the tool keeps the cap, switches to `STRICT`, and says so in the response. `0` means no cap. |
+| `daily_ad_delivery_model` | `BALANCED` / `STRICT` | `BALANCED` is the default and allows no cap — switching to it **clears** the group's cap. |
+| `start_date` / `end_date` | `yyyy-MM-dd` | Start defaults to today on create; omit `end_date` for no end. Campaigns in the group must start on or after, and end on or before. |
+| `is_active` | boolean | `false` pauses **the whole group**, `true` resumes it. |
+
+**Objective → KPI.** The backend accepts any pairing; this is the Realize UI's own table and the tool enforces it, so a group built outside it would carry a combination the UI never produces.
+
+| `marketing_objective` | Allowed `kpi` |
+|---|---|
+| `BRAND_AWARENESS` | `CTR`, `CPC`, `CPM` |
+| `DRIVE_WEBSITE_TRAFFIC` | `CTR`, `CPC`, `CPQV` |
+| `LEADS_GENERATION` | `CTR`, `CPC`, `CPA`, `CPL`, `ROAS` |
+| `ONLINE_PURCHASES` | `ROAS`, `CPA`, `CTR`, `CPC` |
+| `MOBILE_APP_INSTALL` | `CPI`, `ROAS`, `CPA`, `CTR`, `CPC` |
+
+**What the preview must say, beyond the field diff.** A group write is not scoped to one object:
+
+- Changing `budget_distribution_method`, or the budget of a shared group, **updates every campaign in the group**. Moving a group to `AUTOMATIC` copies its budget onto all of them.
+- `is_active: false` pauses every campaign in the group.
+- A `REALIZE_PLUS` group cannot change `marketing_objective`, `kpi`, `kpi_data` or `budget_distribution_method`.
+- **There is no delete.** Deleting a group terminates all its campaigns, so the supported retirement is `is_active: false`.
+
+Read the group first with `get_campaign_groups` — by id, per `knowledge/campaign-structure.md` → *Reading a campaign group* — so the preview shows real current values rather than blanks.
+
 ## 4. Per-strategy bid-lever gate matrix
 
 The canonical matrix lives in `knowledge/bidding.md` ("Bid Levers — What's Possible at Each Level"). Quick reference for write payloads:
