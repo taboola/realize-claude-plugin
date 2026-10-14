@@ -91,6 +91,18 @@ jobs:
       - name: Support-bundle unit tests
         run: node skills/support/scripts/test-build-bundle.js
 
+      - name: Unresolved merge conflict markers
+        # A merge left raw conflict markers in five shipped markdown files and
+        # every other step here passed, because nothing else reads a markdown
+        # body. Everything in the repo ships, so this is checked repo-wide.
+        run: |
+          set -euo pipefail
+          if git grep -nE '^(<{7}|={7}|>{7})( |$)' -- . ':!.github/workflows/validate.yml'; then
+            echo "::error::Unresolved merge conflict markers found in the lines above."
+            exit 1
+          fi
+          echo "No conflict markers."
+
       - name: Brand and guardrail lint
         run: bash scripts/brand-check.sh
 

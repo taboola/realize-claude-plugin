@@ -47,9 +47,9 @@ A group's `budget_distribution_method` decides who owns the budget, and getting 
 
 **Read the group per `knowledge/campaign-structure.md` → *Reading a campaign group*** — by id, which returns the budget fields. If `budget_distribution_method` is still absent afterwards, do **not** infer `CUSTOM`: say the group's budget setup could not be confirmed, and do not preview a campaign budget write.
 
-**There are exactly two values, and they read back the way they are written.** Upstream retired the older `FULLY_SHARED` / `CPA_BASED_ALLOCATION` reads and their `OPTIMIZE_SCALE` / `OPTIMIZE_PERFORMANCE` write spellings on 2026-10-12; a doc or a cached answer still naming any of those four is stale. **You will only ever read this field** — setting it belongs to the campaign-group write tools, which are not enabled here. Don't surface the raw value to the user either; `os/guardrails.md` has the plain-English phrasing.
+**There are exactly two values, and they read back the way they are written.** Upstream retired the older `FULLY_SHARED` / `CPA_BASED_ALLOCATION` reads and their `OPTIMIZE_SCALE` / `OPTIMIZE_PERFORMANCE` write spellings on 2026-10-12; a doc or a cached answer still naming any of those four is stale. Setting this field belongs to the campaign-group write tools — §3c below, through the same preview-then-confirm gate. Don't surface the raw value to the user either; `os/guardrails.md` has the plain-English phrasing.
 
-So *"raise the daily budget on campaign 12345"* is not always a campaign-level write: if 12345 sits in an `AUTOMATIC` group, the budget lives on the group, and that is a change made in the Realize UI rather than here. Say where the budget actually lives and name the UI, rather than attempting a write the API will reject.
+So *"raise the daily budget on campaign 12345"* is not always a campaign-level write: if 12345 sits in an `AUTOMATIC` group, the budget lives on the group, so the write is `update_campaign_group` (§3c), not `update_campaign` — which would be rejected. Say where the budget actually lives, and that changing it there reaches every campaign in the group, before previewing anything.
 
 **Attach is not move.** On `update_campaign`, `campaign_group_id` can only attach a campaign that is currently in **no** group, and only to a `CUSTOM`-budget group. Moving a campaign between groups, or removing it from one, has no MCP tool — that is a UI action. Never present an attach preview for a campaign that already has a `campaign_group_id`.
 
@@ -192,7 +192,9 @@ Read-only fields the update tool rejects as unknown parameters: `id`, `advertise
 
 ## 3c. Campaign-group write tools — `create_campaign_group` / `update_campaign_group`
 
-Both are **closed schemas** (`additionalProperties: false`), unlike the campaign and item writes: a misspelled field is rejected rather than silently dropped. `update_campaign_group` is a **partial merge** — omit a field and it keeps its stored value.
+The workflow lives in `SKILL.md` → *Creating or updating a campaign group*, and the preview tiers in *Confirmation pattern (tiered)*; this section carries the shapes, the units and the traps. The mandatory pre-read is in `knowledge/campaign-structure.md` → *Reading a campaign group*.
+
+Both are **closed schemas** (`additionalProperties: false`), unlike the campaign and item writes: a misspelled field is rejected rather than silently dropped. `update_campaign_group` is a **partial merge** — omit a field and it keeps its stored value. That is the tool's doing, not the API's: it re-sends the attribution windows and budget schedule the API would otherwise clear. Send only what is changing, and never echo a `get_campaign_groups` payload back.
 
 | Tool | Required |
 |---|---|
@@ -203,19 +205,20 @@ Both are **closed schemas** (`additionalProperties: false`), unlike the campaign
 
 | Field | Values | Notes |
 |---|---|---|
-| `name` | string | |
-| `marketing_objective` + `kpi` | see the pairing below | **On create they travel together — send both or neither.** The backend defaults a missing `kpi` to CPA, which two objectives do not offer, so an objective alone can build a group the UI could not. On update, changing the objective alone fails when the stored `kpi` is not offered for the new one. |
+| `account_id` | string | **The owning advertiser** — `search_accounts.account_id`, or a campaign's `advertiser_id`. Never numeric, and never a parent or network account: the group belongs to the advertiser its campaigns do. |
+| `name` | string | Group name. Not guaranteed unique — resolve a group by id rather than by name. |
+| `marketing_objective` + `kpi` | see the pairing below — the API also answers **read-only** for the objective on some accounts, independently of the Realize+ beta — upstream does not say which, so read the group first and do not promise the change | **On create they travel together — send both or neither.** Upstream does not say what a lone objective produces, so never send one. On update, changing the objective alone fails when the stored `kpi` is not offered for the new one. |
 | `kpi_data` | `{kpi_threshold_value, kpi_goal_value}` | **The field names do not mean what they say.** `kpi_threshold_value` is *"increase spend if CPA is **below** this"*; `kpi_goal_value` is *"reduce spend if CPA is **above** this"*. Both in account currency, both > 0. Feeds recommendations only, and only when `kpi` is CPA **and both are set** — it is not a Target CPA. |
-| `conversion_rules` | `{rules: [{id}]}` | Two choices, as in the UI. **Account default:** omit on create, or send `{rules: []}` on update. **Manual:** ACTIVE rule ids from `get_conversion_rules`. On update, omitting the field keeps the group's current rules. These apply to every campaign in the group that sets none of its own. |
+| `conversion_rules` | `{rules: [{id}]}` | Two choices, as in the UI. **Account default:** omit on create, or send `{rules: []}` on update. **Manual:** ACTIVE rule ids from `get_conversion_rules`, and each `id` is an **integer** here — unlike `campaign_group_id`, which is a string. On update, omitting the field keeps the group's current rules. These apply to every campaign in the group that sets none of its own. |
 | `budget_distribution_method` | `CUSTOM` / `AUTOMATIC` | `CUSTOM` (default): each campaign keeps its own budget. `AUTOMATIC`: Taboola allocates the group's budget; it needs a limited budget, so `spending_limit_model: NONE` is rejected. |
 | `spending_limit_model` | `NONE` / `MONTHLY` / `ENTIRE` | Required on create. `MONTHLY` / `ENTIRE` take `spending_limit`; `NONE` requires **both** `daily_cap` and `daily_ad_delivery_model: STRICT`. |
 | `spending_limit` | number | For the chosen period, in account currency. |
 | `daily_cap` | number | Works only with `STRICT` pacing. Send a cap with `BALANCED` and the tool keeps the cap, switches to `STRICT`, and says so in the response. `0` means no cap. |
-| `daily_ad_delivery_model` | `BALANCED` / `STRICT` | `BALANCED` is the default and allows no cap — switching to it **clears** the group's cap. |
+| `daily_ad_delivery_model` | `BALANCED` / `STRICT` | `BALANCED` is the default and allows no cap — switching to it **clears** the group's cap. Switching an already-capped group to `STRICT` re-sends that cap. A new group defaults to `BALANCED`, so a create carrying `daily_cap` flips to `STRICT`. |
 | `start_date` / `end_date` | `yyyy-MM-dd` | Start defaults to today on create; omit `end_date` for no end. Campaigns in the group must start on or after, and end on or before. |
 | `is_active` | boolean | `false` pauses **the whole group**, `true` resumes it. |
 
-**Objective → KPI.** The backend accepts any pairing; this is the Realize UI's own table and the tool enforces it, so a group built outside it would carry a combination the UI never produces.
+**Objective → KPI.** The objective decides which `kpi` the API accepts — changing the objective alone **fails** when the stored `kpi` is not offered for the new one. The JSON schema does not cross-check the pair (`kpi` is a flat eight-value enum), so validate it here, before sending.
 
 | `marketing_objective` | Allowed `kpi` |
 |---|---|
@@ -227,10 +230,11 @@ Both are **closed schemas** (`additionalProperties: false`), unlike the campaign
 
 **What the preview must say, beyond the field diff.** A group write is not scoped to one object:
 
-- Changing `budget_distribution_method`, or the budget of a shared group, **updates every campaign in the group**. Moving a group to `AUTOMATIC` copies its budget onto all of them.
+- Changing `budget_distribution_method`, or the budget of a shared group, **updates every campaign in the group**. Switching to `AUTOMATIC` takes budget control away from each of them — their own budget fields stop applying and the API rejects them from then on. Upstream does not document what happens to those budgets if the group returns to `CUSTOM`, so treat the switch as one-way and check each campaign's budget afterwards rather than promising it comes back.
 - `is_active: false` pauses every campaign in the group.
-- A `REALIZE_PLUS` group cannot change `marketing_objective`, `kpi`, `kpi_data` or `budget_distribution_method`.
+- A group on the **Realize+ beta** (`REALIZE_PLUS`) cannot change `marketing_objective`, `kpi`, `kpi_data` or `budget_distribution_method` — see `knowledge/campaign-structure.md` → *Realize+ beta context*.
 - **There is no delete.** Deleting a group terminates all its campaigns, so the supported retirement is `is_active: false`.
+- **The response reports anything the tool changed about the request** — the `BALANCED`-plus-cap case above is the common one. Read it back and tell the user what actually landed, rather than repeating the payload you sent.
 
 Read the group first with `get_campaign_groups` — by id, per `knowledge/campaign-structure.md` → *Reading a campaign group* — so the preview shows real current values rather than blanks.
 
@@ -261,6 +265,22 @@ Both are **closed schemas**, and here that matters more than usual: the backend'
 - **Membership is never editable.** Nothing here changes who is in an audience; to change a customer list's members, create a new one from a new file. A new list also matches slowly, so it will be small or empty right after creation.
 
 Read the audience first per `knowledge/audiences.md` → *Reading an audience*, which also carries the subtype traps the preview depends on.
+**Counting what it reaches.** No tool returns a group's members: `get_campaign_groups` does not list them, and `list_campaigns` has no group filter and caps at `page_size` 10. So page `list_campaigns` for the account and count the rows whose `campaign_group_id` matches — name them if there are only a few. If the account is too large to page, or a page fails, say **"every campaign in this group — I could not count them"**. Never guess a number, and never drop the scope sentence because the number is missing.
+
+**Say it in the user's words, not the API's.** Field names and enum values do not go in a preview — `os/guardrails.md` carries the approved plain-English phrasing for `budget_distribution_method`, and the same rule applies to every row above. A group preview reads like this:
+
+```
+▶ WRITE TARGET: Acme Retail (advertiser_12345_prod)
+
+Pause campaign group "Q4 Prospecting"
+
+This stops all 7 campaigns in the group. None of them will deliver
+while the group is paused. Their own settings are not changed.
+
+Proceed?
+```
+
+Not: `is_active: true → false on campaign_group_id 690724`.
 
 ## 4. Per-strategy bid-lever gate matrix
 

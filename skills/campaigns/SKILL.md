@@ -24,7 +24,7 @@ Inspection of campaigns and their items (creatives) for a given account using th
 | `mcp__realize-mcp__get_campaign` | `account_id`, `campaign_id` | — |
 | `mcp__realize-mcp__list_items` | `account_id`, `campaign_id` | **No** — full list in one call |
 | `mcp__realize-mcp__get_item` | `account_id`, `campaign_id`, `item_id` | — |
-| `mcp__realize-mcp__get_campaign_groups` | `account_id` | **Yes** — `page` / `page_size`, max 50. To read **one** group, pass `campaign_group_id` — that returns the full record. `search_text` is for finding a group by name. See `knowledge/campaign-structure.md` → *Reading a campaign group*. Pagination applies to the list form only; `search_text="<the group id>"`; the `campaign_group_id` parameter returns a thinner projection that may omit `conversion_rules` and the budget fields |
+| `mcp__realize-mcp__get_campaign_groups` | `account_id` | **Yes** — `page` / `page_size`, max 50. To read **one** group, pass `campaign_group_id` — that returns the full record. `search_text` is for finding a group by name. See `knowledge/campaign-structure.md` → *Reading a campaign group*. Pagination applies to the list form only. |
 
 `list_campaigns` **is paginated and caps at 10 rows per page** — page until a short page before claiming you have every campaign. `list_items` is not paginated: if a campaign has hundreds of items they all come back in one call, so filter or summarize in post-processing. Of these, only `get_campaign_groups` accepts filter parameters (`statuses`, `search_text`); the rest take none.
 

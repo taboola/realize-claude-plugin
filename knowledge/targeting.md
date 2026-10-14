@@ -31,7 +31,7 @@ When demographic targeting is required and MCP search results don't surface a ma
 
 Gender-specific exact age ranges (e.g., F35-64) may need to be composed from broader buckets (e.g., F25+ + F65- excluding) in the UI.
 
-**Capability boundary for audiences: the table is in `knowledge/audiences.md`.** Conversion-rule writes and audience writes (including a CRM customer-list upload) are wired and go through the `manage-campaigns` gate. Building a predictive audience from a seed has no tool at any level and is done in the Realize UI; **deleting an audience has no endpoint at all**, anywhere, so archiving is the only retirement.
+**Capability boundary for audiences: the table is in `knowledge/audiences.md`.** Conversion-rule writes and audience writes (including a CRM customer-list upload) are wired and go through the `manage-campaigns` preview-then-confirm gate, so do not send a user to the Realize UI for them. Building a **predictive audience from a seed** has no tool at any level and is done in the Realize UI; **deleting an audience has no endpoint at all**, anywhere, so archiving — which reverses — is the only retirement.
 
 ---
 

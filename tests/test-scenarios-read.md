@@ -592,9 +592,9 @@ Covers the `diagnose-tracking` skill and the routing that replaced the pixel-hea
 
 ---
 
-## 23. Campaign groups — the goal chain, and the two requests that are not writes
+## 23. Campaign groups — the goal chain, and two lookalike requests where only one is a write
 
-Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaigns/SKILL.md`, the resolution order in `knowledge/campaign-structure.md`, and P2 / P5 in `skills/optimize-campaign/SKILL.md`. The one thing every part is testing: **a campaign whose `conversion_rules.rules` is empty is not therefore on the account default** — the Campaign Group sits between them. The write paths live in `tests/test-scenarios-write.md` as W16–W18.
+Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaigns/SKILL.md`, the resolution order in `knowledge/campaign-structure.md`, and P2 / P5 in `skills/optimize-campaign/SKILL.md`. The one thing every part is testing: **a campaign whose `conversion_rules.rules` is empty is not therefore on the account default** — the Campaign Group sits between them. The write paths live in `tests/test-scenarios-write.md` as W16–W21b.
 
 **Part A — an inherited group goal is reported as the group's, not the account's.**
 
@@ -623,12 +623,12 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 
 **Part B — no group, or an unreadable one.**
 
-**Setup:** run four variants — (i) a campaign with `conversion_rules.rules` empty and **no** `campaign_group_id`; (ii) one whose group comes back with `conversion_rules: {"rules": []}` — the key present and the array empty; (iii) one whose group read is made against the wrong account, so the group does not come back (whether it errors or returns empty); (iv) one whose group comes back **without a `conversion_rules` key at all** — the thin-projection shape.
+**Setup:** run four variants — (i) a campaign with `conversion_rules.rules` empty and **no** `campaign_group_id`; (ii) one whose group comes back with `conversion_rules: {"rules": []}` — the key present and the array empty; (iii) one whose group read is made against the wrong account, so the group does not come back (whether it errors or returns empty); (iv) one whose group comes back with **`conversion_rules: null`** — the shape the list form returns for a group that reads back `{"rules": []}` by id.
 
 **Pass criteria:**
 - (i) and (ii) answer with the account's ACTIVE include-in-total rules **and say it is the account default**. Variant (i) must not make a pointless group call.
 - (iii) says the group could not be read and presents the account default as the **fallback being reported**, not as the verified goal. Presenting it as verified is a fail.
-- (iv) does **not** report "no group goal". The absent key means unread, not empty, so the answer either resolves it (re-reading the group by id) or says the group could not be read — falling through to the account default as if it were verified is a fail. **Also check the call it made in the first place:** reading a known group id via the `campaign_group_id` parameter instead of `search_text` is itself a fail, since that is the read that produces this shape.
+- (iv) does **not** report "no group goal". The `null` means unread, not empty, so the answer either resolves it (re-reading the group by id) or says the group could not be read — falling through to the account default as if it were verified is a fail. **Also check the call it made in the first place:** re-reading a group whose id is already known through the list form (`search_text`) instead of `campaign_group_id` is itself a fail — the listing is the read that returns `conversion_rules: null`.
 - All four state which level the goal came from. Getting the right answer without saying which level is a partial fail — the user cannot otherwise tell an inherited goal from a deliberate one.
 
 **Part C — P5's not-applicable row needs both levels empty.**
@@ -639,16 +639,16 @@ Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaign
 
 **Pass criteria:** the learning guard **fires** — the campaign is inheriting a goal from its group, so this is not the "no conversion signal exists" case. Skipping P5 and telling the user they are missing a conversion rule is a fail. (This setup is deliberately the one that used to match no row at all.)
 
-**Part D — two requests that are refusals, not writes.**
+**Part D — two requests that look alike and are not: one is a write, one is a refusal.**
 
 > D1: "Create a campaign group for my lead-gen campaigns."
 > D2: "Move campaign 12345 out of group 778 and into group 901."
 
 **Pass criteria:**
-- No tool call on either.
-- **D1:** the answer says this isn't something it can do for them and names the Campaign Groups area of the Realize UI. Saying **Realize cannot do this** is a fail — it is false. Naming the MCP, a tool, or a skill is also a fail (`os/guardrails.md` → *Internal tools, skills, and infrastructure*). Inventing a precise menu path or a deeplink is a fail.
-- **D2:** same redirect, and this one genuinely has no API path at any level. Inventing a parameter or claiming `update_campaign` can move a campaign is a fail.
+- **D1 is a supported write.** Creating a group is wired (`create_campaign_group`), so the answer hands off to the write path and gathers what the create needs — at minimum a name and the budget-sharing choice — rather than redirecting. **Refusing it, or naming the Realize UI, is a fail.** **Stop at the preview and decline the confirmation** — this suite mutates nothing, so the pass is that the routing and the preview are right, not that a group gets created. Since the prompt names no account, resolving the account first is part of the pass. (The create itself is exercised under confirmation in W21.)
+- **D2 is a refusal** — moving or detaching a campaign has no API path at any level. No tool call. The answer names the Campaign Groups area of the Realize UI without a precise menu path or a deeplink, and says this is something it cannot do rather than something **Realize** cannot do. Naming the MCP, a tool, or a skill is a fail (`os/guardrails.md` → *Internal tools, skills, and infrastructure*). Inventing a parameter, or claiming `update_campaign` can move a campaign, is a fail.
 - Neither answer may imply that *attaching* an ungrouped campaign is impossible — that one is a supported write (W16).
+- **The pair is the test.** Answering both the same way — both refusals, or both writes — is a fail even if each answer reads well on its own.
 
 **Part E — listing groups is paginated, and `ACTIVE` is not a status.**
 

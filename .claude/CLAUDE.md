@@ -51,8 +51,8 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
            │                             UI fallback for delete/duplicate/bulk ops,
-           │                             pixel install / test-fire, and campaign-group
-           │                             create/edit/move.
+           │                             pixel install / test-fire, and moving or
+           │                             detaching a campaign between groups.
            │
            ├──► support skill  → NO MCP tools. Reads the local Claude Code
            │                             session transcript and renders one Markdown
@@ -230,7 +230,9 @@ So when syncing, grep for the capability by *name* rather than only diffing the 
 grep -rniE 'conversion-rule creation|UI-only|does not expose|does ?n.t yet expose|not yet on the public|no MCP tool|does not surface|not surfaced|Realize does not (show|display)|not wired|not enabled here|does not wire|no tool at any level' --include='*.md' .
 ```
 
-**The campaign-group release added a second shape of this bug: *exists upstream, deliberately not wired here*.** That is not a stale claim — it is a standing choice — but it decays into one the same way, because the natural shorthand for it is "Realize can't do that", which is false. Four distinct states now have to stay distinct in the docs: **wired** (reading groups; attaching an ungrouped campaign via `campaign_group_id`), **exists upstream but not enabled here** (`create_campaign_group`, `update_campaign_group`, and — since the audience work — `create_audience`, `update_audience`), **no tool at any level** (moving or detaching a campaign; building a predictive audience from a seed), and **no endpoint exists anywhere, not even in the UI** (deleting an audience — archiving is the only retirement). Collapsing the middle one into either neighbour is the failure to watch for. The decision not to wire those four unwired write tools is recorded in `CHANGELOG.md` and in *Open items* rather than an issue; treat those as the record required by *How to sync with upstream MCP changes* step 4.
+**The campaign-group release added a second shape of this bug: *exists upstream, deliberately not wired here*.** That is not a stale claim — it is a standing choice — but it decays into one the same way, because the natural shorthand for it is "Realize can't do that", which is false. Three distinct states have to stay distinct in the docs: **wired**, **exists upstream but not enabled here** (today: only the deprecated `search_conversion_rules` alias — the audience writes left this state in this release, one release after the campaign-group writes did), and **no tool at any level** (moving or detaching a campaign between groups). Collapsing the middle one into either neighbour is the failure to watch for.
+
+**And the middle state is the one that goes stale fastest, because a plugin decision can move a tool out of it between one PR and the next.** `create_campaign_group` / `update_campaign_group` sat in it for exactly one review cycle before being wired, and the first attempt at wiring them updated the agent's boundary paragraph and left nine other files still saying they were disabled — including a contradiction inside the agent file itself. **When a capability changes state, the grep below is not optional and not a spot check: run it, and read every hit.** Count lines (`N read tools + M write tools`) do not contain any of the grep's phrases, so check those by hand in the same pass — the agent file, `.claude/CLAUDE.md`'s own diagram, and `docs/realize-best-practices-gap.md` each carry one, and they must agree.
 
 Also check for a **deprecation** alongside the addition — this release renamed `search_conversion_rules` to `get_conversion_rules` with a hard removal date, and the old name appeared in seven files — two knowledge topics, the `discovery` skill, the agent's Tool Reference, the write-surface reference, this file's own architecture diagram, and `docs/realize-best-practices-gap.md`. A rename is a breaking change on a timer; note the date in the changelog.
 
