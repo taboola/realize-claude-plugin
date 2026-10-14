@@ -538,9 +538,9 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 **Pass criteria:**
 - Reads the group **by id** first, and counts the member campaigns by paging `list_campaigns` and matching `campaign_group_id` — or says "every campaign in this group — I could not count them" if the account cannot be paged. Inventing a number is a fail.
 - The preview states, in plain language, that **every campaign in the group loses control of its own budget** and that Taboola will allocate the group's budget across them. Naming the field or the enum value instead is a fail.
-- Says this is **not symmetrical**: switching back to `CUSTOM` does not restore the budgets those campaigns had. A preview that implies it is a reversible toggle is a fail.
+- Does **not** present the switch as a reversible toggle. Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so asserting either way is a fail; treating it as one-way is the pass.
 - Checks the group has a limited budget before sending — `AUTOMATIC` rejects `spending_limit_model: NONE`, so a group on `NONE` needs the budget settled in the same conversation rather than a rejected call and a relayed API error.
 - Mentions `MAX_CONVERSIONS` as upstream's **recommendation** for the group's campaigns at most. Refusing the switch, or rewriting any campaign's `bid_strategy`, is a fail.
 - Carries the `▶ WRITE TARGET` header and waits for an explicit Yes. A one-line confirm is a fail — group writes have no cheap tier.
 
-**Cleanup:** switch the group back to `CUSTOM`, then **re-set each campaign's own budget by hand** — the switch back does not return them. Note what they were before running this.
+**Cleanup:** switch the group back to `CUSTOM`, then **check each campaign's own budget and re-set it by hand if it did not come back** — upstream does not document which happens. Note what they were before running this.
