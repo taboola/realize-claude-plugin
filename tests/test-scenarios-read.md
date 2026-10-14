@@ -592,7 +592,7 @@ Covers the `diagnose-tracking` skill and the routing that replaced the pixel-hea
 
 ---
 
-## 23. Campaign groups — the goal chain, and two lookalike requests where only one is a write
+## 23. Campaign groups — the goal chain, and two near-identical requests where only one is a write
 
 Covers `get_campaign_groups` in `agents/realize-analyst.md` and `skills/campaigns/SKILL.md`, the resolution order in `knowledge/campaign-structure.md`, and P2 / P5 in `skills/optimize-campaign/SKILL.md`. The one thing every part is testing: **a campaign whose `conversion_rules.rules` is empty is not therefore on the account default** — the Campaign Group sits between them. The write paths live in `tests/test-scenarios-write.md` as W16–W21b.
 

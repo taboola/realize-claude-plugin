@@ -257,6 +257,8 @@ Not: `is_active: true → false on campaign_group_id 778`.
 
 ## 3d. Audience write tools — `create_audience` / `update_audience`
 
+The workflow lives in `SKILL.md` → *Creating or updating an audience*, and the preview tiers in *Confirmation pattern (tiered)*; the surface itself — subtypes, reads and their traps — is `knowledge/audiences.md`, which wins on any disagreement. This section carries the shapes and the traps of the writes.
+
 Both are **closed schemas**, and here that matters more than usual: the backend's own deserializer throws on an unknown field, so a name a loose schema dropped would turn a loud upstream 400 into a success that created the *wrong* audience.
 
 `audience_type` (`PIXEL` / `COMBINED` / `CUSTOMER_LIST`) selects the endpoint and decides what else is required.
@@ -472,6 +474,7 @@ update_campaign(
 | `knowledge/bidding.md` | Bid strategy mechanics, Bid Levers matrix (canonical), Learning-Period Guard, KPI → objective mapping. |
 | `knowledge/budget.md` | 10× CPA rule, pacing, scaling, depletion-miss investigation. |
 | `knowledge/campaign-structure.md` | Native vs Display lock-in (two-path), platform/device splits, Campaign Groups, Realize+ context. |
+| `knowledge/audiences.md` | The audience surface — subtypes, the three read modes, what each read returns, and the traps the write previews depend on. Canonical on any disagreement. |
 | `knowledge/creative.md` | Sponsored Content + Display creative strategy, Gen AI AdMaker, landing pages, creative review, testing, fatigue. (Display item payload shape — `ad_tag` 3P vs `asset_url` + `dimensions` 1P — lives in `knowledge/targeting.md`. Wilson-score creative ranking lives in `skills/optimize-campaign/references/optimization-flow.md` §3.) |
 | `knowledge/targeting.md` | Marketplace vs account-resident audiences, Tier-1 markets, 6-dimension narrow-targeting diagnostic, small-market caveat. |
 | `knowledge/site-management.md` | Historical-top-N publisher block guard, block-attribution framework. |

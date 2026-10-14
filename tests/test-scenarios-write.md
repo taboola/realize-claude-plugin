@@ -568,7 +568,6 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 
 ---
 
-
 ## W23. Upload a CRM customer list
 
 **Setup:** a QA advertiser account and a direct-download URL for a small CSV of email addresses.
@@ -587,3 +586,25 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - Does not promise the audience is ready: matching is slow, so it will be small or empty right after creation.
 
 **Cleanup:** archive it — `is_archived: true`. There is no delete, and archiving reverses.
+
+---
+
+## W23b. Create a pixel audience, then archive it
+
+**Setup:** a QA advertiser account with the Taboola Pixel installed and some traffic.
+
+**User prompt:**
+> "Make me an audience of everyone who hit the pricing page in the last 14 days."
+
+**Expected side effects:** none unless confirmed. If confirmed, one new pixel audience exists, and the second half of the scenario archives it.
+
+**Pass criteria:**
+- **Settles the subtype rather than assuming it.** This description points at a pixel audience, but nothing in the data says so — a pass either names the subtype it chose and why, or asks. Silently defaulting is the failure this scenario exists for.
+- Sends the fields a `PIXEL` create requires and no others — a field belonging to another subtype is **rejected, not ignored**, so the call fails loudly rather than creating something incomplete.
+- Maps "last 14 days" to `look_back_window: 14` (days, 1–30) and does not confuse it with the view-through window, which is in **minutes**.
+- Does **not** promise `type`, `category` or `event_name` can be fixed later — all three are immutable after create, and the preview should say so before the confirmation, not after.
+- **After the create, a 404 on the returned id is not a failed create.** Confirm from the plain listing; re-creating is a fail.
+- **Second half — archive it.** The answer uses `status: "ARCHIVED"`, **not** `is_archived: true`: the two spellings are per-subtype and a pixel audience takes the first. Reaching for a delete tool is a fail; there is none at any level. The answer should also say archiving reverses, so the user knows it is not destructive.
+
+**Cleanup:** none needed beyond the archive the scenario already performs. Restore with `status: "ACTIVE"` if the audience is wanted for a later run.
+

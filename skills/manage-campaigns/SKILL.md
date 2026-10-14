@@ -160,7 +160,7 @@ The skill never submits a write without first showing the user a preview and get
 
 Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
 
-**There is no one-line tier for conversion rules, campaign groups, or a CRM upload.** Both look like small edits — one window value, one boolean — while reaching every campaign that references the rule, or every campaign in the group. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item. Note the asymmetry worth saying out loud in a preview: `is_active=false` on an *item* pauses one ad; on a *group* it pauses every campaign in it.
+**There is no one-line tier for conversion rules, campaign groups, or a CRM upload.** All three look smaller than they are: a conversion-rule edit reaches every campaign that references the rule, a group edit reaches every campaign in the group, and a CRM upload sends customer records out of the advertiser's hands — one field each, and none of them undoable by editing the field back. The cheap tier is reserved for `is_active` on a single item, where the blast radius is that item. Note the asymmetry worth saying out loud in a preview: `is_active=false` on an *item* pauses one ad; on a *group* it pauses every campaign in it.
 
 ### Mandatory: `▶ WRITE TARGET` header on every confirmation
 
@@ -549,10 +549,6 @@ The duplicated campaign re-enters the 24–48 hour review.
 ### Bulk operations
 
 Multi-select pause/resume/edit operations on the Campaigns or Items list are UI-only. The MCP write tools handle one entity at a time. For "pause everything except X", surface that there's no batch API and offer to either (a) script the per-entity calls one by one (each gets its own confirmation) or (b) point the user to the UI for the bulk action.
-
-### Audiences — the CRM customer-list upload
-
-`create_audience` / `update_audience` **exist on the Realize MCP** and are not wired in this revision. That is a plugin decision, not a platform limit, so the sentence is *"that is not something I can do here"* — never *"Realize cannot do that"*. Point at the **Audiences** area of the Realize UI without inventing a menu path or a link. Building a **predictive audience from a seed** is the one audience action with no tool at any level, and there is **no delete** for an audience anywhere; archiving is how one is retired.
 
 ### Campaign groups — moving or detaching a campaign
 
