@@ -8,7 +8,49 @@ Campaign structure determines how budgets are distributed, how the algorithm opt
 
 ## Campaign Groups
 
-> **MCP support status:** Campaign Group assignment is **not exposed via the Realize MCP today.** `create_campaign` and `update_campaign` accept no `campaign_group_id` parameter. The conceptual guidance below applies to planning. Group creation and campaign-to-group assignment are UI-only actions — when a user asks the plugin to "put this campaign in group X", treat it as a UI-only action and tell the user to set the group in the Realize UI after the campaign exists.
+> **MCP support status (updated 2026-10-14).** Reading groups **is** exposed: `get_campaign_groups` returns a group's objective, KPI, conversion rules, budget, flight dates and status. A campaign's `campaign_group_id` (from `get_campaign` / `list_campaigns`) is the way in — read the group **by that id**; see *Reading a campaign group* below for the one procedure.
+>
+> **Group creation and editing are wired** (`create_campaign_group`, `update_campaign_group`), through the `manage-campaigns` preview-then-confirm gate like every other write. They are account-shaped: a group write reaches **every campaign in the group** — switching how the budget is split takes budget control away from each of them, and a shared group's budget change reaches all of them, and `is_active=false` pauses them all — so the preview has to say what will be affected, not just which fields change. There is no delete: deleting a group terminates its campaigns, and the supported retirement is `is_active=false`.
+>
+> **Putting a campaign into a group IS wired** — `create_campaign` and `update_campaign` both take `campaign_group_id` (pass the id as a string), and both go through the `manage-campaigns` write gate. Two upstream limits matter:
+> - On `create_campaign` it places the new campaign in the group. The campaign's dates must fall inside the group's, and omitted dates take the group's.
+> - On `update_campaign` it can only **attach a campaign that is in no group yet**, and only to a group whose `budget_distribution_method` is `CUSTOM`. **Moving a campaign to a different group, or taking it out of one, is not possible through the MCP at all** — that is the genuinely UI-only part.
+>
+> **In an `AUTOMATIC` group the group owns the budget.** `budget_distribution_method` has exactly two values: `CUSTOM` (the default — each campaign keeps its own budget) and `AUTOMATIC` (Taboola allocates the group's budget across its campaigns). In an `AUTOMATIC` group the campaign's `spending_limit`, `spending_limit_model`, `daily_cap` and `daily_ad_delivery_model` are read-only — the API rejects them — so read the group before prescribing a budget change on one of its campaigns, per *Reading a campaign group* below — by id, which returns the budget fields. If `budget_distribution_method` is still absent after a by-id read, do **not** infer `CUSTOM`: say the group's budget setup could not be confirmed. `MAX_CONVERSIONS` is the **recommended** bid strategy for an `AUTOMATIC` group's campaigns, not a requirement — never refuse a write over it. (Upstream retired the older `FULLY_SHARED` / `CPA_BASED_ALLOCATION` / `OPTIMIZE_SCALE` / `OPTIMIZE_PERFORMANCE` names on 2026-10-12; anything still using them is stale.)
+
+### The group sets the conversion goal for campaigns that don't set their own
+
+> **A group's conversion rules are the group's *selection*, not a statement about its campaigns.** Any member campaign may carry its own, which replaces the group's for that campaign and is not visible in Realize. So never report a group's conversions as what its campaigns optimize toward — describe them as what the group selects, and resolve the goal per campaign when the question is about a campaign. This matters most on duplicated campaigns, which bring the original's goal with them into the group.
+
+This is the part that changes answers, not just planning. A campaign's conversion goal resolves in this order:
+
+1. **The campaign's own `conversion_rules`** — if it has any at all, they win, active or not (see below). They **replace** the group's for that campaign; they are not added to them.
+   **A campaign-level goal wins even when it is stale — that is the failure mode, not an exception.** `conversion_rules.rules` carries only `{id}`, nothing about the rule behind it. A campaign can be attached to a rule that is disabled, archived, or simply receiving nothing, and it still optimizes toward that rule; the group's goal does **not** take over. Many of these attachments arrive by duplication — a campaign copied from a pre-group original brings its old goal with it. So resolve every id with `get_conversion_rules(account_id, rule_id="<the id>")` — **by id, with no `status` filter**. Do not match on `display_name`, and do not reach for the ACTIVE-by-default listing: a retired rule is absent from it, so the rule you are checking is exactly the one that read would hide. Then: name the rule as the goal, and if it is not `ACTIVE`, say in the same breath that the campaign is optimizing toward a retired rule. Never silently fall through to the group, and never report the group's goal instead — a campaign spending against a dead goal is exactly what the reader needs told.
+2. **Its group's `conversion_rules`** — read the group by the id in the campaign's `campaign_group_id`, per *Reading a campaign group* below. A group's rules apply to every campaign in it that has none of its own. **Read it by following *Reading a campaign group* below** — by id, the matching row on the rare occasion you do have to list, and what an unread result means. Do not improvise the call here.
+3. **The account default** — the account's ACTIVE rules marked `include_in_total_conversions`, used only when neither of the above is set. Note that a group can be on the account default **deliberately** — it is a valid setting, not only a gap — so "the group sets none" and "the group was never configured" are not the same statement. Say which level the goal resolved at; don't editorialise about whether someone meant it.
+
+Read the field carefully: `conversion_rules` comes back as an object, `{"rules": [...]}`. The inherit case is **`rules` being an empty array**, not the field being absent — the object is normally there and is always truthy when it is. An empty `rules` on a campaign therefore does **not** mean "account default". Check the group before saying so. Anything else — the key absent, or `null` — means **unread**, not "no goal": say the campaign's own rules could not be read rather than resolving past them. **If the group reads back `STOPPED`, it has been deleted — and deleting a group terminates its campaigns.** Say that, rather than reporting a conversion goal for a campaign that is no longer running. A campaign can sit in a group with a specific goal while the account default is something else entirely, and reporting the account default there is a wrong-KPI answer.
+
+**A campaign in a group can still carry its own conversion goal, and as of 2026-10-13 the Realize UI does not surface that field on a grouped campaign**. Those rules are the ones in effect, active or not, and nothing here replaces them with the group's. So when the goal you report came from the campaign itself **and the campaign is in a group**, add one line saying the Realize UI may show the group's goal instead; otherwise a user who checks the screen will read a correct answer as a mistake.
+
+### Reading a campaign group
+
+Every instruction elsewhere that says "read the group" means this procedure. It is written once, here.
+
+```
+get_campaign_groups(account_id="<the campaign's owning advertiser>", campaign_group_id="<the group id>")
+```
+
+1. **Read by id whenever you have the id.** That is what the three tool descriptions tell you to do, and the single-group read returns the full record — objective, KPI, dates, budget method, and `conversion_rules`. Pass the id as a string even though `get_campaign` hands it back as a number.
+2. **The list form is for finding a group you cannot name by id** — `search_text` matches the group's name. Do not use it to re-read a group you already have the id for: verified against production on 2026-10-14, the same group returns `conversion_rules: {"rules": []}` by id and `conversion_rules: null` through the listing. Rule 4 below turns that `null` into "unread", so the listing would make a readable group look unreadable.
+3. **When you do list, pick the row whose `id` matches.** `search_text` matches names as well as ids and results sort by id ascending, so the row you want is often not the first. If no row on the page matches, page on before concluding anything.
+4. **`conversion_rules` has three states.** A non-empty `rules` array is the group's own goal; an empty array means it sets none; anything else — the key absent, or `null` — means **unread**. Say the group could not be read rather than resolving past it to the account default.
+5. **Never pass `statuses` when you are resolving a specific group.** It silently drops any group not in the statuses you asked for, including the one you are looking for, and the result is indistinguishable from the group not existing. Filtering a browse-the-account listing is fine — `["RUNNING"]` for live groups, and **never `ACTIVE`**, which is rejected outright rather than ignored.
+6. **`account_id` is the advertiser that owns the group**, not a NETWORK or parent account its campaigns were listed through.
+7. **"Has a group" means `campaign_group_id` is a positive number.** `0`, `null`, `""` and an absent key all mean ungrouped, and none of them is an id worth reading.
+8. **The group's CPA numbers are not the campaign's bid target.** A group carries its own `marketing_objective`, `kpi`, and optionally `kpi_data` — a pair of CPA thresholds feeding Realize's recommendations, and only when the group's `kpi` is CPA and both are set. Never report them as a Target CPA.
+
+A `STOPPED` group has been deleted, and deleting a group terminates its campaigns — say that rather than reporting a goal for a campaign that is no longer running.
 
 ### What Campaign Groups Do
 
@@ -69,15 +111,15 @@ When budget per campaign would fall below the algo's learning threshold after sp
 
 ### Budget Distributor Behaviour
 
-The current Budget Distributor allocates budget based on **reach / scale**, not performance:
+The Budget Distributor is the group's automatic allocation — `budget_distribution_method: AUTOMATIC`, the one alternative to `CUSTOM`. **There is one automatic mode, not two**: upstream retired the separate scale-led and CPA-led methods on 2026-10-12 and describes the surviving one as allocating the group's budget *for the best performance*. **No read tool reports how an account's allocation actually behaves**, so describe the current mode and do not promise a specific allocation outcome. The one bullet below is the older scale-led description, kept only because it is still quoted:
 
-- A narrow-targeting campaign with great performance may be limited in scale, so the Budget Distributor prioritises broader-targeted campaigns to ensure budget depletion.
-- Later versions will optimise budget allocation based on performance (CVR, CPA).
+- *Realize+ Phase 1, superseded — do not state as current:* a narrow-targeting campaign with great performance may be limited in scale, so the Budget Distributor prioritises broader-targeted campaigns to ensure budget depletion.
 
 **Key requirements when using the Budget Distributor:**
 
-- Always set all campaigns to the **same bidding strategy**.
-- Always ensure conversion goals are the **same** across all campaigns in the Campaign Group.
+- `MAX_CONVERSIONS` is the **recommended** bid strategy for the campaigns in an `AUTOMATIC` group — upstream's recommendation, not an API rule. Never refuse or rewrite a campaign write over it.
+- Prefer the **same bidding strategy** across the group's campaigns, so the allocator compares like with like. It is guidance, not an API rule — never block a write on it.
+- Prefer the **same conversion goal** across the group's campaigns, for the same reason. A campaign may still carry its own goal, which *replaces* the group's for that campaign — see the goal-resolution section above.
 
 ### Realize+ beta context
 
@@ -247,6 +289,6 @@ Mail meaningfully **lost share** even though absolute $ looks flat. Open web tri
 
 ## Pro Tips
 
-- Campaign Groups with the Budget Distributor are powerful for advertisers testing multiple tactics — remember the current version optimises for reach / scale, not performance. A narrow high-performing campaign may get less budget than a broad lower-performing one.
+- Campaign Groups with the Budget Distributor are powerful for advertisers testing multiple tactics — remember upstream now describes the automatic mode as allocating **for best performance**. Earlier Realize+ Phase-1 material described it allocating for reach / scale — recorded here because it is still quoted, but superseded. No read tool reports which model an account is on, so describe the current one and do not promise a specific allocation behaviour.
 - When an advertiser wants to "restart" a poorly performing campaign, it is often better to create a fresh campaign. Building a new campaign resets the learning phase and removes historical constraints. Pair it with fresh creatives, new segments, or re-evaluated bidding strategies.
 - Always optimise toward a specific product or funnel per account. Do not mix different products and completely different funnels on the same account.
