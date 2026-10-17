@@ -4,7 +4,10 @@ All notable changes to this plugin will be documented here. Format loosely follo
 
 ## [Unreleased]
 
-_Nothing yet. 0.5.4 below is frozen while it awaits directory review; new changes go here._
+> **Versioning note.** `0.5.4` below is frozen while it awaits the Anthropic directory review, so work landing after it moves to **0.5.5** in the three Claude-plugin places (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.mcp.json`'s `X-Realize-Client` header). `.codex-plugin/plugin.json` is versioned separately and is not touched.
+
+### Fixed
+- **No more "raise bid" advice for Maximize Conversions.** In `knowledge/bidding.md`, the *When to Switch Strategies* row for a Maximize Conversions campaign with high CVR and low scale told users to "raise bid". On Maximize Conversions the algorithm sets the bid, so there is no bid to raise (see the Bid Levers matrix in the same file). The row now reads "Expand targeting, consider splitting out top placements". The matching *CPA Spike Signal Table* row (High CVR, Low Scale), which covers all bid strategies, is aligned to the internal Realize Best Practices source (which has no "raise bid" there) and drops it too. Raising the bid on Enhanced CPC / Fixed Bid is still covered in `skills/optimize-campaign/references/optimization-flow.md` §2.1 and `knowledge/budget.md`.
 
 ## [0.5.4] — Unreleased (pending directory review)
 
