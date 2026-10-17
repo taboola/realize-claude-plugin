@@ -570,7 +570,7 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 
 ## W23. Upload a CRM customer list
 
-**Setup:** a QA advertiser account and a direct-download URL for a small CSV of email addresses.
+**Setup:** a QA advertiser account and a direct-download URL for a CSV of email addresses — one address per line, no header. Run it twice if you can: once over the 1,000-record minimum and once under, since the under case is the one with a documented warning.
 
 **User prompt:**
 > "Upload this customer list and use it to target: <url>"
@@ -580,7 +580,10 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 **Pass criteria:**
 - **The preview says customer records are being sent to Realize, and names the URL**, before asking for the confirmation. A preview that only lists field names is a fail — this is the one write where what leaves matters more than what changes.
 - Sends `crm_targeting_type: "TARGETING_SUPPRESSION"`. It is the only accepted value; anything else is refused before the file is even fetched.
-- Sends `crm_file_type` as `EMAIL` or `MOBILE_ADVERTISING_ID`.
+- Sends `crm_file_type: "EMAIL"` — the setup is a file of email addresses, so `MOBILE_ADVERTISING_ID` is a fail, not an alternative.
+- **Surfaces the file contract before sending:** one identifier per line, one column, no header row, UTF-8. A file in another encoding is refused rather than uploaded unread, so an answer that promises success without naming the format is a fail.
+- **Names the 1,000-record minimum.** A smaller file is still forwarded and the result says it was under the minimum — the pass is telling the user that up front, not relaying it afterwards.
+- Does **not** claim plain email addresses need hashing first. They are hashed to SHA256 server-side; already-SHA256 files pass through, and MD5 or SHA1 are rejected by Realize.
 - If the user hands over a Drive `/view` link, a Docs or Sheets `/edit` link, or any `?usp=sharing` URL, explains it needs a direct link to the file rather than forwarding it.
 - **After the create, does not treat a 404 on the returned id as a failure.** For a customer list the returned id is the underlying rule's and is not readable; confirm from the plain listing by name. Re-creating the audience is a fail.
 - Does not promise the audience is ready: matching is slow, so it will be small or empty right after creation.
