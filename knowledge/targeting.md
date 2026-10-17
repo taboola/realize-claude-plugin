@@ -14,12 +14,12 @@ A given Realize account does NOT need to "contain" demographic, interest, intent
 
 | Discovery tool | Returns | When it's empty for a fresh account, that's fine |
 |---|---|---|
-| `search_audiences` | Account-RESIDENT custom audiences only — pixel-built segments, CRM uploads, "All Website Visits", combined audiences saved on the account. | ✅ Yes — a brand-new account has no pixel data + no CRM uploads yet. |
+| `search_audiences` | Everything the account can target, across **all** subtypes — its own pixel-built segments, CRM uploads, "All Website Visits", combined audiences and predictive audiences, plus third-party marketplace rows. Surface and traps: `knowledge/audiences.md`. | ✅ Yes for the account's **own** audiences — a brand-new account has no pixel data + no CRM uploads yet. |
 | `search_contextual_segments` | Network-wide marketplace catalogue — demographics (age / gender), interest verticals (health-conscious, weight management, immune health, energy / focus, etc.), 3P data partners (Audience One, Bombora, Connexity, Eyeota), MRT bundles. | ❌ Never expected to be empty for a US-targeted campaign. |
-| `search_lookalike_audiences` | Account-RESIDENT lookalike seeds (pixel-based predictive, CRM lookalike, PBP). | ✅ Yes — these require a seed (pixel data or CRM upload) which a fresh account won't have. Mark "seed pending" rather than failing. |
+| `search_lookalike_audiences` | Predictive audiences already built on the account (`lookalike` is the wire name — say *predictive audiences* / *audience expansion* to the user). | ✅ Yes — these require a seed (pixel data or CRM upload) which a fresh account won't have. Mark "seed pending" rather than failing. |
 | `get_conversion_rules` | Account-RESIDENT conversion rules (Taboola Pixel events, S2S events, engagement rules). Returns ACTION rules only — pixel audience rules are excluded. | ✅ Yes — fresh accounts have no pixel installed yet. |
 
-**Operating rule:** If the user calls for "Women 35-64, health-conscious, weight-management interest," resolve those via `search_contextual_segments`. Do NOT expect them in `search_audiences`. If `search_audiences` is empty for a fresh activation account, proceed and note: "no account-resident custom audiences yet — using marketplace segments + targeting will broaden once pixel/CRM seeds land." NEVER raise this as a blocking error.
+**Operating rule:** If the user calls for "Women 35-64, health-conscious, weight-management interest," resolve those via `search_contextual_segments`. `search_audiences` may also return third-party rows, so a hit there is not a sign you used the wrong tool — it is just not the resolver. If `search_audiences` is empty for a fresh activation account, proceed and note: "no account-resident custom audiences yet — using marketplace segments + targeting will broaden once pixel/CRM seeds land." NEVER raise this as a blocking error.
 
 ### Declared demographics (age, gender) — exist platform-wide even when MCP queries don't surface them
 
@@ -31,7 +31,7 @@ When demographic targeting is required and MCP search results don't surface a ma
 
 Gender-specific exact age ranges (e.g., F35-64) may need to be composed from broader buckets (e.g., F25+ + F65- excluding) in the UI.
 
-**Per-account write tools (new conversion rules, CRM segments, lookalike seeds) are not yet on the public Realize MCP.** Create new conversion rules / CRM segments / lookalike seeds in the Realize UI after campaign creation — the public MCP doesn't yet expose write tools for these.
+**Capability boundary for audiences: the table is in `knowledge/audiences.md`.** Conversion-rule writes and audience writes (including a CRM customer-list upload) are wired and go through the `manage-campaigns` preview-then-confirm gate, so do not send a user to the Realize UI for them. Building a **predictive audience from a seed** has no tool at any level and is done in the Realize UI; **deleting an audience has no endpoint at all**, anywhere, so archiving — which reverses — is the only retirement.
 
 ---
 

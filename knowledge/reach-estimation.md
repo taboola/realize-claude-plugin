@@ -30,14 +30,16 @@ Description (verbatim from the MCP): *"Estimate the potential reach — audience
 
 Send the same targeting / bidding fields you would send to `create_campaign`. The estimator does NOT create anything; it only evaluates the hypothesis.
 
+**The estimator is pass-through: it validates none of the targeting blocks below.** The campaign write does, so a payload the estimator accepts can still be rejected when you go to write it.
+
 | Field | Notes |
 |---|---|
 | `country_targeting` | `{type: INCLUDE\|EXCLUDE\|ALL, value: [ISO-2 codes]}`. Resolve codes via `search_geos(dimension=countries)`. |
 | `region_country_targeting` / `dma_country_targeting` / `city_targeting` / `postal_code_targeting` | Same shape as on `create_campaign`. Sub-dimension mutex applies (at most one). |
 | `platform_targeting` | `{type: INCLUDE\|EXCLUDE\|ALL, value: [DESK\|PHON\|TBLT\|TV\|OTHR\|NA]}`. |
-| `audiences_targeting` | `{state, value: [{type, value: [int]}]}`. IDs from `search_audiences`. |
-| `contextual_segments_targeting` | `{state, value: [{type, value: [int]}]}`. IDs from `search_contextual_segments`. |
-| `lookalike_audience_targeting` | `{state, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}`. IDs from `search_lookalike_audiences`. |
+| `audiences_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int]}]}`. IDs from `search_audiences`. Envelope and traps: `knowledge/audiences.md`. |
+| `contextual_segments_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE\|EXCLUDE, value: [int]}]}`. IDs from `search_contextual_segments`. |
+| `lookalike_audience_targeting` | `{state: ALL\|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}`. IDs from `search_lookalike_audiences`; `similarity_level` is a closed set — see `knowledge/audiences.md`. |
 | `pricing_model` | `"CPC"` or `"VCPM"`. CPC is the standard path; VCPM is the alternate pricing model used for Display campaigns priced on viewable-impression cost. |
 | `bid_strategy` | `"FIXED"` is required when `pricing_model="VCPM"`. |
 | `cpc` | The bid. With `VCPM` this is the per-1000-viewable-impression rate, NOT a click bid. |
