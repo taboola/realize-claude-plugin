@@ -115,9 +115,9 @@ The same example file allows the two tools the plugin uses to answer questions i
 
 Without these, every lookup raises a permission prompt — and a declined prompt is indistinguishable from the plugin simply not knowing the answer. Lookups are read-only, restricted to Taboola's public advertiser help documentation, and never touch account data.
 
-## Recommended: allow the pixel-diagnosis page fetch
+## The pixel-diagnosis page fetch needs no opt-in
 
-The pixel-health diagnosis downloads the raw HTML of **the page you ask to have checked** (a `curl` of your own site — the readable-view fetch tool strips the code the check needs). The example file allows it via `"Bash(curl:*)"`. Same trade-off as above: without it, every diagnosis raises a prompt. The fetch is read-only, goes only to the URL you supply, and never touches account data. (The permission entry itself is curl-wide — the harness cannot scope a shell permission to a URL — so the per-URL restraint is enforced by the skill's rules, not the grant; skip this opt-in if that trade-off isn't acceptable.)
+The pixel-health diagnosis downloads the raw HTML of **the page you ask to have checked** (the readable-view fetch tool strips the code the check needs). It does this with one script shipped in the plugin, `skills/diagnose-tracking/scripts/fetch-page.js`, and the skill pre-approves exactly that script — no general shell access. The script is read-only, goes only to the URL you supply, allows http/https only, caps redirects, time and size, sends no cookies, and never touches account data. Earlier versions asked you to allow `Bash(curl:*)` here; that entry is no longer needed and you can remove it.
 
 ---
 

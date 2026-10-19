@@ -198,22 +198,27 @@ Fixed, and guarded in CI (`.github/workflows/validate.yml`, *Directory-check gua
 
 - **`SECRET_IN_SCRIPT`** (blocked) — credential-shaped literals in any shipped script, even obvious test fixtures. Generic rules match a credential key name next to a literal value, not only vendor prefixes, so `test-build-bundle.js` assembles *every* fixture at runtime (`'sk-' + 'ant-' + …`, values pulled from neutrally named variables). New redaction tests must do the same; don't inline a fixture "just for readability".
 - **`ROOT_CLAUDE_MD`** (warning) — no `CLAUDE.md` at the repo root. That's why this file is in `.claude/`. The finding is scoped to the root (`CLAUDE.md · root` in the report).
-- **`ICON_MISSING`** (warning) — `.claude-plugin/icon.png` must exist (square PNG, 512–2048 px, under 2 MB). The listing picks the icon up **once**, at first accepted submission, so a placeholder is not a harmless stopgap.
+- **`ICON_MISSING`** (warning) — the listing icon must exist in `.claude-plugin/` (square PNG, 512–2048 px, under 2 MB). The listing picks the icon up **once**, at first accepted submission, so a placeholder is not a harmless stopgap. This one is **not** CI-guarded any more, on purpose: any shipped file that names the image by path — a doc line, a CI step that opens it — draws `UNREAD_ASSET_REFERENCED` ("code could run this image"), a hold that needs a reviewer. The directory check itself still reports `ICON_MISSING` if the file goes away, so the duplicate guard bought nothing. Refer to it in prose ("the listing icon"), not by filename.
 
 Fixed, not CI-guarded:
 
 - **No privacy policy URL** (validation note) — `plugin.json` carries `privacyPolicyUrl`, the same Taboola policy the Realize MCP links.
 
-Still open as of DEV-240749:
+Fixed in DEV-240750, guarded in CI (*Directory-check guards* parses every skill's `allowed-tools`):
 
-- **`ALLOWED_TOOLS_BROAD`** (policy hold, 8 skills) — bare `"Bash"` in `allowed-tools` pre-approves any shell command. Scope it to the exact command (`Bash(node ${CLAUDE_PLUGIN_ROOT}/…:*)`) or drop it.
-- **Unscoped fetch** (validation note) — `web-fallback`'s `"WebFetch"` has no domain restriction.
-- **`MCP_FORWARDS_CREDENTIAL_ENV`** and **`RUNTIME_FETCH_EXEC`** (warnings) — likely false positives (auth is OAuth through the MCP; the pixel check's `curl` output is grepped, never executed). They need a reviewer note, not a code change.
+- **`ALLOWED_TOOLS_BROAD`** (policy hold) — no skill lists bare `"Bash"`. Six skills had no real shell need — four never used it, and two only `grep`-ed an overflow dump, which the `Grep` tool does. The two that run a plugin script name exactly that script: `Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/scripts/<file>.js:*)`. A new shell need gets a script and its own exact entry — never a wider pattern.
+- **Unscoped fetch** (validation note) — `web-fallback` lists `WebFetch(domain:realize.com)` / `WebFetch(domain:www.realize.com)`, not bare `WebFetch`.
+- **`RUNTIME_FETCH_EXEC`** (warning) — the pixel check's download is a shipped script (`skills/diagnose-tracking/scripts/fetch-page.js`), not a `curl` line in the skill or agent prose. Don't put a download command back into any `.md`, even as an example — the scanner reads documentation as instructions the model will run.
+
+Still open, no code change expected:
+
+- **`MCP_FORWARDS_CREDENTIAL_ENV`** (warning, `plugin.json`) — nothing in the plugin reads a credential: auth is OAuth handled by Claude Code against the MCP, and `.mcp.json`'s only header is the static `X-Realize-Client` identity string. Needs a reviewer note.
+- **`UNKNOWN_KEY` `privacyPolicyUrl`** — the directory reads it for the listing; the finding itself says no action needed. Keep it.
 
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.
 
-One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** via curl. That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the curl back to WebFetch; the skill and the agent both document why.
+One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** with its own script, `skills/diagnose-tracking/scripts/fetch-page.js` (http/https only on every hop, ≤3 redirects, timeout, size cap, URL passed by file). That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the download back to WebFetch, and don't swap the script for an inline `curl` — that brings back both `ALLOWED_TOOLS_BROAD` and `RUNTIME_FETCH_EXEC`. Run `node skills/diagnose-tracking/scripts/test-fetch-page.js` after touching it; CI runs it too.
 
 ### Stale capability claims are their own bug class
 
@@ -248,9 +253,10 @@ Users often type numeric IDs in natural language. The MCP expects opaque string 
    ---
    name: <skill-name>
    description: <when to use, what it does>
-   allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+   allowed-tools: ["Read", "AskUserQuestion"]
    ---
    ```
+   Never add bare `"Bash"` — if the skill must run a shell command, ship it as a script under `skills/<skill-name>/scripts/` and list exactly `Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/<skill-name>/scripts/<file>.js:*)`. CI fails anything broader.
 2. Document: when to use, workflow, gotchas, example prompts.
 3. If the skill wraps MCP tools, list them with one-liner descriptions.
 4. Update [README.md](../README.md) "Available Skills" table.
@@ -284,7 +290,7 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 ```
 .
 ├── .claude-plugin/plugin.json     # plugin manifest (incl. privacyPolicyUrl)
-├── .claude-plugin/icon.png        # directory listing icon — required, picked up once
+├── .claude-plugin/<icon>          # directory listing icon (PNG) — required, picked up once; don't name it by path
 ├── .claude-plugin/marketplace.json# marketplace catalog — the repo is its own marketplace; keep version in sync with plugin.json
 ├── .mcp.json                      # remote Realize MCP wiring
 ├── .github/workflows/validate.yml # CI: JSON + YAML frontmatter checks

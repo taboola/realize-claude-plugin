@@ -1,7 +1,7 @@
 ---
 name: support
 description: Package the current conversation into a single Markdown file the user can email to Taboola Support so Professional Services can debug what happened. Activates on /realize-plugin:support, and whenever the user wants to escalate to a human, report that the plugin gave a wrong or suspicious answer, or file a bug. Writes one local file after an explicit confirmation — never transmits anything.
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Write", "Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js:*)", "AskUserQuestion"]
 ---
 
 # Support Bundle
@@ -34,7 +34,7 @@ This is deliberate. If the plugin misread the user, a summary written by the plu
 ### Step 1 — Preview (never skip)
 
 ```bash
-node skills/support/scripts/build-bundle.js --preview
+node ${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js --preview
 ```
 
 Writes nothing. Prints what would be captured: session ID, time window, turn counts, Realize actions attempted and how many failed, account/campaign IDs involved, local paths, and estimated file size.
@@ -67,7 +67,7 @@ If the preview says match confidence is **guessed**, tell the user plainly: the 
 2. Run:
 
 ```bash
-node skills/support/scripts/build-bundle.js --write \
+node ${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js --write \
   --complaint-file <path>/complaint.txt
 ```
 

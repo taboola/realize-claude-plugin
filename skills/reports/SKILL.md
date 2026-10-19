@@ -1,7 +1,7 @@
 ---
 name: reports
 description: Pull Realize performance reports (CSV) and interpret them. Covers the metamodel-driven dynamic report (any dimension × metric combination — e.g. campaign, ad, site, day/week, country, platform, browser, OS), the classic campaign-breakdown report that still serves GROUP and admin-network accounts, and the campaign-history change log, with the mandatory settings-first workflow, filter/sort rules, and pagination.
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "AskUserQuestion"]
 ---
 
 # Reports

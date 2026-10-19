@@ -91,6 +91,9 @@ jobs:
       - name: Support-bundle unit tests
         run: node skills/support/scripts/test-build-bundle.js
 
+      - name: Pixel page-fetch unit tests
+        run: node skills/diagnose-tracking/scripts/test-fetch-page.js
+
       - name: Brand and guardrail lint
         run: bash scripts/brand-check.sh
 
@@ -117,21 +120,22 @@ jobs:
             fail=1
           fi
 
-          # ICON_MISSING: square PNG, 512-2048 px, under 2 MB.
+          # ALLOWED_TOOLS_BROAD / unscoped fetch: no bare Bash or WebFetch, no
+          # wildcard command, in any skill's allowed-tools. Scope Bash to the
+          # exact plugin script: Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/.../x.js:*).
           python3 - <<'PY' || fail=1
-          import os, struct, sys
-          p = ".claude-plugin/icon.png"
-          if not os.path.isfile(p):
-              sys.exit(f"FAIL: {p} missing (ICON_MISSING)")
-          with open(p, "rb") as fh:
-              head = fh.read(24)
-          if head[:8] != b"\x89PNG\r\n\x1a\n":
-              sys.exit(f"FAIL: {p} is not a PNG")
-          w, h = struct.unpack(">II", head[16:24])
-          size = os.path.getsize(p)
-          if w != h or not 512 <= w <= 2048 or size >= 2 * 1024 * 1024:
-              sys.exit(f"FAIL: {p} is {w}x{h}, {size} bytes; need square 512-2048 px under 2 MB")
-          print(f"icon OK: {w}x{h}, {size} bytes")
+          import glob, re, sys, yaml
+          bad = []
+          for p in sorted(glob.glob("skills/*/SKILL.md")):
+              meta = yaml.safe_load(open(p, encoding="utf-8").read().split("---", 2)[1]) or {}
+              for t in meta.get("allowed-tools", []):
+                  if t in ("Bash", "WebFetch") or t.startswith("Bash(*") or t == "Bash()":
+                      bad.append(f"{p}: {t}")
+                  elif t.startswith("Bash(") and not re.fullmatch(r"Bash\(node \$\{CLAUDE_PLUGIN_ROOT\}/skills/[\w/.-]+\.js(:\*)?\)", t):
+                      bad.append(f"{p}: {t}")
+          if bad:
+              sys.exit("FAIL: broad allowed-tools entries (ALLOWED_TOOLS_BROAD):\n  " + "\n  ".join(bad))
+          print("allowed-tools OK")
           PY
 
           exit "$fail"
