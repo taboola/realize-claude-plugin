@@ -469,6 +469,83 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
 }
 
 // ---------------------------------------------------------------------------
+// Write limits. The skill pre-approves this script, and a permission rule
+// can't pin every argument, so the script refuses what would turn "write a
+// bundle" into "write any file". Review finding: `--out ~/.zshrc --force` and
+// `--allow-git --out <repo>/x.md` both went through.
+// ---------------------------------------------------------------------------
+{
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { spawnSync } = require('child_process');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-out-test-'));
+  try {
+    const outDirs = [home];
+    const vet = (args, interactive = false) => b.vetWriteArgs(args, { interactive, outDirs });
+    const refused = (name, args, pattern, interactive) => {
+      try {
+        vet(args, interactive);
+        check(name, false, 'expected a refusal');
+      } catch (e) {
+        check(name, pattern.test(e.message), e.message);
+      }
+    };
+    const repo = path.join(home, 'repo');
+    fs.mkdirSync(path.join(repo, '.git'), { recursive: true });
+
+    refused('--force refused without a terminal', { out: path.join(home, '.zshrc'), force: true }, /terminal/);
+    refused('--allow-git refused without a terminal', { out: path.join(repo, 'x.md'), allowGit: true }, /terminal/);
+    refused('dotfile target refused even interactively', { out: path.join(home, '.zshrc'), force: true }, /\.md file/, true);
+    refused('non-.md target refused', { out: path.join(home, 'notes.txt') }, /\.md file/);
+    refused('folder outside the bundle folders refused', { out: path.join(repo, 'x.md') }, /Desktop, Downloads or home/);
+    refused('.. out of the bundle folder is resolved, not trusted', { out: path.join(home, '..', 'x.md') }, /Desktop, Downloads or home/);
+    check('a new .md file in a bundle folder is allowed', (() => {
+      vet({ out: path.join(home, 'bundle.md') });
+      return true;
+    })());
+    check('no --out is allowed (default path)', (() => {
+      vet({});
+      return true;
+    })());
+    try {
+      fs.symlinkSync(path.join(home, '.zshrc'), path.join(home, 'link.md'));
+      refused('symlinked target refused', { out: path.join(home, 'link.md') }, /symbolic link/);
+    } catch (e) {
+      if (e.code !== 'EPERM') throw e; // Windows without symlink rights: skip
+    }
+
+    // End to end, the way the pre-approved command runs: no terminal. HOME
+    // points at the temp folder, so a broken guard can never touch the real
+    // ~/.zshrc.
+    // A one-message transcript, so a refusal below is the guard and not
+    // "no session found".
+    const sid = 'test-session-0001';
+    const projects = path.join(home, '.claude', 'projects', 'p');
+    fs.mkdirSync(projects, { recursive: true });
+    fs.writeFileSync(path.join(projects, `${sid}.jsonl`), JSON.stringify({
+      type: 'user', sessionId: sid, timestamp: '2026-10-19T00:00:00Z', message: { role: 'user', content: 'hi' },
+    }) + '\n');
+    const zshrc = path.join(home, '.zshrc');
+    fs.writeFileSync(zshrc, 'original\n');
+    const cli = (args) => spawnSync(process.execPath, [path.join(__dirname, 'build-bundle.js'), ...args], {
+      env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CODE_SESSION_ID: sid },
+      encoding: 'utf8',
+    });
+    const ok = cli(['--write', '--out', path.join(home, 'bundle-ok.md')]);
+    check('cli: harness reaches the write (control)', ok.status === 0 && fs.existsSync(path.join(home, 'bundle-ok.md')), ok.stderr);
+    const r1 = cli(['--write', '--out', zshrc, '--force']);
+    check('cli: --out ~/.zshrc --force refused', r1.status === 1 && /terminal/.test(r1.stderr), r1.stderr);
+    check('cli: ~/.zshrc untouched', fs.readFileSync(zshrc, 'utf8') === 'original\n');
+    const r2 = cli(['--write', '--allow-git', '--out', path.join(repo, 'x.md')]);
+    check('cli: --allow-git into a repo refused', r2.status === 1 && /terminal/.test(r2.stderr), r2.stderr);
+    check('cli: nothing written into the repo', !fs.existsSync(path.join(repo, 'x.md')));
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(`${passed} passed, ${failures.length} failed`);
 if (failures.length) {

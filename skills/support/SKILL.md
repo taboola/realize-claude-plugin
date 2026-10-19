@@ -1,7 +1,7 @@
 ---
 name: support
 description: Package the current conversation into a single Markdown file the user can email to Taboola Support so Professional Services can debug what happened. Activates on /realize-plugin:support, and whenever the user wants to escalate to a human, report that the plugin gave a wrong or suspicious answer, or file a bug. Writes one local file after an explicit confirmation — never transmits anything.
-allowed-tools: ["Read", "Edit(~/.realize-plugin/tmp/**)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\":*)", "AskUserQuestion"]
+allowed-tools: ["Read", "Edit(~/.realize-plugin/tmp/**)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --preview)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --write --complaint-file ~/.realize-plugin/tmp/complaint.txt)", "AskUserQuestion"]
 ---
 
 # Support Bundle
@@ -37,7 +37,7 @@ This is deliberate. If the plugin misread the user, a summary written by the plu
 node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --preview
 ```
 
-Run it exactly in this form — path in double quotes, one line. The quotes keep a plugin path with a space in it (`C:/Users/John Smith/…`) in one piece, and the pre-approval matches this exact shape; any other form raises a permission prompt.
+Run it exactly in this form — path in double quotes, one line. The quotes keep a plugin path with a space in it (`C:/Users/John Smith/…`) in one piece. The pre-approval covers only this command and the Step 4 command, character for character; anything else, including extra flags, raises a permission prompt.
 
 If the shell reports that `node` is not found, stop: the bundle needs Node.js 18 or later, which Claude Code's native and desktop installs don't include. Tell the user that plainly, and offer the fallback — they can email Support@taboola.com directly with a description of the problem and the account ID.
 
@@ -80,7 +80,7 @@ This is not a style preference. The shell rewrites this text: `$12.40` arrives a
 
 The complaint is the user's own description — use their words. If they ran the command with no description, ask one short question ("In one line, what went wrong?") and pass the answer through unedited. Don't write it for them.
 
-`--out <path>` overrides the destination. Default is Desktop, then Downloads, then home folder — skipping any that OneDrive has redirected to the cloud.
+`--out <path>` overrides the destination. Default is Desktop, then Downloads, then home folder — skipping any that OneDrive has redirected to the cloud. `--out` must name a new `.md` file directly inside one of those folders; the script refuses anything else. It isn't pre-approved, so the user sees a permission prompt for it.
 
 ### Step 5 — Tell them how to send it
 
@@ -123,7 +123,7 @@ You don't need to delete `complaint.txt` — the script removes it once the bund
 - **The current turn is mid-write.** The transcript is complete up to roughly the user's command message; the assistant reply being composed right now isn't in it yet. Harmless, but don't promise it captured "everything including this reply".
 - **Large sessions get truncated.** Tool results cap at 2,000 characters, user messages at 4,000, internal reasoning at 1,200, and the bundle at 8 MB to stay email-attachable. Truncation is marked inline and never leaves a code fence or `<details>` block unclosed. If a specific large CSV matters to the case, tell the user to attach it separately. Transcripts above 256 MB are refused outright with an explanation rather than crashing.
 - **An unreadable `--complaint-file` is fatal, and that's deliberate.** It exits 1 without writing. Continuing would produce a bundle stating *"The user did not add a description"* about a user who did describe the problem — a false statement to support is worse than no bundle. It would also silently drop the email subject, since the subject is derived from the complaint. If you see that error, check the path you wrote to.
-- **The script refuses to overwrite.** If `--out` points at an existing file it exits 1 rather than clobbering it. Pass `--force` only when the user has asked to replace that specific file. (An auto-generated default name that collides simply gets a `-1` suffix — no error.)
+- **The script refuses to overwrite.** If `--out` points at an existing file it exits 1 rather than clobbering it; pick a different file name. `--force` works only when a person runs the script in a terminal, so don't pass it. (An auto-generated default name that collides simply gets a `-1` suffix — no error.)
 - **The script refuses to write inside a git repository**, including this one, and exits 1. The bundle holds customer campaign data and this plugin's repo is public, so a bundle committed by accident is a data leak. If you see that error, choose a path outside the repo — the default destination already is one.
 - **Unit tests:** `node skills/support/scripts/test-build-bundle.js` covers the redaction rules, table-cell safety, truncation, and destination guards. Run it after touching the script; CI runs it too.
 - **No Realize actions in the session** is normal and not an error — it usually means the complaint is about the *content* of an answer, not a failed call. The bundle says so explicitly.

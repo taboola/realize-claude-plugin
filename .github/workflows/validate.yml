@@ -133,15 +133,26 @@ jobs:
           for p in sorted(glob.glob("skills/*/SKILL.md")):
               skill = os.path.basename(os.path.dirname(p))
               meta = yaml.safe_load(open(p, encoding="utf-8").read().split("---", 2)[1]) or {}
+              # The skill's own script plus the exact arguments the skill runs it
+              # with. Each argument is a flag or a plain value; a value may hold
+              # one `*` inside a filename (complaint-*.txt), never a bare `*`,
+              # `:*`, `..`, or the write-anywhere flags.
               own_script = re.compile(
                   r'Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}/skills/' + re.escape(skill)
-                  + r'/scripts/[A-Za-z0-9_-]+\.js":\*\)')
+                  + r'/scripts/[A-Za-z0-9_-]+\.js"((?: [A-Za-z0-9_~./-]+(?:\*[A-Za-z0-9_./-]+)?)*)\)')
+              def own_script_ok(t):
+                  m = own_script.fullmatch(t)
+                  if not m:
+                      return False
+                  args = m.group(1).split()
+                  return ".." not in m.group(1) and not any(
+                      a in ("--out", "--force", "--allow-git") for a in args)
               for t in meta.get("allowed-tools", []):
                   ok = (
                       t in PLAIN
                       or re.fullmatch(r"WebFetch\(domain:[a-z0-9.-]+\)", t)
                       or t == "Edit(~/.realize-plugin/tmp/**)"
-                      or own_script.fullmatch(t)
+                      or own_script_ok(t)
                   )
                   if not ok:
                       bad.append(f"{p}: {t}")

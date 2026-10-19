@@ -942,6 +942,64 @@ function defaultOutPath(sessionId) {
   return path.join(os.tmpdir(), name);
 }
 
+/** The folders a bundle may be written to: the ones defaultOutPath() picks from. */
+function allowedOutDirs() {
+  const home = os.homedir();
+  return [path.join(home, 'Desktop'), path.join(home, 'Downloads'), home, os.tmpdir()];
+}
+
+/** A person at a terminal — never the case for a command the model runs. */
+function isInteractive() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+/**
+ * Limits on where a bundle may be written, checked before anything else runs.
+ *
+ * The skill pre-approves this script, and a permission rule can't pin every
+ * argument, so the script itself refuses what would turn "write a support
+ * bundle" into "write any file": `--out` must be a new `.md` file directly
+ * inside one of the default bundle folders and not a symlink, and `--force` /
+ * `--allow-git` need an interactive terminal. Without the `.md` rule,
+ * `--out ~/.zshrc` would plant the transcript in a file the shell executes.
+ */
+function vetWriteArgs(args, { interactive = isInteractive(), outDirs = allowedOutDirs() } = {}) {
+  if ((args.force || args.allowGit) && !interactive) {
+    throw new Error('--force and --allow-git only work when a person runs this script in a terminal.');
+  }
+  if (!args.out) return;
+  const out = path.resolve(args.out);
+  const name = path.basename(out);
+  if (path.extname(name).toLowerCase() !== '.md' || name.startsWith('.')) {
+    throw new Error(`${args.out}: the bundle must be a .md file.`);
+  }
+  let dir;
+  try {
+    dir = fs.realpathSync(path.dirname(out));
+  } catch {
+    throw new Error(`${path.dirname(out)} does not exist.`);
+  }
+  const allowed = outDirs.some((d) => {
+    try {
+      return fs.realpathSync(d) === dir;
+    } catch {
+      return false;
+    }
+  });
+  if (!allowed) {
+    throw new Error(`${args.out}: write the bundle directly into your Desktop, Downloads or home folder.`);
+  }
+  let st = null;
+  try {
+    st = fs.lstatSync(out);
+  } catch {
+    // Doesn't exist yet — the normal case.
+  }
+  if (st && st.isSymbolicLink()) {
+    throw new Error(`${args.out} is a symbolic link; choose a different file name.`);
+  }
+}
+
 /** Add a numeric suffix until the name is free. */
 function nextAvailablePath(p) {
   const dir = path.dirname(p);
@@ -960,6 +1018,7 @@ function nextAvailablePath(p) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  vetWriteArgs(args);
   const loc = findTranscript();
 
   if (loc.error) {
@@ -1039,7 +1098,7 @@ function main() {
       // Explicit path: the caller named this file, so silently replacing it
       // would destroy something they chose.
       throw new Error(
-        `${outPath} already exists. Choose a different --out path, or pass --force to overwrite it.`
+        `${outPath} already exists. Choose a different --out file name.`
       );
     }
     // Auto-generated name (second-resolution timestamp): two runs in the same
@@ -1048,7 +1107,9 @@ function main() {
   }
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, body, 'utf8');
+  // 'wx' fails if anything — including a symlink planted after the checks
+  // above — already sits at that path. Only an interactive --force replaces.
+  fs.writeFileSync(outPath, body, { encoding: 'utf8', flag: args.force ? 'w' : 'wx' });
 
   // The complaint now lives in the bundle; the scratch copy has no purpose and
   // shouldn't outlive it. Done here rather than by the model, because a cleanup
@@ -1074,6 +1135,8 @@ module.exports = {
   redact,
   readTextFile,
   INPUT_DIR,
+  vetWriteArgs,
+  allowedOutDirs,
   redactValue,
   oneLine,
   parseArgs,
