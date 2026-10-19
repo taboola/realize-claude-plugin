@@ -129,7 +129,7 @@ You don't need to delete the complaint file — the script removes it once the b
 - **The script refuses to write inside a git repository**, including this one, and exits 1. The bundle holds customer campaign data and this plugin's repo is public, so a bundle committed by accident is a data leak. If you see that error, choose a path outside the repo — the default destination already is one.
 - **Unit tests:** `node skills/support/scripts/test-build-bundle.js` covers the redaction rules, table-cell safety, truncation, and destination guards. Run it after touching the script; CI runs it too.
 - **No Realize actions in the session** is normal and not an error — it usually means the complaint is about the *content* of an answer, not a failed call. The bundle says so explicitly.
-- **Node is required** and always present, since Claude Code itself runs on Node. Do not add a Python path.
+- **Node.js 18+ is required, and not every install has it** — the native installer and desktop app don't include it. If `node` is missing, follow the fallback in Step 1. Do not add a Python path.
 
 ## Example prompts
 

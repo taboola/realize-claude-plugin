@@ -129,6 +129,8 @@ jobs:
           python3 - <<'PY' || fail=1
           import glob, os, re, sys, yaml
           PLAIN = {"Read", "Grep", "Glob", "AskUserQuestion", "WebSearch"}
+          # The help-center fallback is the only sanctioned fetch target.
+          WEBFETCH = {"WebFetch(domain:realize.com)", "WebFetch(domain:www.realize.com)"}
           bad = []
           for p in sorted(glob.glob("skills/*/SKILL.md")):
               skill = os.path.basename(os.path.dirname(p))
@@ -150,7 +152,7 @@ jobs:
               for t in meta.get("allowed-tools", []):
                   ok = (
                       t in PLAIN
-                      or re.fullmatch(r"WebFetch\(domain:[a-z0-9.-]+\)", t)
+                      or t in WEBFETCH
                       or t == "Edit(~/.realize-plugin/tmp/**)"
                       or own_script_ok(t)
                   )

@@ -12,8 +12,8 @@
  * "failure" that were both artifacts of the harness, not the code. A file has
  * no shell layer.
  *
- * No dependencies, no framework: Node ships with Claude Code and that is the
- * only thing this may assume.
+ * No dependencies, no framework: Node is the only thing this may assume. (It
+ * is not part of every Claude Code install; the skill handles a missing node.)
  */
 
 const fs = require('fs');
@@ -442,52 +442,59 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
   const os = require('os');
   const path = require('path');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-input-test-'));
-  const inputDir = path.join(root, 'tmp');
-  fs.mkdirSync(inputDir);
-  const inside = path.join(inputDir, 'complaint-20261019-141502-k7q2.txt');
-  fs.writeFileSync(inside, '  the CPA is $12.40 in the UI  \n');
-  const outside = path.join(root, 'elsewhere.txt');
-  fs.writeFileSync(outside, 'not for the bundle');
-  const seen = [];
-  check('file in the input folder is read verbatim', b.readTextFile(inside, inputDir, seen) === 'the CPA is $12.40 in the UI');
-  check('read file recorded for cleanup', seen.length === 1);
-  const refuses = (name, p, pattern = /must be a file directly inside/) => {
+  try {
+    const inputDir = path.join(root, 'tmp');
+    fs.mkdirSync(inputDir);
+    const inside = path.join(inputDir, 'complaint-20261019-141502-k7q2.txt');
+    fs.writeFileSync(inside, '  the CPA is $12.40 in the UI  \n');
+    const outside = path.join(root, 'elsewhere.txt');
+    fs.writeFileSync(outside, 'not for the bundle');
+    const seen = [];
+    check('file in the input folder is read verbatim', b.readTextFile(inside, inputDir, seen) === 'the CPA is $12.40 in the UI');
+    check('read file recorded for cleanup', seen.length === 1);
+    const refuses = (name, p, pattern = /must be a file directly inside/) => {
+      try {
+        b.readTextFile(p, inputDir, []);
+        check(name, false, 'expected a refusal');
+      } catch (e) {
+        check(name, pattern.test(e.message), e.message);
+      }
+    };
+    refuses('file outside the input folder refused', outside);
+    refuses('.. traversal out of the input folder refused', path.join(inputDir, '..', 'elsewhere.txt'));
+    const shared = path.join(inputDir, 'complaint.txt');
+    fs.writeFileSync(shared, 'another run');
+    refuses('fixed shared name refused (one file per run)', shared, /name the file complaint-/);
+    check('title files use the same folder', (() => {
+      const t = path.join(inputDir, 'title-20261019-141502-k7q2.txt');
+      fs.writeFileSync(t, 'subject');
+      return b.readTextFile(t, inputDir, []) === 'subject';
+    })());
+
+    // Leftovers from cancelled runs go after a day; nothing else is touched.
+    const dayOld = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    const stale = path.join(inputDir, 'complaint-20261017-090000-aaaa.txt');
+    const unrelated = path.join(inputDir, 'notes.txt');
+    fs.writeFileSync(stale, 'old');
+    fs.writeFileSync(unrelated, 'keep');
+    fs.utimesSync(stale, dayOld, dayOld);
+    fs.utimesSync(unrelated, dayOld, dayOld);
+    b.pruneInputDir(inputDir);
+    check('stale complaint file pruned', !fs.existsSync(stale));
+    check('fresh complaint file kept', fs.existsSync(inside));
+    check('unrelated file kept', fs.existsSync(unrelated));
+
+    const link = path.join(inputDir, 'complaint-link.txt');
     try {
-      b.readTextFile(p, inputDir, []);
-      check(name, false, 'expected a refusal');
+      fs.symlinkSync(outside, link);
+      refuses('symlink pointing out of the input folder refused', link);
     } catch (e) {
-      check(name, pattern.test(e.message), e.message);
+      if (e.code !== 'EPERM') throw e; // Windows without symlink rights: skip
     }
-  };
-  refuses('file outside the input folder refused', outside);
-  refuses('.. traversal out of the input folder refused', path.join(inputDir, '..', 'elsewhere.txt'));
-  const shared = path.join(inputDir, 'complaint.txt');
-  fs.writeFileSync(shared, 'another run');
-  refuses('fixed shared name refused (one file per run)', shared, /name the file complaint-/);
-  check('title files use the same folder', (() => {
-    const t = path.join(inputDir, 'title-20261019-141502-k7q2.txt');
-    fs.writeFileSync(t, 'subject');
-    return b.readTextFile(t, inputDir, []) === 'subject';
-  })());
-
-  // Leftovers from cancelled runs go after a day; nothing else is touched.
-  const dayOld = new Date(Date.now() - 25 * 60 * 60 * 1000);
-  const stale = path.join(inputDir, 'complaint-20261017-090000-aaaa.txt');
-  const unrelated = path.join(inputDir, 'notes.txt');
-  fs.writeFileSync(stale, 'old');
-  fs.writeFileSync(unrelated, 'keep');
-  fs.utimesSync(stale, dayOld, dayOld);
-  fs.utimesSync(unrelated, dayOld, dayOld);
-  b.pruneInputDir(inputDir);
-  check('stale complaint file pruned', !fs.existsSync(stale));
-  check('fresh complaint file kept', fs.existsSync(inside));
-  check('unrelated file kept', fs.existsSync(unrelated));
-
-  const link = path.join(inputDir, 'complaint-link.txt');
-  fs.symlinkSync(outside, link);
-  refuses('symlink pointing out of the input folder refused', link);
-  check('default input folder is under the home directory', b.INPUT_DIR === path.join(os.homedir(), '.realize-plugin', 'tmp'));
-  fs.rmSync(root, { recursive: true, force: true });
+    check('default input folder is under the home directory', b.INPUT_DIR === path.join(os.homedir(), '.realize-plugin', 'tmp'));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------

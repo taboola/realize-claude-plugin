@@ -80,7 +80,7 @@ Download the **raw HTML** of the user's page with the plugin's fetch script, as 
 **single quotes**:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/diagnose-tracking/scripts/fetch-page.js" 'https://shop.example.com/checkout'
+node "${CLAUDE_PLUGIN_ROOT}/skills/diagnose-tracking/scripts/fetch-page.js" '<the page URL the user gave>'
 ```
 
 Single quotes stop the shell from expanding anything in the URL (`$`, backticks, `$(…)`); if the URL itself
