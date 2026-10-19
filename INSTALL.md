@@ -115,9 +115,15 @@ The same example file allows the two tools the plugin uses to answer questions i
 
 Without these, every lookup raises a permission prompt — and a declined prompt is indistinguishable from the plugin simply not knowing the answer. Lookups are read-only, restricted to Taboola's public advertiser help documentation, and never touch account data.
 
-## The pixel-diagnosis page fetch needs no opt-in
+## The pixel-diagnosis page fetch asks every time — on purpose
 
-The pixel-health diagnosis downloads the raw HTML of **the page you ask to have checked** (the readable-view fetch tool strips the code the check needs). It does this with one script shipped in the plugin, `skills/diagnose-tracking/scripts/fetch-page.js`, and the skill pre-approves exactly that script — no general shell access. The script is read-only, goes only to the URL you supply, allows http/https only, caps redirects, time and size, sends no cookies, and never touches account data. Earlier versions asked you to allow `Bash(curl:*)` here; that entry is no longer needed and you can remove it.
+The pixel-health diagnosis downloads the raw HTML of **the page you ask to have checked** (the readable-view fetch tool strips the code the check needs). It does this with one script shipped in the plugin, and each run shows you a permission prompt with the exact URL. Approve it if that's your page.
+
+That prompt is deliberate and there's no recommended allow rule for it: it's the one point where you confirm the plugin is fetching your page and nothing else. The script is read-only, allows http/https only, refuses private-network addresses, caps redirects, time and size, and sends no cookies. If you previously added `Bash(curl:*)` for this check, you can remove it.
+
+## Requirement: Node.js for two features
+
+The support bundle (`/realize-plugin:support`) and the pixel check's page download run small Node.js scripts. Claude Code's npm install includes Node.js; the native installer and the desktop app do not. Without Node.js 18 or later on your `PATH`, the pixel diagnosis still works from your browser capture, and the support command tells you to email Support directly instead. Everything else in the plugin works without Node.js.
 
 ---
 

@@ -9,15 +9,40 @@ _Nothing yet._
 ## [0.5.5] — Unreleased (pending directory review)
 
 ### Directory submission fixes (DEV-240750)
-The directory check held 0.5.4 for policy review. This release clears every finding that needs a code change; version set in `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `.mcp.json`'s `X-Realize-Client` header.
-- **`ALLOWED_TOOLS_BROAD` (policy hold, 8 skills):** no skill pre-approves bare `Bash` any more. `accounts`, `campaigns`, `optimize-campaign` and `reports` drop it (unused). `discovery` and `manage-campaigns` swap it for the `Grep` tool — their only shell use was grepping an overflow dump. `support` and `diagnose-tracking` pre-approve exactly their own script, `Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/scripts/<file>.js:*)`.
-- **`RUNTIME_FETCH_EXEC` (warning):** the pixel check's raw-HTML download moves from a `curl` line in `diagnose-tracking/SKILL.md` and the agent into a shipped script, `skills/diagnose-tracking/scripts/fetch-page.js` (no dependencies; 29 unit tests). The trust boundary is now code, not flags the model must remember: http/https only on every redirect hop, ≤3 redirects, 20 s timeout, 5 MB cap, embedded credentials refused, no cookies, URL passed by file so the shell never expands it. It reports `host_changed` explicitly instead of leaving the model to compare `url_effective` by eye.
-- **Unscoped fetch (validation note):** `web-fallback` pre-approves `WebFetch(domain:realize.com)` and `WebFetch(domain:www.realize.com)` instead of bare `WebFetch`.
-- **`UNREAD_ASSET_REFERENCED` (7 findings):** docs and CI no longer name the listing icon by path, and the CI icon check is removed — the directory check already reports `ICON_MISSING` itself, and a CI step that opens the image is what drew the finding.
-- **Fixed a latent path bug:** `support` ran `node skills/support/scripts/build-bundle.js`, which only resolves when the working directory is this repo. It now uses `${CLAUDE_PLUGIN_ROOT}`, so `/support` works from an installed plugin.
-- **`INSTALL.md` / `.claude/settings.local.json.example`:** the `Bash(curl:*)` opt-in is gone — the skill pre-approves its own script, so users no longer grant curl-wide shell access.
-- **CI:** runs `test-fetch-page.js`, and *Directory-check guards* fails on a bare `Bash` / `WebFetch`, or any `Bash(...)` entry other than a `node ${CLAUDE_PLUGIN_ROOT}/skills/…/*.js` script, in any skill's `allowed-tools`.
-- **Left for the reviewer:** `MCP_FORWARDS_CREDENTIAL_ENV` (nothing reads a credential — auth is Claude Code's OAuth against the MCP; the only header is the static client identifier) and `UNKNOWN_KEY` on `privacyPolicyUrl` (the finding says no action needed; the directory listing uses it).
+The directory check held 0.5.4 for policy review. This release clears every finding that needs a code change, and the follow-up code review's findings on that fix. Version set in `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `.mcp.json`'s `X-Realize-Client` header.
+
+**Permissions (`ALLOWED_TOOLS_BROAD`, unscoped fetch)**
+- No skill pre-approves bare `Bash` or `Write` any more.
+  - `accounts`, `campaigns`, `optimize-campaign` and `reports` drop `Bash`; they never used it.
+  - `discovery` and `manage-campaigns` (including `references/mcp-write-surface.md`) use the `Grep` tool for overflow dumps.
+- `support` pre-approves exactly `Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js":*)`. The path is quoted for install paths with spaces. Writes are scoped to `Edit(~/.realize-plugin/tmp/**)`, because a `Write(path)` rule is never consulted and bare `Write` allowed writing anywhere.
+- `diagnose-tracking` pre-approves no command. Each page fetch shows the user a prompt with the exact URL, so an instruction planted in a page or HAR can't send data anywhere silently.
+- `web-fallback` scopes `WebFetch` to `realize.com` / `www.realize.com`.
+
+**Pixel page download (`RUNTIME_FETCH_EXEC`)**
+- The `curl` line in `diagnose-tracking/SKILL.md` and the agent is replaced by a shipped script, `skills/diagnose-tracking/scripts/fetch-page.js`, with no dependencies and 59 unit tests.
+- It allows http/https only on every hop, at most 3 redirects, a 20 s timeout and a 5 MB cap. It refuses `user:pass@` URLs and sends no cookies.
+- **Private, loopback, link-local and metadata addresses are refused on every hop.** The old `curl` line would follow a redirect into the user's network.
+- A `www.` redirect no longer counts as a host change; it previously skipped the static check on most real sites. A URL without a scheme gets `https://`.
+- Network failures name their cause (DNS, TLS, refused, proxy) instead of a bare "fetch failed". On Node 22.15+/23.8+ the script re-runs itself with the OS certificate store, and on Node 24+ with `HTTPS_PROXY` support, so corporate-proxy users keep the reach `curl` had.
+- The URL is a single-quoted positional argument. There is no file-reading option that could echo a local file.
+- Saved pages go to one temp folder and are pruned after an hour.
+
+**Support bundle**
+- Invoked via `"${CLAUDE_PLUGIN_ROOT}/…"` instead of a repo-relative path, so `/support` works for people who installed the plugin.
+- `--complaint-file` / `--title-file` read only from `~/.realize-plugin/tmp` (realpath-checked; `..` and symlinks refused), so the unprompted script can't copy an arbitrary file into an email attachment.
+- The script deletes the complaint file after writing. Previously the cleanup relied on a model-run `rm` the user could decline. 6 new tests.
+
+**Other**
+- **Node.js is not assumed.** The native installer and desktop app don't include it. The pixel check falls through to the browser capture, and `/support` points the user to emailing Support directly. `INSTALL.md` states the requirement, and both scripts' "Node ships with Claude Code" comments are corrected.
+- `agents/realize-analyst.md`: gains `Write`, which `/support` needs when run through the agent, and no longer names a repo-relative script path.
+- **`UNREAD_ASSET_REFERENCED` (7):** docs and CI no longer name the listing icon by path. The duplicate CI icon check is removed, because the directory check reports a missing icon itself.
+- **Tests:** test fixtures that look like a local-file URL or a `user:pass@` URL are assembled at runtime, the same rule as `test-build-bundle.js`.
+- **`INSTALL.md` / settings example:** the `Bash(curl:*)` opt-in is removed. The page-fetch section now says the prompt is deliberate instead of claiming "no opt-in needed", which was wrong: a skill grant lasts one turn.
+- **CI:** runs `test-fetch-page.js`. *Directory-check guards* now holds every skill's `allowed-tools` to an allowlist: plain read tools, domain-scoped `WebFetch`, the one scoped `Edit`, and only the skill's **own** script in the exact quoted form. No `..`, no other skill's script, no wildcards.
+- **Left for the reviewer:**
+  - `MCP_FORWARDS_CREDENTIAL_ENV`: nothing reads a credential. Login is Claude Code's OAuth against the MCP, and the only header is the static client identifier.
+  - `UNKNOWN_KEY` on `privacyPolicyUrl`: the finding says no action is needed.
 
 ## [0.5.4] — Unreleased (pending directory review)
 

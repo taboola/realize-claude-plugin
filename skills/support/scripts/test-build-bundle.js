@@ -433,6 +433,42 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
 }
 
 // ---------------------------------------------------------------------------
+// --complaint-file / --title-file read only from the plugin's input folder.
+// The script runs without a prompt, so an open file option would let it copy
+// any readable file into an email attachment.
+// ---------------------------------------------------------------------------
+{
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-input-test-'));
+  const inputDir = path.join(root, 'tmp');
+  fs.mkdirSync(inputDir);
+  const inside = path.join(inputDir, 'complaint.txt');
+  fs.writeFileSync(inside, '  the CPA is $12.40 in the UI  \n');
+  const outside = path.join(root, 'elsewhere.txt');
+  fs.writeFileSync(outside, 'not for the bundle');
+  const seen = [];
+  check('file in the input folder is read verbatim', b.readTextFile(inside, inputDir, seen) === 'the CPA is $12.40 in the UI');
+  check('read file recorded for cleanup', seen.length === 1);
+  const refuses = (name, p) => {
+    try {
+      b.readTextFile(p, inputDir, []);
+      check(name, false, 'expected a refusal');
+    } catch (e) {
+      check(name, /must be a file directly inside/.test(e.message), e.message);
+    }
+  };
+  refuses('file outside the input folder refused', outside);
+  refuses('.. traversal out of the input folder refused', path.join(inputDir, '..', 'elsewhere.txt'));
+  const link = path.join(inputDir, 'link.txt');
+  fs.symlinkSync(outside, link);
+  refuses('symlink pointing out of the input folder refused', link);
+  check('default input folder is under the home directory', b.INPUT_DIR === path.join(os.homedir(), '.realize-plugin', 'tmp'));
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// ---------------------------------------------------------------------------
 
 console.log(`${passed} passed, ${failures.length} failed`);
 if (failures.length) {

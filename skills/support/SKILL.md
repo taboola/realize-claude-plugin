@@ -1,7 +1,7 @@
 ---
 name: support
 description: Package the current conversation into a single Markdown file the user can email to Taboola Support so Professional Services can debug what happened. Activates on /realize-plugin:support, and whenever the user wants to escalate to a human, report that the plugin gave a wrong or suspicious answer, or file a bug. Writes one local file after an explicit confirmation — never transmits anything.
-allowed-tools: ["Read", "Write", "Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js:*)", "AskUserQuestion"]
+allowed-tools: ["Read", "Edit(~/.realize-plugin/tmp/**)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\":*)", "AskUserQuestion"]
 ---
 
 # Support Bundle
@@ -34,8 +34,12 @@ This is deliberate. If the plugin misread the user, a summary written by the plu
 ### Step 1 — Preview (never skip)
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js --preview
+node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --preview
 ```
+
+Run it exactly in this form — path in double quotes, one line. The quotes keep a plugin path with a space in it (`C:/Users/John Smith/…`) in one piece, and the pre-approval matches this exact shape; any other form raises a permission prompt.
+
+If the shell reports that `node` is not found, stop: the bundle needs Node.js 18 or later, which Claude Code's native and desktop installs don't include. Tell the user that plainly, and offer the fallback — they can email Support@taboola.com directly with a description of the problem and the account ID.
 
 Writes nothing. Prints what would be captured: session ID, time window, turn counts, Realize actions attempted and how many failed, account/campaign IDs involved, local paths, and estimated file size.
 
@@ -63,12 +67,11 @@ If the preview says match confidence is **guessed**, tell the user plainly: the 
 
 **Never pass the complaint or title as a quoted shell argument.** Write them to files first, then point the script at the files:
 
-1. `Write` the user's description verbatim to `complaint.txt` (use the session scratchpad or the system temp folder — never the plugin repo).
+1. `Write` the user's description verbatim to `~/.realize-plugin/tmp/complaint.txt`. That folder is the only place the script reads text from, and the only place this skill may write without a prompt.
 2. Run:
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js --write \
-  --complaint-file <path>/complaint.txt
+node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --write --complaint-file ~/.realize-plugin/tmp/complaint.txt
 ```
 
 This is not a style preference. The shell rewrites this text: `$12.40` arrives as `2.40`, `$500` arrives as `00`, and backticks or `$(…)` **execute**. Complaints in this domain are full of currency amounts, and users paste error text they didn't write. The whole point of the bundle is that the evidence reaches PS unaltered, so it must not pass through the shell.
@@ -92,7 +95,7 @@ Three parts, because case intake maps each one to a different field. The file's 
 
 Say plainly that nothing was sent automatically — sending is their decision.
 
-Then delete the scratch `complaint.txt` you created in Step 4. It holds the user's description of their problem and serves no purpose once the bundle exists.
+You don't need to delete `complaint.txt` — the script removes it once the bundle is written, because it holds the user's description and serves no purpose after that.
 
 ## What the bundle contains
 

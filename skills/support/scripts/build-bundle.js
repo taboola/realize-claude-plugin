@@ -19,9 +19,11 @@
  *
  * Pass user-authored text by file, not as a quoted argument: the shell rewrites
  * it (`$12.40` becomes `2.40`) and `$(…)` executes. `--title` / `--complaint`
- * remain for trivial ASCII only.
+ * remain for trivial ASCII only. The files must live in INPUT_DIR
+ * (~/.realize-plugin/tmp) and are deleted after a successful --write.
  *
- * Node ships with Claude Code, so it is always available. No dependencies.
+ * Requires Node 18+ on PATH. Claude Code's native and desktop installs do not
+ * provide one; the skill tells the user when `node` is missing. No dependencies.
  */
 
 const fs = require('fs');
@@ -29,6 +31,12 @@ const path = require('path');
 const os = require('os');
 
 const SUPPORT_EMAIL = 'Support@taboola.com';
+
+// The only folder --complaint-file / --title-file may read from. This script is
+// pre-approved to run without a prompt, so a file option that accepted any path
+// would let it read — and copy into an email attachment — any file the user
+// can read. The skill's write permission is scoped to this same folder.
+const INPUT_DIR = path.join(os.homedir(), '.realize-plugin', 'tmp');
 
 // Prepended to the summary so the case opens with its own provenance. Requested
 // by PS: a Description that starts mid-diagnostics reads like a forwarded stack
@@ -63,6 +71,7 @@ function parseArgs(argv) {
     out: '',
     force: false,
     allowGit: false,
+    inputFiles: [],
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -72,8 +81,8 @@ function parseArgs(argv) {
     else if (a === '--allow-git') out.allowGit = true;
     else if (a === '--title') out.title = argv[++i] || '';
     else if (a === '--complaint') out.complaint = argv[++i] || '';
-    else if (a === '--title-file') out.title = readTextFile(argv[++i]);
-    else if (a === '--complaint-file') out.complaint = readTextFile(argv[++i]);
+    else if (a === '--title-file') out.title = readTextFile(argv[++i], INPUT_DIR, out.inputFiles);
+    else if (a === '--complaint-file') out.complaint = readTextFile(argv[++i], INPUT_DIR, out.inputFiles);
     else if (a === '--out') out.out = argv[++i] || '';
   }
   if (!out.preview && !out.write) out.preview = true;
@@ -95,10 +104,24 @@ function parseArgs(argv) {
  * byte-for-byte. `--complaint` / `--title` remain for trivial ASCII, but the
  * file variants are the supported path.
  */
-function readTextFile(p) {
+function readTextFile(p, inputDir = INPUT_DIR, seen = []) {
   if (!p) throw new Error('--complaint-file / --title-file was given without a path.');
+  // realpath on both sides, so neither `..` nor a symlink inside the folder can
+  // point the read somewhere else.
+  let real;
+  let root;
   try {
-    return fs.readFileSync(p, 'utf8').trim();
+    real = fs.realpathSync(p);
+    root = fs.realpathSync(inputDir);
+  } catch (err) {
+    throw new Error(`could not read ${p} — ${err.message}`);
+  }
+  if (path.dirname(real) !== root) {
+    throw new Error(`${p} must be a file directly inside ${inputDir}. Write the text there and pass that path.`);
+  }
+  seen.push(real);
+  try {
+    return fs.readFileSync(real, 'utf8').trim();
   } catch (err) {
     // Fatal on purpose. Continuing would write a bundle whose "What the user
     // reported" section reads "The user did not add a description" — an
@@ -1027,6 +1050,11 @@ function main() {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, body, 'utf8');
 
+  // The complaint now lives in the bundle; the scratch copy has no purpose and
+  // shouldn't outlive it. Done here rather than by the model, because a cleanup
+  // command the user declines leaves their description on disk.
+  for (const f of args.inputFiles) fs.rmSync(f, { force: true });
+
   console.log('WROTE');
   console.log(`Path        : ${outPath}`);
   console.log(`Size        : ${Math.round(Buffer.byteLength(body, 'utf8') / 1024)} KB`);
@@ -1044,6 +1072,8 @@ function main() {
 // would prove nothing about this file.
 module.exports = {
   redact,
+  readTextFile,
+  INPUT_DIR,
   redactValue,
   oneLine,
   parseArgs,

@@ -204,11 +204,18 @@ Fixed, not CI-guarded:
 
 - **No privacy policy URL** (validation note) — `plugin.json` carries `privacyPolicyUrl`, the same Taboola policy the Realize MCP links.
 
-Fixed in DEV-240750, guarded in CI (*Directory-check guards* parses every skill's `allowed-tools`):
+Fixed in DEV-240750, guarded in CI (*Directory-check guards* checks every skill's `allowed-tools` against an **allowlist** — anything not on it fails):
 
-- **`ALLOWED_TOOLS_BROAD`** (policy hold) — no skill lists bare `"Bash"`. Six skills had no real shell need — four never used it, and two only `grep`-ed an overflow dump, which the `Grep` tool does. The two that run a plugin script name exactly that script: `Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/scripts/<file>.js:*)`. A new shell need gets a script and its own exact entry — never a wider pattern.
+- **`ALLOWED_TOOLS_BROAD`** (policy hold) — no skill lists bare `"Bash"`. Six skills had no real shell need. Four never used it, and two only `grep`-ed an overflow dump, which the `Grep` tool does. Only `support` pre-approves a command: exactly `Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js":*)`. The path is quoted so an install path with a space survives, and a rule only matches the form it was written in, so the skill tells the model to run that exact one-line, double-quoted form. A new shell need gets a script and its own exact entry, never a wider pattern.
 - **Unscoped fetch** (validation note) — `web-fallback` lists `WebFetch(domain:realize.com)` / `WebFetch(domain:www.realize.com)`, not bare `WebFetch`.
 - **`RUNTIME_FETCH_EXEC`** (warning) — the pixel check's download is a shipped script (`skills/diagnose-tracking/scripts/fetch-page.js`), not a `curl` line in the skill or agent prose. Don't put a download command back into any `.md`, even as an example — the scanner reads documentation as instructions the model will run.
+
+Permission facts these rules rest on (Claude Code docs, checked 2026-10-19), all easy to get wrong:
+
+- **An `allowed-tools` grant lasts one turn**, until the user's next message. It is a convenience for the turn that invoked the skill, not a session grant, and an installed plugin's path is versioned, so users can't write a stable allow rule for it either.
+- **`Write(path)` rules are never consulted.** Bare `"Write"` in `allowed-tools` pre-approves writing *anywhere*, `~/.zshrc` and git hooks included. Scope writes with an `Edit(path)` rule, which also governs the Write tool (needs Claude Code v2.1.210+; older versions just prompt). `support` writes only to `Edit(~/.realize-plugin/tmp/**)`, and `build-bundle.js` reads `--complaint-file` / `--title-file` **only** from that folder (realpath-checked) and deletes them after writing. An unprompted script with an open file option could copy any readable file into an email attachment.
+- **The pixel page fetch is deliberately not pre-approved.** The user approves each run at a prompt that shows the URL. A silently runnable fetch is an exfiltration channel for an instruction planted in the page or HAR under diagnosis, and narrowing the rule's arguments doesn't help, because the model chooses the URL. That's also why the URL is a positional, single-quoted argument and there is no `--url-file`: a file hides the URL from the prompt, and a file-reading option can read and echo any local file.
+- **Node.js is not guaranteed.** The native installer and desktop app don't put `node` on `PATH`. Both scripts degrade explicitly: the pixel check falls through to the user's capture, and `/support` tells the user to email Support directly. Keep any new script on the same footing, or don't write it in Node.
 
 Still open, no code change expected:
 
@@ -218,7 +225,7 @@ Still open, no code change expected:
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.
 
-One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** with its own script, `skills/diagnose-tracking/scripts/fetch-page.js` (http/https only on every hop, ≤3 redirects, timeout, size cap, URL passed by file). That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the download back to WebFetch, and don't swap the script for an inline `curl` — that brings back both `ALLOWED_TOOLS_BROAD` and `RUNTIME_FETCH_EXEC`. Run `node skills/diagnose-tracking/scripts/test-fetch-page.js` after touching it; CI runs it too.
+One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** with its own script, `skills/diagnose-tracking/scripts/fetch-page.js`. It allows http/https only on every hop, refuses private, loopback and link-local addresses on every hop (so a public page can't redirect the fetch into the user's network), allows at most 3 redirects, and has a timeout and a size cap. The user approves each run at a prompt. That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the download back to WebFetch, and don't swap the script for an inline `curl` — that brings back both `ALLOWED_TOOLS_BROAD` and `RUNTIME_FETCH_EXEC`. Run `node skills/diagnose-tracking/scripts/test-fetch-page.js` after touching it; CI runs it too.
 
 ### Stale capability claims are their own bug class
 
@@ -256,7 +263,7 @@ Users often type numeric IDs in natural language. The MCP expects opaque string 
    allowed-tools: ["Read", "AskUserQuestion"]
    ---
    ```
-   Never add bare `"Bash"` — if the skill must run a shell command, ship it as a script under `skills/<skill-name>/scripts/` and list exactly `Bash(node ${CLAUDE_PLUGIN_ROOT}/skills/<skill-name>/scripts/<file>.js:*)`. CI fails anything broader.
+   `allowed-tools` pre-approves without a prompt, and CI holds it to an allowlist. Never add bare `"Bash"`, `"Write"` or `"Edit"`. If the skill must run a shell command, ship it as a script under `skills/<skill-name>/scripts/`, list exactly `Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/<skill-name>/scripts/<file>.js":*)`, and first ask whether it *should* run unprompted (see the permission facts under *Shipped files must pass the Anthropic directory check*).
 2. Document: when to use, workflow, gotchas, example prompts.
 3. If the skill wraps MCP tools, list them with one-liner descriptions.
 4. Update [README.md](../README.md) "Available Skills" table.
