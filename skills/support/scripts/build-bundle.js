@@ -14,13 +14,16 @@
  *
  * Usage:
  *   node build-bundle.js --preview
- *   node build-bundle.js --write --title-file <path> --complaint-file <path>
- *                        [--out <path>] [--force]
+ *   node build-bundle.js --write --complaint-file ~/.realize-plugin/tmp/complaint-<stamp>-<rand>.txt
+ *   node build-bundle.js --write --title-file ~/.realize-plugin/tmp/title-<stamp>-<rand>.txt
+ *                        [--out <file.md>] [--force]
  *
  * Pass user-authored text by file, not as a quoted argument: the shell rewrites
  * it (`$12.40` becomes `2.40`) and `$(…)` executes. `--title` / `--complaint`
- * remain for trivial ASCII only. The files must live in INPUT_DIR
- * (~/.realize-plugin/tmp) and are deleted after a successful --write.
+ * remain for trivial ASCII only. Both file options read only files named
+ * complaint-*.txt / title-*.txt directly inside INPUT_DIR (~/.realize-plugin/tmp);
+ * they are deleted after a successful --write, and leftovers from cancelled
+ * runs are pruned after a day. `--force` needs an interactive terminal.
  *
  * Requires Node 18+ on PATH. Claude Code's native and desktop installs do not
  * provide one; the skill tells the user when `node` is missing. No dependencies.
@@ -37,6 +40,11 @@ const SUPPORT_EMAIL = 'Support@taboola.com';
 // would let it read — and copy into an email attachment — any file the user
 // can read. The skill's write permission is scoped to this same folder.
 const INPUT_DIR = path.join(os.homedir(), '.realize-plugin', 'tmp');
+// One file per run (`complaint-20261019-141502-k7q2.txt`), so two support runs
+// never read each other's text. Anything else in the folder is refused.
+const INPUT_NAME = /^(complaint|title)-[A-Za-z0-9_-]+\.txt$/;
+// Leftovers from a run that was cancelled before --write.
+const KEEP_INPUT_MS = 24 * 60 * 60 * 1000;
 
 // Prepended to the summary so the case opens with its own provenance. Requested
 // by PS: a Description that starts mid-diagnostics reads like a forwarded stack
@@ -119,6 +127,9 @@ function readTextFile(p, inputDir = INPUT_DIR, seen = []) {
   if (path.dirname(real) !== root) {
     throw new Error(`${p} must be a file directly inside ${inputDir}. Write the text there and pass that path.`);
   }
+  if (!INPUT_NAME.test(path.basename(real))) {
+    throw new Error(`${p}: name the file complaint-<time>-<random>.txt or title-<time>-<random>.txt.`);
+  }
   seen.push(real);
   try {
     return fs.readFileSync(real, 'utf8').trim();
@@ -128,6 +139,26 @@ function readTextFile(p, inputDir = INPUT_DIR, seen = []) {
     // affirmative false statement to support about a user who did describe the
     // problem. Losing the complaint is worse than failing loudly.
     throw new Error(`could not read ${p} — ${err.message}`);
+  }
+}
+
+/** Remove complaint/title files a cancelled run left behind, once a day old. */
+function pruneInputDir(inputDir = INPUT_DIR, now = Date.now()) {
+  let names = [];
+  try {
+    names = fs.readdirSync(inputDir);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!INPUT_NAME.test(name)) continue;
+    const p = path.join(inputDir, name);
+    try {
+      const st = fs.lstatSync(p);
+      if (st.isFile() && now - st.mtimeMs > KEEP_INPUT_MS) fs.rmSync(p, { force: true });
+    } catch {
+      // Already gone, or not ours to remove; nothing to do.
+    }
   }
 }
 
@@ -1017,6 +1048,7 @@ function nextAvailablePath(p) {
 // ---------------------------------------------------------------------------
 
 function main() {
+  pruneInputDir();
   const args = parseArgs(process.argv.slice(2));
   vetWriteArgs(args);
   const loc = findTranscript();
@@ -1114,7 +1146,15 @@ function main() {
   // The complaint now lives in the bundle; the scratch copy has no purpose and
   // shouldn't outlive it. Done here rather than by the model, because a cleanup
   // command the user declines leaves their description on disk.
-  for (const f of args.inputFiles) fs.rmSync(f, { force: true });
+  // A failed delete is a warning, not a failed bundle: the file the user needs
+  // exists, and reporting failure would send them to retry for nothing.
+  for (const f of args.inputFiles) {
+    try {
+      fs.rmSync(f, { force: true });
+    } catch (err) {
+      console.error(`WARNING: bundle written; could not delete ${f} (${err.message}). Delete it by hand.`);
+    }
+  }
 
   console.log('WROTE');
   console.log(`Path        : ${outPath}`);
@@ -1134,6 +1174,7 @@ function main() {
 module.exports = {
   redact,
   readTextFile,
+  pruneInputDir,
   INPUT_DIR,
   vetWriteArgs,
   allowedOutDirs,

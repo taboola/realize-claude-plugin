@@ -15,23 +15,25 @@ The directory check held 0.5.4 for policy review. This release clears every find
 - No skill pre-approves bare `Bash` or `Write` any more.
   - `accounts`, `campaigns`, `optimize-campaign` and `reports` drop `Bash`; they never used it.
   - `discovery` and `manage-campaigns` (including `references/mcp-write-surface.md`) use the `Grep` tool for overflow dumps.
-- `support` pre-approves exactly `Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js":*)`. The path is quoted for install paths with spaces. Writes are scoped to `Edit(~/.realize-plugin/tmp/**)`, because a `Write(path)` rule is never consulted and bare `Write` allowed writing anywhere.
+- `support` pre-approves only the three exact commands it runs: `node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --preview`, and `--write` with `--complaint-file ~/.realize-plugin/tmp/complaint-*.txt` or `--title-file ~/.realize-plugin/tmp/title-*.txt`. The path is quoted for install paths with spaces. A `:*` suffix had matched `--out <any path> --force --allow-git` too. Writes are scoped to `Edit(~/.realize-plugin/tmp/**)`, because a `Write(path)` rule is never consulted and bare `Write` allowed writing anywhere.
 - `diagnose-tracking` pre-approves no command. Each page fetch shows the user a prompt with the exact URL, so an instruction planted in a page or HAR can't send data anywhere silently.
 - `web-fallback` scopes `WebFetch` to `realize.com` / `www.realize.com`.
 
 **Pixel page download (`RUNTIME_FETCH_EXEC`)**
-- The `curl` line in `diagnose-tracking/SKILL.md` and the agent is replaced by a shipped script, `skills/diagnose-tracking/scripts/fetch-page.js`, with no dependencies and 59 unit tests.
+- The `curl` line in `diagnose-tracking/SKILL.md` and the agent is replaced by a shipped script, `skills/diagnose-tracking/scripts/fetch-page.js`, with no dependencies and 104 unit tests.
 - It allows http/https only on every hop, at most 3 redirects, a 20 s timeout and a 5 MB cap. It refuses `user:pass@` URLs and sends no cookies.
-- **Private, loopback, link-local and metadata addresses are refused on every hop.** The old `curl` line would follow a redirect into the user's network.
+- **Private, loopback, link-local and metadata addresses are refused on every hop**, IPv6 forms that embed an IPv4 address included (`[::ffff:127.0.0.1]`, which the URL parser rewrites to `[::ffff:7f00:1]`; IPv4-compatible, NAT64, 6to4), plus site-local `fec0::/10`. The check runs inside each connection's own DNS lookup, so a name can't answer "public" to the check and "127.0.0.1" to the connection (DNS rebinding), and the 20 s timeout covers the lookup. The old `curl` line would follow a redirect into the user's network.
 - A `www.` redirect no longer counts as a host change; it previously skipped the static check on most real sites. A URL without a scheme gets `https://`.
-- Network failures name their cause (DNS, TLS, refused, proxy) instead of a bare "fetch failed". On Node 22.15+/23.8+ the script re-runs itself with the OS certificate store, and on Node 24+ with `HTTPS_PROXY` support, so corporate-proxy users keep the reach `curl` had.
+- Network failures name their cause (DNS, TLS, refused) instead of a bare "fetch failed".
+- **Corporate networks are best effort, not `curl` parity.** When a proxy variable is set, or a certificate error occurs, the script re-runs itself with the OS certificate store (Node 22.15+/23.8+) and env-proxy support (`NODE_USE_ENV_PROXY`, Node 22.21+ and 24+). Through a proxy the private-address check covers literal-IP hosts only, since the proxy resolves names. Older Node on a proxy-only network can't reach the page; the error says so, and the skill falls back to the user's browser capture.
 - The URL is a single-quoted positional argument. There is no file-reading option that could echo a local file.
-- Saved pages go to one temp folder and are pruned after an hour.
+- Each run saves into its own fresh temp folder; this user's folders from earlier runs are pruned after an hour.
 
 **Support bundle**
 - Invoked via `"${CLAUDE_PLUGIN_ROOT}/…"` instead of a repo-relative path, so `/support` works for people who installed the plugin.
-- `--complaint-file` / `--title-file` read only from `~/.realize-plugin/tmp` (realpath-checked; `..` and symlinks refused), so the unprompted script can't copy an arbitrary file into an email attachment.
-- The script deletes the complaint file after writing. Previously the cleanup relied on a model-run `rm` the user could decline. 6 new tests.
+- `--complaint-file` / `--title-file` read only `complaint-*.txt` / `title-*.txt` files directly in `~/.realize-plugin/tmp` (realpath-checked; `..` and symlinks refused), so the unprompted script can't copy an arbitrary file into an email attachment. Each run uses its own file name, so concurrent runs can't read each other's text.
+- The script deletes the complaint file after writing; leftovers from cancelled runs are pruned after a day. Previously the cleanup relied on a model-run `rm` the user could decline. A failed delete is a warning, not a failed bundle.
+- **The script itself limits writes**, because a permission rule can't pin every argument. `--force` and `--allow-git` need an interactive terminal, which the model never has. `--out` must be a new `.md` file directly in Desktop, Downloads, home or the temp folder, never a symlink, and the file is opened exclusively (`wx`). Before this, `--out ~/.zshrc --force` overwrote the user's shell startup file with the transcript.
 
 **Other**
 - **Node.js is not assumed.** The native installer and desktop app don't include it. The pixel check falls through to the browser capture, and `/support` points the user to emailing Support directly. `INSTALL.md` states the requirement, and both scripts' "Node ships with Claude Code" comments are corrected.

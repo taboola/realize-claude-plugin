@@ -1,7 +1,7 @@
 ---
 name: support
 description: Package the current conversation into a single Markdown file the user can email to Taboola Support so Professional Services can debug what happened. Activates on /realize-plugin:support, and whenever the user wants to escalate to a human, report that the plugin gave a wrong or suspicious answer, or file a bug. Writes one local file after an explicit confirmation — never transmits anything.
-allowed-tools: ["Read", "Edit(~/.realize-plugin/tmp/**)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --preview)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --write --complaint-file ~/.realize-plugin/tmp/complaint.txt)", "AskUserQuestion"]
+allowed-tools: ["Read", "Edit(~/.realize-plugin/tmp/**)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --preview)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --write --complaint-file ~/.realize-plugin/tmp/complaint-*.txt)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --write --title-file ~/.realize-plugin/tmp/title-*.txt)", "AskUserQuestion"]
 ---
 
 # Support Bundle
@@ -61,18 +61,20 @@ If the preview says match confidence is **guessed**, tell the user plainly: the 
 
 **Do not compose a title.** The script uses the user's own complaint as the email subject, collapsed to one line, capped for a subject header, with the account ID appended for triage. Case intake copies that subject into the case Subject field, and the user's sentence is the most faithful description of their own problem available.
 
-`--title-file` still exists, but only as the fallback for a run where the user gave no description at all. If they described the problem, the description is the subject.
+`--title-file` still exists, but only as the fallback for a run where the user gave no description at all. If they described the problem, the description is the subject. A title file follows the same rules as the complaint file in Step 4: it must sit directly in `~/.realize-plugin/tmp/`, named `title-<YYYYMMDD-HHMMSS>-<random>.txt`, and the run is `node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --write --title-file ~/.realize-plugin/tmp/title-<…>.txt` — one file flag per run, nothing else on the line.
 
 ### Step 4 — Write the file
 
 **Never pass the complaint or title as a quoted shell argument.** Write them to files first, then point the script at the files:
 
-1. `Write` the user's description verbatim to `~/.realize-plugin/tmp/complaint.txt`. That folder is the only place the script reads text from, and the only place this skill may write without a prompt.
+1. `Write` the user's description verbatim to a new file `~/.realize-plugin/tmp/complaint-<YYYYMMDD-HHMMSS>-<random>.txt` — the current time plus a few random letters or digits, e.g. `complaint-20261019-141502-k7q2.txt`. A name per run keeps two support runs (two sessions, say) from reading each other's text. That folder is the only place the script reads text from, it only accepts `complaint-…` / `title-…` `.txt` names made of letters, digits, `-` and `_`, and it's the only place this skill may write without a prompt.
 2. Run:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --write --complaint-file ~/.realize-plugin/tmp/complaint.txt
+node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --write --complaint-file ~/.realize-plugin/tmp/complaint-<YYYYMMDD-HHMMSS>-<random>.txt
 ```
+
+with the exact file name you wrote, and nothing else on the line.
 
 This is not a style preference. The shell rewrites this text: `$12.40` arrives as `2.40`, `$500` arrives as `00`, and backticks or `$(…)` **execute**. Complaints in this domain are full of currency amounts, and users paste error text they didn't write. The whole point of the bundle is that the evidence reaches PS unaltered, so it must not pass through the shell.
 
@@ -95,7 +97,7 @@ Three parts, because case intake maps each one to a different field. The file's 
 
 Say plainly that nothing was sent automatically — sending is their decision.
 
-You don't need to delete `complaint.txt` — the script removes it once the bundle is written, because it holds the user's description and serves no purpose after that.
+You don't need to delete the complaint file — the script removes it once the bundle is written, because it holds the user's description and serves no purpose after that. Files left behind by a cancelled run are removed by the next run once they are a day old. If the script reports it couldn't delete the file, the bundle was still written; tell the user where the leftover file is.
 
 ## What the bundle contains
 

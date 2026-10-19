@@ -444,24 +444,46 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-input-test-'));
   const inputDir = path.join(root, 'tmp');
   fs.mkdirSync(inputDir);
-  const inside = path.join(inputDir, 'complaint.txt');
+  const inside = path.join(inputDir, 'complaint-20261019-141502-k7q2.txt');
   fs.writeFileSync(inside, '  the CPA is $12.40 in the UI  \n');
   const outside = path.join(root, 'elsewhere.txt');
   fs.writeFileSync(outside, 'not for the bundle');
   const seen = [];
   check('file in the input folder is read verbatim', b.readTextFile(inside, inputDir, seen) === 'the CPA is $12.40 in the UI');
   check('read file recorded for cleanup', seen.length === 1);
-  const refuses = (name, p) => {
+  const refuses = (name, p, pattern = /must be a file directly inside/) => {
     try {
       b.readTextFile(p, inputDir, []);
       check(name, false, 'expected a refusal');
     } catch (e) {
-      check(name, /must be a file directly inside/.test(e.message), e.message);
+      check(name, pattern.test(e.message), e.message);
     }
   };
   refuses('file outside the input folder refused', outside);
   refuses('.. traversal out of the input folder refused', path.join(inputDir, '..', 'elsewhere.txt'));
-  const link = path.join(inputDir, 'link.txt');
+  const shared = path.join(inputDir, 'complaint.txt');
+  fs.writeFileSync(shared, 'another run');
+  refuses('fixed shared name refused (one file per run)', shared, /name the file complaint-/);
+  check('title files use the same folder', (() => {
+    const t = path.join(inputDir, 'title-20261019-141502-k7q2.txt');
+    fs.writeFileSync(t, 'subject');
+    return b.readTextFile(t, inputDir, []) === 'subject';
+  })());
+
+  // Leftovers from cancelled runs go after a day; nothing else is touched.
+  const dayOld = new Date(Date.now() - 25 * 60 * 60 * 1000);
+  const stale = path.join(inputDir, 'complaint-20261017-090000-aaaa.txt');
+  const unrelated = path.join(inputDir, 'notes.txt');
+  fs.writeFileSync(stale, 'old');
+  fs.writeFileSync(unrelated, 'keep');
+  fs.utimesSync(stale, dayOld, dayOld);
+  fs.utimesSync(unrelated, dayOld, dayOld);
+  b.pruneInputDir(inputDir);
+  check('stale complaint file pruned', !fs.existsSync(stale));
+  check('fresh complaint file kept', fs.existsSync(inside));
+  check('unrelated file kept', fs.existsSync(unrelated));
+
+  const link = path.join(inputDir, 'complaint-link.txt');
   fs.symlinkSync(outside, link);
   refuses('symlink pointing out of the input folder refused', link);
   check('default input folder is under the home directory', b.INPUT_DIR === path.join(os.homedir(), '.realize-plugin', 'tmp'));
@@ -540,6 +562,28 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
     const r2 = cli(['--write', '--allow-git', '--out', path.join(repo, 'x.md')]);
     check('cli: --allow-git into a repo refused', r2.status === 1 && /terminal/.test(r2.stderr), r2.stderr);
     check('cli: nothing written into the repo', !fs.existsSync(path.join(repo, 'x.md')));
+
+    // The complaint file is deleted after the write; when the delete fails the
+    // bundle still counts as written. A read-only folder makes the delete
+    // fail on POSIX (not as root, which ignores the mode; not on Windows).
+    const inputDir = path.join(home, '.realize-plugin', 'tmp');
+    fs.mkdirSync(inputDir, { recursive: true });
+    const complaint = path.join(inputDir, 'complaint-20261019-141502-zz99.txt');
+    fs.writeFileSync(complaint, 'the CPA is off');
+    const r3 = cli(['--write', '--complaint-file', complaint, '--out', path.join(home, 'bundle-3.md')]);
+    check('cli: complaint file deleted after the write', r3.status === 0 && !fs.existsSync(complaint), r3.stderr);
+    if (process.platform !== 'win32' && process.getuid() !== 0) {
+      fs.writeFileSync(complaint, 'the CPA is off');
+      fs.chmodSync(inputDir, 0o500);
+      try {
+        const r4 = cli(['--write', '--complaint-file', complaint, '--out', path.join(home, 'bundle-4.md')]);
+        check('cli: failed cleanup still exits 0', r4.status === 0, `exit ${r4.status}: ${r4.stderr}`);
+        check('cli: failed cleanup warns with the path', /bundle written; could not delete/.test(r4.stderr) && r4.stderr.includes(complaint), r4.stderr);
+        check('cli: bundle exists despite failed cleanup', fs.existsSync(path.join(home, 'bundle-4.md')));
+      } finally {
+        fs.chmodSync(inputDir, 0o700);
+      }
+    }
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
