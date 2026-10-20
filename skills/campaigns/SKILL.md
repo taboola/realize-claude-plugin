@@ -1,7 +1,7 @@
 ---
 name: campaigns
 description: List and inspect Realize campaigns and their creatives/items. Use after an account_id is resolved.
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "AskUserQuestion"]
 ---
 
 # Campaigns

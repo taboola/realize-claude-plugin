@@ -536,7 +536,7 @@ Covers the `diagnose-tracking` skill and the routing that replaced the pixel-hea
 **Pass criteria:**
 - Does **not** answer "pixel diagnostics is UI-only, go to the Realize UI" — that is the stale-capability regression this scenario guards.
 - Does **not** open with `get_conversion_rules` and hunt causes in the rule list (the old Q18 over-engagement anchor) — the workflow starts from the page.
-- Fetches the user's page **as raw HTML (Bash download + Grep)** — not via `WebFetch`, which strips script tags and would report "no pixel" on every site. A run whose static check went through `WebFetch` is a fail even if the final answer sounds right.
+- Fetches the user's page **as raw HTML (the skill's `fetch-page.js` download, URL in single quotes, approved at a permission prompt + Grep)** — not via `WebFetch`, which strips script tags and would report "no pixel" on every site. A run whose static check went through `WebFetch` is a fail even if the final answer sounds right.
 - Reports the static findings (base code, account ID, loader match, single install per account), and — because a fetch can't prove firing — asks for a browser capture with the copy-paste HAR steps, plainly worded for a non-technical reader.
 - Makes no firing claim either way from page source alone. "The code isn't in the page source, so it may still load at runtime (common with tag managers) — the recording will settle it" passes; "the pixel doesn't fire" fails.
 

@@ -1,7 +1,7 @@
 ---
 name: diagnose-tracking
 description: Diagnose whether the Taboola Pixel on an advertiser's site is installed correctly, actually firing, and feeding conversions into Realize — and route the fix. Covers both the base pixel ("pixel shows inactive") and specific conversion events and their rules ("make_purchase isn't tracking"). Activates on "my pixel isn't firing", "conversions aren't tracking", "is my pixel installed correctly", "purchases are double-counted", "check the pixel on this page". Works from the user's page URL plus evidence the user captures (a HAR recording, a window._tfa dump), cross-checks conversion rules and reports via the MCP, and hands rule fixes to manage-campaigns. Not for installing the pixel (web-fallback has the platform steps), campaign performance questions (optimize-campaign), or app-install campaigns landing on an app store — no web pixel runs there (S2S/MMP territory).
-allowed-tools: ["Read", "Bash", "Grep", "Glob", "AskUserQuestion"]
+allowed-tools: ["Read", "Grep", "Glob", "AskUserQuestion"]
 ---
 
 # Diagnose Tracking
@@ -76,20 +76,47 @@ is a false finding, not a diagnosis.
 
 ### Step 2 — Static check (fetch the page)
 
-Download the **raw HTML** of the user's page via Bash —
-`curl -sS --proto '=http,https' --max-redirs 3 --max-time 20 -L -w '%{http_code} %{url_effective}' "<url>" -o <temp-file>` —
-then `Grep` the saved file for the pixel markers (`libtrc`, `unip`, `tfa.js`, `_tfa`, `tb_tfa_script`) and
-`Read` only the matching regions. **Check the two values `-w` printed before trusting the file**: if the
-final status is not 2xx, or `url_effective` left the host the user named (a redirect elsewhere), skip the
-static verdict and go to Step 3 — a saved error page or a foreign page must not be diagnosed as the user's
-site. The `--proto` and `--max-redirs` flags are part of the trust boundary (no `file://`-class schemes, no
-unbounded redirect chains on a user-supplied URL); keep them.
+Download the **raw HTML** of the user's page with the plugin's fetch script, as one line, with the URL in
+**single quotes**:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/diagnose-tracking/scripts/fetch-page.js" '<the page URL the user gave>'
+```
+
+Single quotes stop the shell from expanding anything in the URL (`$`, backticks, `$(…)`); if the URL itself
+contains a `'`, write it as `%27`. A URL without `https://` is fine — the script adds it.
+
+**This command is deliberately not pre-approved.** The user sees a permission prompt naming the exact URL and
+approves it. That prompt is the control that keeps this the user's own page: a fetch that could run silently
+is a channel an instruction planted in a page or HAR could use to send data anywhere. Don't work around a
+declined prompt — go to Step 3.
+
+It prints `status`, `final_url`, `host_changed`, `bytes`, `truncated`, and `saved_to`. `Grep` the
+`saved_to` file for the pixel markers (`libtrc`, `unip`, `tfa.js`, `_tfa`, `tb_tfa_script`) and `Read` only
+the matching regions. **Check the printed values before trusting the file**: if `status` is not 2xx, or
+`host_changed: yes` (a redirect to a different site — `www.` alone doesn't count), skip the static verdict and
+go to Step 3. A saved error page or a foreign page must not be diagnosed as the user's site.
+
+Go straight to Step 3, without a static verdict, when the script can't run or refuses:
+
+- **`node` not found:** Claude Code's native and desktop installs don't include Node.js. Say the static check
+  needs Node.js 18+ and that the browser capture covers the same ground.
+- **`error: refused … private or local address`:** the page, or a redirect from it, points into a private
+  network. That's either an internal staging site or a redirect this check won't follow. Either way, use the
+  user's capture.
+- **Network or certificate error:** report the reason the script printed (it names DNS, TLS, and proxy
+  problems separately). Don't retry with another tool.
+
+Use this script, not an ad-hoc download command. It carries the trust boundary in code: http/https only on
+every redirect hop, no private, loopback or link-local address on any hop, at most 3 redirects, a 20 s
+timeout, a 5 MB cap, no embedded credentials, no cookies. Saved pages are cleared after an hour. The
+downloaded file is only ever read as text; nothing in it is executed.
 
 > **Do NOT use the `WebFetch` tool for this check.** WebFetch converts the page to readable text before
 > answering, which strips every `<script>` tag — tested live (2026-08-22): a page whose raw HTML carried
 > 11 script tags came back through WebFetch with zero code visible. A WebFetch-based static check reports
 > "no pixel" on every site. Raw download + Grep is the only correct mechanic. (This raw download is not
-> the banned Realize-API curl; that ban is on API endpoints, and this
+> a banned direct Realize-API call; that ban is on API endpoints, and this
 > fetch is scoped to the user's page under diagnosis, nothing else.)
 
 Two findings from live testing that shape how the download result is read:

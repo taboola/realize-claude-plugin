@@ -4,7 +4,47 @@ All notable changes to this plugin will be documented here. Format loosely follo
 
 ## [Unreleased]
 
-_Nothing yet. 0.5.4 below is frozen while it awaits directory review; new changes go here._
+_Nothing yet._
+
+## [0.5.5] — Unreleased (pending directory review)
+
+### Directory submission fixes (DEV-240750)
+The directory check held 0.5.4 for policy review. This release clears every finding that needs a code change, and the follow-up code review's findings on that fix. Version set in `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `.mcp.json`'s `X-Realize-Client` header.
+
+**Permissions (`ALLOWED_TOOLS_BROAD`, unscoped fetch)**
+- No skill pre-approves bare `Bash` or `Write` any more.
+  - `accounts`, `campaigns`, `optimize-campaign` and `reports` drop `Bash`; they never used it.
+  - `discovery` and `manage-campaigns` (including `references/mcp-write-surface.md`) use the `Grep` tool for overflow dumps.
+- `support` pre-approves only the three exact commands it runs: `node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --preview`, and `--write` with `--complaint-file ~/.realize-plugin/tmp/complaint-*.txt` or `--title-file ~/.realize-plugin/tmp/title-*.txt`. The path is quoted for install paths with spaces. A `:*` suffix had matched `--out <any path> --force --allow-git` too. Writes are scoped to `Edit(~/.realize-plugin/tmp/**)`, because a `Write(path)` rule is never consulted and bare `Write` allowed writing anywhere.
+- `diagnose-tracking` pre-approves no command. Each page fetch shows the user a prompt with the exact URL, so an instruction planted in a page or HAR can't send data anywhere silently.
+- `web-fallback` scopes `WebFetch` to `realize.com` / `www.realize.com`.
+
+**Pixel page download (`RUNTIME_FETCH_EXEC`)**
+- The `curl` line in `diagnose-tracking/SKILL.md` and the agent is replaced by a shipped script, `skills/diagnose-tracking/scripts/fetch-page.js`, with no dependencies and 114 unit tests.
+- It allows http/https only on every hop, at most 3 redirects, a 20 s timeout and a 5 MB cap. It refuses `user:pass@` URLs and sends no cookies.
+- **Private, loopback, link-local and metadata addresses are refused on every hop**, IPv6 forms that embed an IPv4 address included (`[::ffff:127.0.0.1]`, which the URL parser rewrites to `[::ffff:7f00:1]`; IPv4-compatible, NAT64, 6to4), plus site-local `fec0::/10`, local-use NAT64 `64:ff9b:1::/48`, `192.0.0.0/24` (Oracle Cloud's metadata address is `192.0.0.192`) and the `198.18.0.0/15` benchmarking range. The check runs inside each connection's own DNS lookup, so a name can't answer "public" to the check and "127.0.0.1" to the connection (DNS rebinding), and the 20 s timeout covers the lookup. The old `curl` line would follow a redirect into the user's network.
+- A `www.` redirect no longer counts as a host change; it previously skipped the static check on most real sites. A URL without a scheme gets `https://`.
+- Network failures name their cause (DNS, TLS, refused) instead of a bare "fetch failed".
+- **Corporate networks are best effort, not `curl` parity.** When a proxy variable is set, or a certificate error occurs, the script re-runs itself with the OS certificate store (Node 22.15+/23.8+) and env-proxy support (`NODE_USE_ENV_PROXY`, Node 22.21+ and 24+). Through a proxy the private-address check covers literal-IP hosts only, since the proxy resolves names. Older Node on a proxy-only network can't reach the page; the error says so, and the skill falls back to the user's browser capture.
+- The URL is a single-quoted positional argument. There is no file-reading option that could echo a local file.
+- Each run saves into its own fresh temp folder; this user's folders from earlier runs are pruned after an hour.
+
+**Support bundle**
+- Invoked via `"${CLAUDE_PLUGIN_ROOT}/…"` instead of a repo-relative path, so `/support` works for people who installed the plugin.
+- `--complaint-file` / `--title-file` read only `complaint-*.txt` / `title-*.txt` files directly in `~/.realize-plugin/tmp` (realpath-checked; `..`, symlinks and hard links refused), so the unprompted script can't copy an arbitrary file into an email attachment. Each run uses its own file name, so concurrent runs can't read each other's text.
+- The script deletes the complaint file after writing; leftovers from cancelled runs are pruned after a day. Previously the cleanup relied on a model-run `rm` the user could decline. A failed delete is a warning, not a failed bundle.
+- **The script itself limits writes**, because a permission rule can't pin every argument. `--force` and `--allow-git` need an interactive terminal, which the model never has. `--out` must be a new `.md` file directly in Desktop, Downloads, home or the temp folder, never a symlink, and the file is opened exclusively (`wx`). Before this, `--out ~/.zshrc --force` overwrote the user's shell startup file with the transcript.
+
+**Other**
+- **Node.js is not assumed.** The native installer and desktop app don't include it. The pixel check falls through to the browser capture, and `/support` points the user to emailing Support directly. `INSTALL.md` states the requirement, and both scripts' "Node ships with Claude Code" comments are corrected.
+- `agents/realize-analyst.md`: gains `Write`, which `/support` needs when run through the agent, and no longer names a repo-relative script path.
+- **`UNREAD_ASSET_REFERENCED` (7):** docs and CI no longer name the listing icon by path. The duplicate CI icon check is removed, because the directory check reports a missing icon itself.
+- **Tests:** test fixtures that look like a local-file URL or a `user:pass@` URL are assembled at runtime, the same rule as `test-build-bundle.js`.
+- **`INSTALL.md` / settings example:** the `Bash(curl:*)` opt-in is removed. The page-fetch section now says the prompt is deliberate instead of claiming "no opt-in needed", which was wrong: a skill grant lasts one turn.
+- **CI:** runs `test-fetch-page.js`. *Directory-check guards* now holds every skill's `allowed-tools` to an allowlist: plain read tools, domain-scoped `WebFetch`, the one scoped `Edit`, and only the skill's **own** script in the exact quoted form. No `..`, no other skill's script, no wildcards.
+- **Left for the reviewer:**
+  - `MCP_FORWARDS_CREDENTIAL_ENV`: nothing reads a credential. Login is Claude Code's OAuth against the MCP, and the only header is the static client identifier.
+  - `UNKNOWN_KEY` on `privacyPolicyUrl`: the finding says no action is needed.
 
 ## [0.5.4] — Unreleased (pending directory review)
 
@@ -16,7 +56,7 @@ _Nothing yet. 0.5.4 below is frozen while it awaits directory review; new change
 The Anthropic directory check blocked v0.5.1 with eight findings. This release fixes four of them; the other four are listed at the end of this section.
 - **`SECRET_IN_SCRIPT` (blocked):** `skills/support/scripts/test-build-bundle.js` no longer contains credential-shaped literals. Every fake credential (Anthropic key, Google token, JWT, and the `password` / `client_secret` values) is assembled at runtime from neutrally named variables, and two test names that read as `key= value` were reworded. The strings under test are unchanged (82/82 pass).
 - **`ROOT_CLAUDE_MD` (warning):** contributor notes moved from the root `CLAUDE.md` to `.claude/CLAUDE.md` with `git mv`, so `git log --follow` keeps the history. Claude Code still auto-loads that location for contributors; installers never loaded it either way. Links in it, `CONTRIBUTING.md` and `tests/test-scenarios-dynamic-report.md` updated; `skills/diagnose-tracking/SKILL.md` no longer points the model at a file installers don't have.
-- **`ICON_MISSING` (warning):** `.claude-plugin/icon.png` added — the same 512 px circle mark used for the Realize MCP directory submission, so the plugin and MCP listings match.
+- **`ICON_MISSING` (warning):** the listing icon added to `.claude-plugin/` — the same 512 px circle mark used for the Realize MCP directory submission, so the plugin and MCP listings match.
 - **No privacy policy URL (validation note):** `plugin.json` gains `privacyPolicyUrl`, the same Taboola privacy policy the Realize MCP links.
 - **CI guards** (`validate.yml`, *Directory-check guards*) fail the build on a root `CLAUDE.md`, a credential-shaped literal anywhere in the repo, or a missing / out-of-spec icon, so these three can't silently come back.
 - **Still open:** `ALLOWED_TOOLS_BROAD` (policy hold — bare `Bash` in 8 skills' `allowed-tools`), unscoped `WebFetch` in `web-fallback` (validation note), and `MCP_FORWARDS_CREDENTIAL_ENV` / `RUNTIME_FETCH_EXEC` (warnings, believed false positives — need a reviewer note rather than a code change).
