@@ -491,6 +491,15 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
     } catch (e) {
       if (e.code !== 'EPERM') throw e; // Windows without symlink rights: skip
     }
+    // Review finding (Yaniv): realpath doesn't see hard links, so a second
+    // name for a file outside the folder passed the folder check.
+    const hard = path.join(inputDir, 'complaint-1-a.txt');
+    try {
+      fs.linkSync(outside, hard);
+      refuses('hard link to a file outside the folder refused', hard, /regular file written for this run/);
+    } catch (e) {
+      if (e.code !== 'EPERM' && e.code !== 'EXDEV') throw e; // file system without hard links: skip
+    }
     check('default input folder is under the home directory', b.INPUT_DIR === path.join(os.homedir(), '.realize-plugin', 'tmp'));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

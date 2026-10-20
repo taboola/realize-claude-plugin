@@ -97,13 +97,15 @@ function vetUrl(raw, base) {
 }
 
 function isPrivateV4(ip) {
-  const [a, b] = ip.split('.').map(Number);
+  const [a, b, c] = ip.split('.').map(Number);
   return (
     a === 0 || a === 10 || a === 127 ||
     (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
     (a === 169 && b === 254) || // link-local, incl. cloud metadata
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
+    (a === 192 && b === 0 && c === 0) || // IETF protocol assignments; Oracle Cloud metadata is 192.0.0.192
+    (a === 198 && (b === 18 || b === 19)) || // benchmarking, seen on internal networks
     a >= 224 // multicast and reserved
   );
 }
@@ -157,6 +159,10 @@ function isPrivateAddress(ip) {
   if (zero(0, 5) && w[5] === 0xffff) return isPrivateV4(v4(w[6], w[7])); // IPv4-mapped ::ffff:0:0/96
   if (zero(0, 6)) return isPrivateV4(v4(w[6], w[7])); // IPv4-compatible ::/96
   if (w[0] === 0x64 && w[1] === 0xff9b && zero(2, 6)) return isPrivateV4(v4(w[6], w[7])); // NAT64 64:ff9b::/96
+  // Local-use NAT64 (RFC 8215) is never a public address, and where the IPv4
+  // address sits inside it depends on the operator's prefix length, so the
+  // whole /48 is refused rather than decoded.
+  if (w[0] === 0x64 && w[1] === 0xff9b && w[2] === 1) return true; // 64:ff9b:1::/48
   if (w[0] === 0x2002) return isPrivateV4(v4(w[1], w[2])); // 6to4 2002::/16
   return (
     (w[0] & 0xfe00) === 0xfc00 || // unique local fc00::/7

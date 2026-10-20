@@ -161,10 +161,12 @@ function stubResolver(script) {
   // -------------------------------------------------------------------------
   await group('private addresses', () => {
     for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '169.254.169.254',
-      '100.64.0.1', '0.0.0.0', '224.0.0.1', '::1', '::', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1']) {
+      '100.64.0.1', '0.0.0.0', '224.0.0.1', '::1', '::', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1',
+      '192.0.0.170', '192.0.0.192', '198.18.0.1', '198.19.255.255']) {
       check(`private: ${ip}`, f.isPrivateAddress(ip) === true);
     }
-    for (const ip of ['8.8.8.8', '172.32.0.1', '100.128.0.1', '2606:4700::1111', '::ffff:8.8.8.8']) {
+    for (const ip of ['8.8.8.8', '172.32.0.1', '100.128.0.1', '2606:4700::1111', '::ffff:8.8.8.8',
+      '192.0.1.1', '192.0.3.1', '198.17.255.255', '198.20.0.1']) {
       check(`public: ${ip}`, f.isPrivateAddress(ip) === false);
     }
 
@@ -173,7 +175,9 @@ function stubResolver(script) {
     // Review finding: only the dotted form was caught, and the hex form
     // reached a server bound to 127.0.0.1.
     for (const literal of ['[::ffff:127.0.0.1]', '[::ffff:7f00:1]', '[::ffff:a9fe:a9fe]', '[::ffff:a00:5]',
-      '[::7f00:1]', '[64:ff9b::7f00:1]', '[fec0::1]', '[2002:7f00:1::]']) {
+      '[::7f00:1]', '[64:ff9b::7f00:1]', '[fec0::1]', '[2002:7f00:1::]',
+      // Review finding (Yaniv): local-use NAT64 got through.
+      '[64:ff9b:1::a9fe:a9fe]', '[64:ff9b:1:a9fe:a9:fe00::]']) {
       const host = new URL(`http://${literal}/`).hostname;
       check(`private after URL parsing: ${literal} → ${host}`, f.isPrivateAddress(host) === true);
     }

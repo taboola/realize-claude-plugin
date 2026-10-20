@@ -130,6 +130,13 @@ function readTextFile(p, inputDir = INPUT_DIR, seen = []) {
   if (!INPUT_NAME.test(path.basename(real))) {
     throw new Error(`${p}: name the file complaint-<time>-<random>.txt or title-<time>-<random>.txt.`);
   }
+  // realpath sees through symlinks but not hard links: a second name for a
+  // file elsewhere looks like a regular file inside the folder. A file this
+  // run wrote has exactly one name.
+  const st = fs.lstatSync(real);
+  if (!st.isFile() || st.nlink !== 1) {
+    throw new Error(`${p} must be a regular file written for this run.`);
+  }
   seen.push(real);
   try {
     return fs.readFileSync(real, 'utf8').trim();
