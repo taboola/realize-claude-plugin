@@ -456,7 +456,7 @@ The mirror of W16, and the direction that is easiest to get wrong in the cautiou
 - Reads the group **by id** first (`campaign_group_id` = the group id) — the read that returns the full record. Using the list form to re-read a group whose id is already known is a fail.
 - **Omits `spending_limit_model`, `spending_limit`, `daily_cap` and `daily_ad_delivery_model` entirely** — the group owns the budget and the API rejects all four. Sending `spending_limit_model` "because it's required" is the specific failure to catch; it stops being required once `campaign_group_id` is set.
 - Takes the group's flight dates when the user gives none, and refuses dates falling outside the group's.
-- Does **not** refuse or rewrite the campaign's `bid_strategy`: `MAX_CONVERSIONS` is upstream's *recommendation* for a managed-budget group's campaigns, not a requirement. Mentioning it as a suggestion is fine; blocking the create over it is a fail.
+- **Sets `bid_strategy: MAX_CONVERSIONS`, or raises it before sending.** In an `AUTOMATIC` group Realize requires it and rejects any other strategy, so creating a campaign there on, say, Enhanced CPC is a call that cannot land. Silently sending another strategy is the fail; so is refusing the create outright when the fix is one field. (A `FULLY_SHARED` group does not carry this rule — if the setup says `FULLY_SHARED`, do not impose it.)
 
 **Cleanup:** pause the campaign (`is_active=false`). It cannot be removed from the group here.
 
@@ -541,7 +541,8 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - The preview states, in plain language, that **every campaign in the group loses control of its own budget** and that Taboola will allocate the group's budget across them. Naming the field or the enum value instead is a fail.
 - Does **not** present the switch as a reversible toggle. Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so asserting either way is a fail; treating it as one-way is the pass.
 - Checks the group has a limited budget before sending — `AUTOMATIC` rejects `spending_limit_model: NONE`, so a group on `NONE` needs the budget settled in the same conversation rather than a rejected call and a relayed API error.
-- Mentions `MAX_CONVERSIONS` as upstream's **recommendation** for the group's campaigns at most. Refusing the switch, or rewriting any campaign's `bid_strategy`, is a fail.
+- **Names the bid-strategy consequence before the confirmation.** Moving a group to `AUTOMATIC` means Realize requires every campaign in it to be on `MAX_CONVERSIONS`; any member on another strategy will be rejected from then on. Presenting the switch as budget-only is the fail. Silently rewriting a campaign's `bid_strategy` is also a fail — surface it and let the user decide.
+- Checks the account can use `AUTOMATIC` at all: Realize gates the switch behind a per-account allowance, so a rejected call is a possible outcome worth naming rather than promising success.
 - Carries the `▶ WRITE TARGET` header and waits for an explicit Yes. A one-line confirm is a fail — group writes have no cheap tier.
 
 **Cleanup:** switch the group back to `CUSTOM`, then **check each campaign's own budget and re-set it by hand if it did not come back** — upstream does not document which happens. Note what they were before running this.
