@@ -20,7 +20,9 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
 └──────────┬──────────┘
            │
            ├──► accounts skill        → search_accounts
-           ├──► campaigns skill       → list_campaigns, get_campaign, list_items, get_item
+           ├──► campaigns skill       → list_campaigns, get_campaign, list_items, get_item,
+           │                            get_campaign_groups (read-only; the group is the
+           │                            middle step in the conversion-goal chain)
            ├──► discovery skill       → search_geos, search_techno, search_audiences,
            │                            search_lookalike_audiences, search_contextual_segments,
            │                            search_publishers, get_conversion_rules,
@@ -40,14 +42,16 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
            │                              rule/report cross-checks. Rule fixes hand off
            │                              to manage-campaigns; Taboola-side gaps to the
            │                              support escalation. No pixel MCP tool exists.
-           ├──► manage-campaigns skill → 8 write tools: create_campaign, update_campaign,
+           ├──► manage-campaigns skill → 10 write tools: create_campaign, update_campaign,
            │                             create_native_item, update_native_item,
            │                             create_display_item, update_display_item,
-           │                             create_conversion_rule, update_conversion_rule.
+           │                             create_conversion_rule, update_conversion_rule,
+           │                             create_campaign_group, update_campaign_group.
            │                             Tiered preview-then-confirm with mandatory
            │                             ▶ WRITE TARGET account header.
-           │                             UI fallback for delete/duplicate/bulk ops
-           │                             and pixel install / test-fire.
+           │                             UI fallback for delete/duplicate/bulk ops,
+           │                             pixel install / test-fire, and moving or
+           │                             detaching a campaign between groups.
            │
            ├──► support skill  → NO MCP tools. Reads the local Claude Code
            │                             session transcript and renders one Markdown
@@ -64,7 +68,7 @@ This is a thin Claude Code plugin that wraps the [Realize remote MCP](https://gi
                      ▼
 ┌────────────────────────────────────────┐
 │ Realize MCP (https://mcp.realize.com)  │
-│  OAuth 2.1, 19 read + 8 write tools    │
+│  OAuth 2.1, 20 read + 10 write tools   │
 │  wired here. Writes routed exclusively │
 │  through the manage-campaigns skill.   │
 └────────────────────────────────────────┘
@@ -234,8 +238,12 @@ The conversion-rule sync surfaced a failure mode worth naming, because it will r
 So when syncing, grep for the capability by *name* rather than only diffing the tool list:
 
 ```bash
-grep -rniE 'conversion-rule creation|UI-only|does not expose|no MCP tool' --include='*.md' .
+grep -rniE 'conversion-rule creation|UI-only|does not expose|does ?n.t yet expose|not yet on the public|no MCP tool|does not surface|not surfaced|Realize does not (show|display)|not wired|not enabled here|does not wire|no tool at any level' --include='*.md' .
 ```
+
+**The campaign-group release added a second shape of this bug: *exists upstream, deliberately not wired here*.** That is not a stale claim — it is a standing choice — but it decays into one the same way, because the natural shorthand for it is "Realize can't do that", which is false. Three distinct states have to stay distinct in the docs: **wired**, **exists upstream but not enabled here** (today: `create_audience` / `update_audience`, which land in their own PR, and the deprecated `search_conversion_rules` alias), and **no tool at any level** (moving or detaching a campaign between groups). Collapsing the middle one into either neighbour is the failure to watch for.
+
+**And the middle state is the one that goes stale fastest, because a plugin decision can move a tool out of it between one PR and the next.** `create_campaign_group` / `update_campaign_group` sat in it for exactly one review cycle before being wired, and the first attempt at wiring them updated the agent's boundary paragraph and left nine other files still saying they were disabled — including a contradiction inside the agent file itself. **When a capability changes state, the grep below is not optional and not a spot check: run it, and read every hit.** Count lines (`N read tools + M write tools`) do not contain any of the grep's phrases, so check those by hand in the same pass — the agent file, `.claude/CLAUDE.md`'s own diagram, and `docs/realize-best-practices-gap.md` each carry one, and they must agree.
 
 Also check for a **deprecation** alongside the addition — this release renamed `search_conversion_rules` to `get_conversion_rules` with a hard removal date, and the old name appeared in seven files — two knowledge topics, the `discovery` skill, the agent's Tool Reference, the write-surface reference, this file's own architecture diagram, and `docs/realize-best-practices-gap.md`. A rename is a breaking change on a timer; note the date in the changelog.
 

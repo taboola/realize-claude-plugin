@@ -143,9 +143,17 @@
         "Native vs Display lock-in",
         "cross-period comparison",
         "percent share",
-        "delta pp"
+        "delta pp",
+        "conversion goal",
+        "conversion goal inheritance",
+        "what is this campaign optimizing toward",
+        "campaign_group_id",
+        "reading a campaign group",
+        "shared budget",
+        "budget distribution method",
+        "attach campaign to group"
       ],
-      "description": "Campaign Groups, objectives, campaign types (Sponsored Content / Display) including the Native-vs-Display lock-in and the two MCP paths (CPC + first-item / VCPM), hierarchy, platform/device splits, and cross-period comparison of structural splits in % share."
+      "description": "Campaign Groups, the conversion-goal chain (campaign, then Campaign Group, then account default) and the canonical procedure for reading a group, objectives, campaign types (Sponsored Content / Display) including the Native-vs-Display lock-in and the two MCP paths (CPC + first-item / VCPM), hierarchy, which budget fields a group owns, platform/device splits, and cross-period comparison of structural splits in % share."
     },
     {
       "slug": "brand-safety",
