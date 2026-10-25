@@ -12,8 +12,8 @@
  * "failure" that were both artifacts of the harness, not the code. A file has
  * no shell layer.
  *
- * No dependencies, no framework: Node ships with Claude Code and that is the
- * only thing this may assume.
+ * No dependencies, no framework: Node is the only thing this may assume. (It
+ * is not part of every Claude Code install; the skill handles a missing node.)
  */
 
 const fs = require('fs');
@@ -430,6 +430,179 @@ check('file outside the real checkout ignored', b.knowledgeRef(path.join(os.tmpd
   const empty = b.analyze([]);
   const es = b.renderSummary(empty);
   check('empty session still summarizes', es.includes(b.EMAIL_PROLOG) && /none/.test(es));
+}
+
+// ---------------------------------------------------------------------------
+// --complaint-file / --title-file read only from the plugin's input folder.
+// The script runs without a prompt, so an open file option would let it copy
+// any readable file into an email attachment.
+// ---------------------------------------------------------------------------
+{
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-input-test-'));
+  try {
+    const inputDir = path.join(root, 'tmp');
+    fs.mkdirSync(inputDir);
+    const inside = path.join(inputDir, 'complaint-20261019-141502-k7q2.txt');
+    fs.writeFileSync(inside, '  the CPA is $12.40 in the UI  \n');
+    const outside = path.join(root, 'elsewhere.txt');
+    fs.writeFileSync(outside, 'not for the bundle');
+    const seen = [];
+    check('file in the input folder is read verbatim', b.readTextFile(inside, inputDir, seen) === 'the CPA is $12.40 in the UI');
+    check('read file recorded for cleanup', seen.length === 1);
+    const refuses = (name, p, pattern = /must be a file directly inside/) => {
+      try {
+        b.readTextFile(p, inputDir, []);
+        check(name, false, 'expected a refusal');
+      } catch (e) {
+        check(name, pattern.test(e.message), e.message);
+      }
+    };
+    refuses('file outside the input folder refused', outside);
+    refuses('.. traversal out of the input folder refused', path.join(inputDir, '..', 'elsewhere.txt'));
+    const shared = path.join(inputDir, 'complaint.txt');
+    fs.writeFileSync(shared, 'another run');
+    refuses('fixed shared name refused (one file per run)', shared, /name the file complaint-/);
+    check('title files use the same folder', (() => {
+      const t = path.join(inputDir, 'title-20261019-141502-k7q2.txt');
+      fs.writeFileSync(t, 'subject');
+      return b.readTextFile(t, inputDir, []) === 'subject';
+    })());
+
+    // Leftovers from cancelled runs go after a day; nothing else is touched.
+    const dayOld = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    const stale = path.join(inputDir, 'complaint-20261017-090000-aaaa.txt');
+    const unrelated = path.join(inputDir, 'notes.txt');
+    fs.writeFileSync(stale, 'old');
+    fs.writeFileSync(unrelated, 'keep');
+    fs.utimesSync(stale, dayOld, dayOld);
+    fs.utimesSync(unrelated, dayOld, dayOld);
+    b.pruneInputDir(inputDir);
+    check('stale complaint file pruned', !fs.existsSync(stale));
+    check('fresh complaint file kept', fs.existsSync(inside));
+    check('unrelated file kept', fs.existsSync(unrelated));
+
+    const link = path.join(inputDir, 'complaint-link.txt');
+    try {
+      fs.symlinkSync(outside, link);
+      refuses('symlink pointing out of the input folder refused', link);
+    } catch (e) {
+      if (e.code !== 'EPERM') throw e; // Windows without symlink rights: skip
+    }
+    // Review finding (Yaniv): realpath doesn't see hard links, so a second
+    // name for a file outside the folder passed the folder check.
+    const hard = path.join(inputDir, 'complaint-1-a.txt');
+    try {
+      fs.linkSync(outside, hard);
+      refuses('hard link to a file outside the folder refused', hard, /regular file written for this run/);
+    } catch (e) {
+      if (e.code !== 'EPERM' && e.code !== 'EXDEV') throw e; // file system without hard links: skip
+    }
+    check('default input folder is under the home directory', b.INPUT_DIR === path.join(os.homedir(), '.realize-plugin', 'tmp'));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Write limits. The skill pre-approves this script, and a permission rule
+// can't pin every argument, so the script refuses what would turn "write a
+// bundle" into "write any file". Review finding: `--out ~/.zshrc --force` and
+// `--allow-git --out <repo>/x.md` both went through.
+// ---------------------------------------------------------------------------
+{
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { spawnSync } = require('child_process');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-out-test-'));
+  try {
+    const outDirs = [home];
+    const vet = (args, interactive = false) => b.vetWriteArgs(args, { interactive, outDirs });
+    const refused = (name, args, pattern, interactive) => {
+      try {
+        vet(args, interactive);
+        check(name, false, 'expected a refusal');
+      } catch (e) {
+        check(name, pattern.test(e.message), e.message);
+      }
+    };
+    const repo = path.join(home, 'repo');
+    fs.mkdirSync(path.join(repo, '.git'), { recursive: true });
+
+    refused('--force refused without a terminal', { out: path.join(home, '.zshrc'), force: true }, /terminal/);
+    refused('--allow-git refused without a terminal', { out: path.join(repo, 'x.md'), allowGit: true }, /terminal/);
+    refused('dotfile target refused even interactively', { out: path.join(home, '.zshrc'), force: true }, /\.md file/, true);
+    refused('non-.md target refused', { out: path.join(home, 'notes.txt') }, /\.md file/);
+    refused('folder outside the bundle folders refused', { out: path.join(repo, 'x.md') }, /Desktop, Downloads or home/);
+    refused('.. out of the bundle folder is resolved, not trusted', { out: path.join(home, '..', 'x.md') }, /Desktop, Downloads or home/);
+    check('a new .md file in a bundle folder is allowed', (() => {
+      vet({ out: path.join(home, 'bundle.md') });
+      return true;
+    })());
+    check('no --out is allowed (default path)', (() => {
+      vet({});
+      return true;
+    })());
+    try {
+      fs.symlinkSync(path.join(home, '.zshrc'), path.join(home, 'link.md'));
+      refused('symlinked target refused', { out: path.join(home, 'link.md') }, /symbolic link/);
+    } catch (e) {
+      if (e.code !== 'EPERM') throw e; // Windows without symlink rights: skip
+    }
+
+    // End to end, the way the pre-approved command runs: no terminal. HOME
+    // points at the temp folder, so a broken guard can never touch the real
+    // ~/.zshrc.
+    // A one-message transcript, so a refusal below is the guard and not
+    // "no session found".
+    const sid = 'test-session-0001';
+    const projects = path.join(home, '.claude', 'projects', 'p');
+    fs.mkdirSync(projects, { recursive: true });
+    fs.writeFileSync(path.join(projects, `${sid}.jsonl`), JSON.stringify({
+      type: 'user', sessionId: sid, timestamp: '2026-10-19T00:00:00Z', message: { role: 'user', content: 'hi' },
+    }) + '\n');
+    const zshrc = path.join(home, '.zshrc');
+    fs.writeFileSync(zshrc, 'original\n');
+    const cli = (args) => spawnSync(process.execPath, [path.join(__dirname, 'build-bundle.js'), ...args], {
+      env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CODE_SESSION_ID: sid },
+      encoding: 'utf8',
+    });
+    const ok = cli(['--write', '--out', path.join(home, 'bundle-ok.md')]);
+    check('cli: harness reaches the write (control)', ok.status === 0 && fs.existsSync(path.join(home, 'bundle-ok.md')), ok.stderr);
+    const r1 = cli(['--write', '--out', zshrc, '--force']);
+    check('cli: --out ~/.zshrc --force refused', r1.status === 1 && /terminal/.test(r1.stderr), r1.stderr);
+    check('cli: ~/.zshrc untouched', fs.readFileSync(zshrc, 'utf8') === 'original\n');
+    const r2 = cli(['--write', '--allow-git', '--out', path.join(repo, 'x.md')]);
+    check('cli: --allow-git into a repo refused', r2.status === 1 && /terminal/.test(r2.stderr), r2.stderr);
+    check('cli: nothing written into the repo', !fs.existsSync(path.join(repo, 'x.md')));
+
+    // The complaint file is deleted after the write; when the delete fails the
+    // bundle still counts as written. A read-only folder makes the delete
+    // fail on POSIX (not as root, which ignores the mode; not on Windows).
+    const inputDir = path.join(home, '.realize-plugin', 'tmp');
+    fs.mkdirSync(inputDir, { recursive: true });
+    const complaint = path.join(inputDir, 'complaint-20261019-141502-zz99.txt');
+    fs.writeFileSync(complaint, 'the CPA is off');
+    const r3 = cli(['--write', '--complaint-file', complaint, '--out', path.join(home, 'bundle-3.md')]);
+    check('cli: complaint file deleted after the write', r3.status === 0 && !fs.existsSync(complaint), r3.stderr);
+    if (process.platform !== 'win32' && process.getuid() !== 0) {
+      fs.writeFileSync(complaint, 'the CPA is off');
+      fs.chmodSync(inputDir, 0o500);
+      try {
+        const r4 = cli(['--write', '--complaint-file', complaint, '--out', path.join(home, 'bundle-4.md')]);
+        check('cli: failed cleanup still exits 0', r4.status === 0, `exit ${r4.status}: ${r4.stderr}`);
+        check('cli: failed cleanup warns with the path', /bundle written; could not delete/.test(r4.stderr) && r4.stderr.includes(complaint), r4.stderr);
+        check('cli: bundle exists despite failed cleanup', fs.existsSync(path.join(home, 'bundle-4.md')));
+      } finally {
+        fs.chmodSync(inputDir, 0o700);
+      }
+    }
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -198,22 +198,34 @@ Fixed, and guarded in CI (`.github/workflows/validate.yml`, *Directory-check gua
 
 - **`SECRET_IN_SCRIPT`** (blocked) — credential-shaped literals in any shipped script, even obvious test fixtures. Generic rules match a credential key name next to a literal value, not only vendor prefixes, so `test-build-bundle.js` assembles *every* fixture at runtime (`'sk-' + 'ant-' + …`, values pulled from neutrally named variables). New redaction tests must do the same; don't inline a fixture "just for readability".
 - **`ROOT_CLAUDE_MD`** (warning) — no `CLAUDE.md` at the repo root. That's why this file is in `.claude/`. The finding is scoped to the root (`CLAUDE.md · root` in the report).
-- **`ICON_MISSING`** (warning) — `.claude-plugin/icon.png` must exist (square PNG, 512–2048 px, under 2 MB). The listing picks the icon up **once**, at first accepted submission, so a placeholder is not a harmless stopgap.
+- **`ICON_MISSING`** (warning) — the listing icon must exist in `.claude-plugin/` (square PNG, 512–2048 px, under 2 MB). The listing picks the icon up **once**, at first accepted submission, so a placeholder is not a harmless stopgap. This one is **not** CI-guarded any more, on purpose: any shipped file that names the image by path — a doc line, a CI step that opens it — draws `UNREAD_ASSET_REFERENCED` ("code could run this image"), a hold that needs a reviewer. The directory check itself still reports `ICON_MISSING` if the file goes away, so the duplicate guard bought nothing. Refer to it in prose ("the listing icon"), not by filename.
 
 Fixed, not CI-guarded:
 
 - **No privacy policy URL** (validation note) — `plugin.json` carries `privacyPolicyUrl`, the same Taboola policy the Realize MCP links.
 
-Still open as of DEV-240749:
+Fixed in DEV-240750, guarded in CI (*Directory-check guards* checks every skill's `allowed-tools` against an **allowlist** — anything not on it fails):
 
-- **`ALLOWED_TOOLS_BROAD`** (policy hold, 8 skills) — bare `"Bash"` in `allowed-tools` pre-approves any shell command. Scope it to the exact command (`Bash(node ${CLAUDE_PLUGIN_ROOT}/…:*)`) or drop it.
-- **Unscoped fetch** (validation note) — `web-fallback`'s `"WebFetch"` has no domain restriction.
-- **`MCP_FORWARDS_CREDENTIAL_ENV`** and **`RUNTIME_FETCH_EXEC`** (warnings) — likely false positives (auth is OAuth through the MCP; the pixel check's `curl` output is grepped, never executed). They need a reviewer note, not a code change.
+- **`ALLOWED_TOOLS_BROAD`** (policy hold) — no skill lists bare `"Bash"`. Six skills had no real shell need. Four never used it, and two only `grep`-ed an overflow dump, which the `Grep` tool does. Only `support` pre-approves commands, and only the exact ones it runs (`--preview`, and `--write` with one `complaint-*.txt` / `title-*.txt` file); CI rejects `:*`, a bare `*`, `..`, and `--out` / `--force` / `--allow-git` in a rule. The path is quoted so an install path with a space survives, and a rule only matches the form it was written in, so the skill tells the model to run that exact one-line, double-quoted form. A `*` inside a filename still matches any text, spaces included, so the rule alone can't stop extra flags: `build-bundle.js` refuses `--force` / `--allow-git` without a terminal and limits `--out` to a new `.md` file in the default bundle folders. Keep both layers. A new shell need gets a script and its own exact entry, never a wider pattern.
+- **Unscoped fetch** (validation note) — `web-fallback` lists `WebFetch(domain:realize.com)` / `WebFetch(domain:www.realize.com)`, not bare `WebFetch`.
+- **`RUNTIME_FETCH_EXEC`** (warning) — the pixel check's download is a shipped script (`skills/diagnose-tracking/scripts/fetch-page.js`), not a `curl` line in the skill or agent prose. Don't put a download command back into any `.md`, even as an example — the scanner reads documentation as instructions the model will run.
+
+Permission facts these rules rest on (Claude Code docs, checked 2026-10-19), all easy to get wrong:
+
+- **An `allowed-tools` grant lasts one turn**, until the user's next message. It is a convenience for the turn that invoked the skill, not a session grant, and an installed plugin's path is versioned, so users can't write a stable allow rule for it either.
+- **`Write(path)` rules are never consulted.** Bare `"Write"` in `allowed-tools` pre-approves writing *anywhere*, `~/.zshrc` and git hooks included. Scope writes with an `Edit(path)` rule, which also governs the Write tool (needs Claude Code v2.1.210+; older versions just prompt). `support` writes only to `Edit(~/.realize-plugin/tmp/**)`, and `build-bundle.js` reads `--complaint-file` / `--title-file` **only** as `complaint-*.txt` / `title-*.txt` directly in that folder (realpath-checked), one file per run, deletes them after writing, and prunes day-old leftovers. An unprompted script with an open file option could copy any readable file into an email attachment.
+- **The pixel page fetch is deliberately not pre-approved.** The user approves each run at a prompt that shows the URL. A silently runnable fetch is an exfiltration channel for an instruction planted in the page or HAR under diagnosis, and narrowing the rule's arguments doesn't help, because the model chooses the URL. That's also why the URL is a positional, single-quoted argument and there is no `--url-file`: a file hides the URL from the prompt, and a file-reading option can read and echo any local file.
+- **Node.js is not guaranteed.** The native installer and desktop app don't put `node` on `PATH`. Both scripts degrade explicitly: the pixel check falls through to the user's capture, and `/support` tells the user to email Support directly. Keep any new script on the same footing, or don't write it in Node.
+
+Still open, no code change expected:
+
+- **`MCP_FORWARDS_CREDENTIAL_ENV`** (warning, `plugin.json`) — nothing in the plugin reads a credential: auth is OAuth handled by Claude Code against the MCP, and `.mcp.json`'s only header is the static `X-Realize-Client` identity string. Needs a reviewer note.
+- **`UNKNOWN_KEY` `privacyPolicyUrl`** — the directory reads it for the listing; the finding itself says no action needed. Keep it.
 
 ### No direct curl / no API client code
 All Realize API access flows through MCP tools. Do not add Bash curl calls that hit Realize endpoints directly — that bypasses the MCP's rate limiting, auth handling, and safety guarantees.
 
-One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** via curl. That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the curl back to WebFetch; the skill and the agent both document why.
+One sanctioned non-API use exists: `diagnose-tracking` downloads the raw HTML of **the user's page under diagnosis** with its own script, `skills/diagnose-tracking/scripts/fetch-page.js`. It allows http/https only on every hop, refuses private, loopback and link-local addresses on every hop (so a public page can't redirect the fetch into the user's network), allows at most 3 redirects, and has a timeout and a size cap. The user approves each run at a prompt. That's deliberate, not drift — `WebFetch` converts pages to readable text and strips every `<script>` tag (verified live 2026-08-22: a page with 11 script tags in raw HTML came back with zero code visible), so a WebFetch-based pixel check reports "no pixel" on every site. Don't "clean up" the download back to WebFetch, and don't swap the script for an inline `curl` — that brings back both `ALLOWED_TOOLS_BROAD` and `RUNTIME_FETCH_EXEC`. Run `node skills/diagnose-tracking/scripts/test-fetch-page.js` after touching it; CI runs it too.
 
 ### Stale capability claims are their own bug class
 
@@ -248,9 +260,10 @@ Users often type numeric IDs in natural language. The MCP expects opaque string 
    ---
    name: <skill-name>
    description: <when to use, what it does>
-   allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+   allowed-tools: ["Read", "AskUserQuestion"]
    ---
    ```
+   `allowed-tools` pre-approves without a prompt, and CI holds it to an allowlist. Never add bare `"Bash"`, `"Write"` or `"Edit"`. If the skill must run a shell command, ship it as a script under `skills/<skill-name>/scripts/`, list exactly `Bash(node "${CLAUDE_PLUGIN_ROOT}/skills/<skill-name>/scripts/<file>.js":*)`, and first ask whether it *should* run unprompted (see the permission facts under *Shipped files must pass the Anthropic directory check*).
 2. Document: when to use, workflow, gotchas, example prompts.
 3. If the skill wraps MCP tools, list them with one-liner descriptions.
 4. Update [README.md](../README.md) "Available Skills" table.
@@ -284,7 +297,7 @@ When [taboola/realize-mcp](https://github.com/taboola/realize-mcp) ships a new v
 ```
 .
 ├── .claude-plugin/plugin.json     # plugin manifest (incl. privacyPolicyUrl)
-├── .claude-plugin/icon.png        # directory listing icon — required, picked up once
+├── .claude-plugin/<icon>          # directory listing icon (PNG) — required, picked up once; don't name it by path
 ├── .claude-plugin/marketplace.json# marketplace catalog — the repo is its own marketplace; keep version in sync with plugin.json
 ├── .mcp.json                      # remote Realize MCP wiring
 ├── .github/workflows/validate.yml # CI: JSON + YAML frontmatter checks
