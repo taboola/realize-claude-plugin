@@ -201,7 +201,7 @@ API field names and raw enum values from the Realize MCP are internal implementa
 | `platform_targeting: [PHON]` / `INCLUDE [PHON]` | "Mobile phones" |
 | `[GB]` / `[US]` / two-letter ISO codes alone | Country names spelled out ("United Kingdom", "United States") |
 | `PENDING_APPROVAL` / `PAUSED` / `RUNNING` / `REJECTED` (status enum) | Sentence-cased plain English: "Pending approval", "Paused", "Running", "Rejected" |
-| `budget_distribution_method` / `AUTOMATIC` / `CUSTOM` | "the Campaign Group shares its budget across its campaigns, and splits it automatically" (`AUTOMATIC`) or "each campaign in the group keeps its own budget" (`CUSTOM`). Never surface the field name or the enum. |
+| `budget_distribution_method` / `AUTOMATIC`, `FULLY_SHARED`, `CPA_BASED_ALLOCATION` / `CUSTOM` | "the Campaign Group shares its budget across its campaigns, and splits it automatically" (the first three, which behave identically) or "each campaign in the group keeps its own budget" (`CUSTOM`). Never surface the field name or the enum. |
 | `STOPPED` (a Campaign Group's status) | The group has been deleted, **and deleting a group terminates its campaigns** — don't offer it as a live option, don't say "stopped", and don't report a conversion goal for a campaign that is no longer running. |
 | `STRICT` / `BALANCED` (`daily_ad_delivery_model`) | Don't surface at all; it's an internal pacing knob. If must, say "tight daily pacing" / "smoothed pacing". |
 | `OPTIMIZED` / `EVEN` (`traffic_allocation_mode`) | "algorithm-optimized rotation" / "even rotation (A/B test mode)" |

@@ -254,7 +254,7 @@ About to call create_campaign with:
   name: "<name>"
   marketing_objective: <enum>
   branding_text: "<branding_text>"
-  spending_limit_model: <enum>           # omit in an AUTOMATIC-budget group
+  spending_limit_model: <enum>           # omit in a managed-budget group
   bid_strategy: <enum>
   daily_cap: <amount> <currency>      # if supplied
   cpa_goal: <amount> <currency>       # if supplied
@@ -291,7 +291,7 @@ If the user did not explicitly say to launch, set `is_active=false` (or omit, si
 1. Resolve `account_id`, `campaign_id`.
 2. Call `get_campaign` to capture current state.
 3. **If the response carries a `campaign_group_id` that is a positive number** (`0` / `null` / `""` / absent all mean ungrouped — do not search for them), and any field you are about to change is `spending_limit_model` / `spending_limit` / `daily_cap` / `daily_ad_delivery_model`, read the group before previewing anything. Read it per `knowledge/campaign-structure.md` → *Reading a campaign group*. An unread group is **not** an unshared one — if you cannot confirm the budget setup, say so instead of previewing the write. If the group shares its budget across its campaigns, **stop**: those four fields are locked on the campaign and the API rejects them. Say the budget lives on the Campaign Group, not on the campaign. Changing it there is a write this skill performs — `update_campaign_group`, per *Creating or updating a campaign group* — and it reaches every campaign in the group, so offer it as the next step rather than sending the user to the Realize UI. Non-budget scalars (name, bid, tracking code) are unaffected — carry on to step 4.
-4. **If `campaign_group_id` is one of the fields being changed, it is an attach and nothing else.** `update_campaign` can only put a campaign that is currently in **no** group into a group, and only into a `CUSTOM`-budget one. If the campaign already has a positive `campaign_group_id`, refuse: moving or detaching has no MCP tool at any level and is a Realize UI action. If it is ungrouped, read the target group per `knowledge/campaign-structure.md` → *Reading a campaign group* and refuse if it is `AUTOMATIC`. **The preview must say the attach cannot be undone from here** — once the campaign is in the group it only comes out in the Realize UI, and in an `AUTOMATIC` group it hands over budget control for good. A user confirming an ordinary-looking diff must not discover that afterwards.
+4. **If `campaign_group_id` is one of the fields being changed, it is an attach and nothing else.** `update_campaign` can only put a campaign that is currently in **no** group into a group, and only into a `CUSTOM`-budget one. If the campaign already has a positive `campaign_group_id`, refuse: moving or detaching has no MCP tool at any level and is a Realize UI action. If it is ungrouped, read the target group per `knowledge/campaign-structure.md` → *Reading a campaign group* and refuse if it is `AUTOMATIC`. **The preview must say the attach cannot be undone from here** — once the campaign is in the group it only comes out in the Realize UI, and in a managed-budget group it hands over budget control for good. A user confirming an ordinary-looking diff must not discover that afterwards.
 5. Render diff preview:
    ```
    ▶ WRITE TARGET: <account_name> (<account_id>)
@@ -487,7 +487,7 @@ For `update_display_item` arrays (`verification_pixel`, `viewability_tag`): same
 ### Two things to say out loud
 
 - **There is no delete.** Deleting a group terminates all its campaigns, so `is_active=false` is the retirement. Never imply a group can be removed.
-- **Switching the budget split to `AUTOMATIC` is one-way in practice.** Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so do not present it as a toggle that can be undone.
+- **Switching the budget split to a managed mode is one-way in practice.** Upstream does not document what happens to the campaigns' own budgets if the group returns to `CUSTOM`, so do not present it as a toggle that can be undone.
 
 ## Post-write verification
 
