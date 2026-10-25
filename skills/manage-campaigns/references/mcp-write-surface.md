@@ -283,7 +283,7 @@ Both are **closed schemas**, and here that matters more than usual: the backend'
 - **Immutable after create on `PIXEL`:** `type`, `category`, `event_name`. Changing one returns a read-only error.
 - **`combined_audience_components` is full-replace on update**, not a merge.
 - **The read payload is not a valid update body** — `id`, `advertiser_id`, `audience_size`, `provider`, `data_type`, `size`, `last_modified_by`, `last_modified_at` are all rejected as unknown.
-- **Archiving is the only retirement** — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — and it reverses. No delete endpoint exists for any audience type anywhere. Once a `COMBINED` audience is archived, archiving state is the only thing an update may change.
+- **Archiving is the only retirement** — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest. **It reverses for pixel and combined audiences only.** On a `CUSTOMER_LIST` the un-archive is a no-op on the segments: the flag clears, the audience looks restored in the listing, and it no longer targets anyone. Treat archiving a customer list as permanent. No delete endpoint exists for any audience type anywhere. Once a `COMBINED` audience is archived, archiving state is the only thing an update may change.
 - **Membership is never editable.** Nothing here changes who is in an audience; to change a customer list's members, create a new one from a new file. A new list also matches slowly, so it will be small or empty right after creation.
 
 Read the audience first per `knowledge/audiences.md` → *Reading an audience*, which also carries the subtype traps the preview depends on.

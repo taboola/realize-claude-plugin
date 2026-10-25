@@ -35,7 +35,7 @@ If the user is *asking* about a campaign rather than changing it, route to the `
 | `mcp__realize-mcp__update_conversion_rule` | `account_id`, `rule_id` | Yes | **Partial-merge on every field, including `condition` and `effects`** — omitted fields keep their stored value. The only way to retire a rule (`status=DISABLED` / `ARCHIVED`); there is no delete tool. |
 | `mcp__realize-mcp__create_campaign_group` | `account_id`, `name`, `spending_limit_model` | No | **Group-level.** Closed schema — a misspelled field is rejected, not dropped. The budget period is required even when the split is `CUSTOM`. `marketing_objective` and `kpi` must travel together. See `references/mcp-write-surface.md` §3c. |
 | `mcp__realize-mcp__create_audience` | `account_id`, `audience_type` | No | **Account-level.** Closed schema, and the backend's deserializer throws on an unknown field. `audience_type` (`PIXEL` / `COMBINED` / `CUSTOMER_LIST`) decides what else is required. A `CUSTOMER_LIST` create **sends customer records to Taboola** — see §3d. |
-| `mcp__realize-mcp__update_audience` | `account_id`, `audience_type`, `audience_id` | Yes | **Account-level.** Partial-merge, closed schema. `CUSTOMER_LIST` updates take a different five-field body, not the create fields. **No delete exists anywhere** — archiving is the retirement, and it reverses. |
+| `mcp__realize-mcp__update_audience` | `account_id`, `audience_type`, `audience_id` | Yes | **Account-level.** Partial-merge, closed schema. `CUSTOMER_LIST` updates take a different five-field body, not the create fields. **No delete exists anywhere** — archiving is the retirement, and it reverses for pixel and combined audiences; on a customer list the un-archive clears the flag without reactivating the segments, so it looks restored and is not. |
 | `mcp__realize-mcp__update_campaign_group` | `account_id`, `campaign_group_id` | Yes | **Group-level, and the widest blast radius on this surface** — changing the budget split or a shared group's budget reaches every campaign in the group, and `is_active=false` pauses them all. Closed schema, partial-merge. No delete. See §3c. |
 
 For previews and merges, this skill also reads `mcp__realize-mcp__get_campaign`, `mcp__realize-mcp__get_item`, `mcp__realize-mcp__get_conversion_rules`, `mcp__realize-mcp__get_campaign_groups` — **by id**, per `knowledge/campaign-structure.md` → *Reading a campaign group* — and `mcp__realize-mcp__list_campaigns`, which is how a group's member campaigns are counted for a group-write preview (no tool returns them directly).
@@ -156,7 +156,8 @@ The skill never submits a write without first showing the user a preview and get
 | `create_audience` (`PIXEL` / `COMBINED`) | Full preview |
 | `create_audience` (`CUSTOMER_LIST`) | Full preview **+ what is being sent and from where** — the one write where what leaves matters more than what changes |
 | `update_audience` (including archiving) | Diff preview. Archiving gets a full preview — it is the closest thing to a delete, though it reverses |
-| `update_audience` with `exclude_from_campaigns: true` | Full preview, and the **only** audience write that is genuinely irreversible — say so before asking |
+| `update_audience` with `exclude_from_campaigns: true` | Full preview — irreversible, say so before asking |
+| `update_audience` archiving a `CUSTOMER_LIST` | Full preview — also irreversible, and worse: the un-archive **looks** like it worked |
 | `update_native_item` (`is_active` toggle only) | One-line confirm |
 
 Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
@@ -503,7 +504,7 @@ For `update_display_item` arrays (`verification_pixel`, `viewability_tag`): same
 
 - A **CRM customer-list upload sends customer records to Taboola.** That is the one write where what leaves the user's side matters more than what changes on the account, and the preview has to say so.
 - **`exclude_from_campaigns: true` cannot be undone by setting it back to `false`.** It writes an exclusion onto every campaign on the account; clearing the flag afterwards leaves every one of them in place, and only a per-campaign edit removes them. Treat it as the destructive tier and say so plainly before the confirmation — it is closer to a delete than to a toggle.
-- **Nothing here is deletable.** No audience type has a delete endpoint at any level. Archiving — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — is the retirement, and it **reverses**.
+- **Nothing here is deletable.** No audience type has a delete endpoint at any level. Archiving — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — is the retirement. It **reverses for pixel and combined audiences**; on a customer list it does not, and the un-archive looks successful while the audience stays unusable.
 - **A successful create can read back as missing.** A new audience is often not readable by its own id for a while, and for a `CUSTOMER_LIST` the returned id is the underlying rule's and is not readable at all. A 404 after a create does **not** mean the create failed.
 
 ### Workflow
@@ -567,7 +568,7 @@ One consequence worth catching early: if a campaign sits in a group that **share
 
 **`create_audience` and `update_audience` are wired**, so they are **not** UI fallbacks. Creating a pixel or combined audience, uploading a CRM customer list, editing one and archiving one all go through this skill's preview-then-confirm gate like every other write. A CRM upload sends customer records to Realize — say so in the preview, before asking for the confirmation, not after.
 
-Archiving is the only retirement: no delete endpoint exists for any audience type anywhere, and archiving reverses (`status: ACTIVE` for a pixel audience, `is_archived: false` for the rest).
+Archiving is the only retirement: no delete endpoint exists for any audience type anywhere, and archiving reverses for pixel and combined audiences; on a customer list the un-archive clears the flag without reactivating the segments, so it looks restored and is not (`status: ACTIVE` for a pixel audience, `is_archived: false` for the rest).
 
 Reading audiences is wired too (`search_audiences`), and so is pointing a campaign at one — `audiences_targeting` and `lookalike_audience_targeting` on `create_campaign` / `update_campaign`, including targeting an existing predictive audience, which is not the same as building one.
 

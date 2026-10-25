@@ -588,8 +588,9 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - If the user hands over a Drive `/view` link, a Docs or Sheets `/edit` link, or any `?usp=sharing` URL, explains it needs a direct link to the file rather than forwarding it.
 - **After the create, does not treat a 404 on the returned id as a failure.** For a customer list the returned id is the underlying rule's and is not readable; confirm from the plain listing by name. Re-creating the audience is a fail.
 - Does not promise the audience is ready: matching is slow, so it will be small or empty right after creation.
+- **If the user asks to undo the upload, does not offer archiving as a reversible pause.** On a customer list the un-archive restores the flag and not the segments, so the audience looks recovered and is not. Offering it as a way to "turn it off for now" is a fail.
 
-**Cleanup:** archive it — `is_archived: true`. There is no delete, and archiving reverses.
+**Cleanup:** archive it — `is_archived: true`. There is no delete. **This one does not reverse:** un-archiving a customer list clears the flag without reactivating its segments, so the audience comes back in the listing and never targets anyone again. Treat the QA audience as spent, and prefer a throwaway name per run.
 
 ---
 
@@ -610,7 +611,7 @@ The write this PR's goal chain exists for, and the one where the ordinary target
 - **After the create, a 404 on the returned id is not a failed create.** Confirm from the plain listing; re-creating is a fail.
 - **Second half — archive it.** The answer uses `status: "ARCHIVED"`, **not** `is_archived: true`: the two spellings are per-subtype and a pixel audience takes the first. Reaching for a delete tool is a fail; there is none at any level. The answer should also say archiving reverses, so the user knows it is not destructive.
 
-**Cleanup:** none needed beyond the archive the scenario already performs. Restore with `status: "ACTIVE"` if the audience is wanted for a later run.
+**Cleanup:** none needed beyond the archive the scenario already performs. Restore with `status: "ACTIVE"` if the audience is wanted for a later run — on a **pixel** audience that genuinely works, which is the contrast with W23, where the same-looking restore does not.
 
 ---
 
