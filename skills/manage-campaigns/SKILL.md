@@ -155,7 +155,8 @@ The skill never submits a write without first showing the user a preview and get
 | `update_campaign_group` (any field) | Full preview **+ the blast-radius line** — never a one-line confirm, including for `is_active`. Uses the plain-language group preview in *Creating or updating a campaign group*, **not** the generic field-list template below. |
 | `create_audience` (`PIXEL` / `COMBINED`) | Full preview |
 | `create_audience` (`CUSTOMER_LIST`) | Full preview **+ what is being sent and from where** — the one write where what leaves matters more than what changes |
-| `update_audience` (including archiving) | Diff preview; archiving gets a full preview, since it is the closest thing to a delete |
+| `update_audience` (including archiving) | Diff preview. Archiving gets a full preview — it is the closest thing to a delete, though it reverses |
+| `update_audience` with `exclude_from_campaigns: true` | Full preview, and the **only** audience write that is genuinely irreversible — say so before asking |
 | `update_native_item` (`is_active` toggle only) | One-line confirm |
 
 Four special cases layer on top: `update_campaign` touching a targeting block adds a full-replace warning; `update_native_item` runs a status check before previewing; `create_campaign` states the launch state explicitly; and any conversion-rule write names its account-level consequence. Detail in the workflow sections below.
@@ -501,6 +502,7 @@ For `update_display_item` arrays (`verification_pixel`, `viewability_tag`): same
 **What makes these different from the other writes.** Three things:
 
 - A **CRM customer-list upload sends customer records to Taboola.** That is the one write where what leaves the user's side matters more than what changes on the account, and the preview has to say so.
+- **`exclude_from_campaigns: true` cannot be undone by setting it back to `false`.** It writes an exclusion onto every campaign on the account; clearing the flag afterwards leaves every one of them in place, and only a per-campaign edit removes them. Treat it as the destructive tier and say so plainly before the confirmation — it is closer to a delete than to a toggle.
 - **Nothing here is deletable.** No audience type has a delete endpoint at any level. Archiving — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — is the retirement, and it **reverses**.
 - **A successful create can read back as missing.** A new audience is often not readable by its own id for a while, and for a `CUSTOMER_LIST` the returned id is the underlying rule's and is not readable at all. A 404 after a create does **not** mean the create failed.
 
