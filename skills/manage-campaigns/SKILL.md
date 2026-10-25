@@ -503,7 +503,7 @@ For `update_display_item` arrays (`verification_pixel`, `viewability_tag`): same
 **What makes these different from the other writes.** Three things:
 
 - A **CRM customer-list upload sends customer records to Taboola.** That is the one write where what leaves the user's side matters more than what changes on the account, and the preview has to say so.
-- **`exclude_from_campaigns: true` cannot be undone by setting it back to `false`.** It writes an exclusion onto every campaign on the account; clearing the flag afterwards leaves every one of them in place, and only a per-campaign edit removes them. Treat it as the destructive tier and say so plainly before the confirmation — it is closer to a delete than to a toggle.
+- **`exclude_from_campaigns: true` is only half-undoable.** It writes an exclusion onto every campaign on the account. Setting it back to `false` stops **new** campaigns inheriting it and leaves every **existing** campaign excluded until a per-campaign edit removes it. Treat it as the destructive tier and say both halves before the confirmation — a user who reads "off" will assume it reverted.
 - **Nothing here is deletable.** No audience type has a delete endpoint at any level. Archiving — `status: "ARCHIVED"` for a pixel audience, `is_archived: true` for the rest — is the retirement. It **reverses for pixel and combined audiences**; on a customer list it does not, and the un-archive looks successful while the audience stays unusable.
 - **A successful create can read back as missing.** A new audience is often not readable by its own id for a while, and for a `CUSTOMER_LIST` the returned id is the underlying rule's and is not readable at all. A 404 after a create does **not** mean the create failed.
 
