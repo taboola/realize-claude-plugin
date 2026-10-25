@@ -162,7 +162,7 @@ When recommending a Target CPA value, the value you set matters as much as the d
 | Maximize Conversions, CPA too high | CPA consistently above goal after learning phase | Add Target CPA — set at or near current actual CPA, not an aspirational target. Expect a scale drop if the target is lower than existing performance. Check average CPA from past weeks using post-click performance only. |
 | Maximize Conversions, scale is low | Budget not depleting | Use auction insights to investigate. Consider expanding targeting and refreshing ads. Raise budget, broaden targeting. |
 | Maximize Conversions, high CTR low CVR | Good clicks but no conversions | Reassess landing-page quality, check creative relevance, adjust targeting. |
-| Maximize Conversions, high CVR low scale | Converting well but not enough volume | Raise bid, expand targeting, consider splitting out top placements. |
+| Maximize Conversions, high CVR low scale | Converting well but not enough volume | Expand targeting, consider splitting out top placements. |
 | Maximize Conversions, steady scale but high CPA | Spending but CPA above goal | Add predictive or CRM audience layering, refresh creative, refine site list. |
 | Any strategy, stalled scale post-launch | Campaign not growing | Wait until the campaign reports it is out of learning (`cvr_learning_status`), typically ~7-10 days but judge on the status. Review targeting or bid constraints. Use auction insights. |
 | Enhanced CPC, performance acceptable | Stable and competitive | Consider gradually shifting to Maximize Conversions for more automation. |
@@ -288,7 +288,7 @@ CPA volatility immediately after launch is common — the algorithm is learning 
 | Signal | Suggested Actions |
 |---|---|
 | High CTR, Low CVR | Reassess landing-page quality, check creative relevance, adjust targeting. |
-| High CVR, Low Scale | Raise bid, expand targeting, move to Maximize Conversions (if not already), consider splitting out top placements. |
+| High CVR, Low Scale | Expand targeting, move to Maximize Conversions (if not already), consider splitting out top placements. |
 | Steady scale, High CPA | Add predictive or CRM audience layering, refresh creative, refine site list. |
 | Stalled scale post-launch | Wait until `cvr_learning_status` reports out of learning (typically ~7-10 days, but the status decides). Review targeting or bid constraints. Use auction insights. |
 | Maximize Conversions active, CPA too high | Add Target CPA — expect a scale drop if the target is lower than existing performance. Check average CPA from past weeks (post-click only). Consider blocking underperforming sites using Custom Rules. |

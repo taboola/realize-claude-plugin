@@ -46,6 +46,9 @@ The directory check held 0.5.4 for policy review. This release clears every find
   - `MCP_FORWARDS_CREDENTIAL_ENV`: nothing reads a credential. Login is Claude Code's OAuth against the MCP, and the only header is the static client identifier.
   - `UNKNOWN_KEY` on `privacyPolicyUrl`: the finding says no action is needed.
 
+### Fixed
+- **No more "raise bid" advice for Maximize Conversions.** In `knowledge/bidding.md`, the *When to Switch Strategies* row for a Maximize Conversions campaign with high CVR and low scale told users to "raise bid". On Maximize Conversions the algorithm sets the bid, so there is no bid to raise (see the Bid Levers matrix in the same file). The row now reads "Expand targeting, consider splitting out top placements". The matching *CPA Spike Signal Table* row (High CVR, Low Scale), which covers all bid strategies, is aligned to the internal Realize Best Practices source (which has no "raise bid" there) and drops it too. Raising the bid on Enhanced CPC / Fixed Bid is still covered in `skills/optimize-campaign/references/optimization-flow.md` §2.1 and `knowledge/budget.md`.
+
 ## [0.5.4] — Unreleased (pending directory review)
 
 > **Versioning note.** Everything below ships as **one** release, set to **0.5.4** (DEV-240749) in the three Claude-plugin places: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `.mcp.json`'s `X-Realize-Client` header, which is what upstream telemetry attributes traffic to. `.codex-plugin/plugin.json` is versioned separately and was not touched. 0.4.0 → 0.5.3 were successive corrections to this same unshipped change; 0.5.1 is the build the Anthropic directory check blocked. Nothing after 0.3.0 was released, but those numbers already appeared on `main`, so the release moves forward to 0.5.4 rather than back to 0.4.0. The breaking change (the retired report tools) is already covered by the 0.3 → 0.5 minor bump.
