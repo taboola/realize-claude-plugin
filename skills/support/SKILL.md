@@ -1,7 +1,7 @@
 ---
 name: support
 description: Package the current conversation into a single Markdown file the user can email to Taboola Support so Professional Services can debug what happened. Activates on /realize-plugin:support, and whenever the user wants to escalate to a human, report that the plugin gave a wrong or suspicious answer, or file a bug. Writes one local file after an explicit confirmation — never transmits anything.
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Edit(~/.realize-plugin/tmp/**)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --preview)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --write --complaint-file ~/.realize-plugin/tmp/complaint-*.txt)", "Bash(node \"${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js\" --write --title-file ~/.realize-plugin/tmp/title-*.txt)", "AskUserQuestion"]
 ---
 
 # Support Bundle
@@ -34,8 +34,12 @@ This is deliberate. If the plugin misread the user, a summary written by the plu
 ### Step 1 — Preview (never skip)
 
 ```bash
-node skills/support/scripts/build-bundle.js --preview
+node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --preview
 ```
+
+Run it exactly in this form — path in double quotes, one line. The quotes keep a plugin path with a space in it (`C:/Users/John Smith/…`) in one piece. The pre-approval covers only this command and the Step 4 command, character for character; anything else, including extra flags, raises a permission prompt.
+
+If the shell reports that `node` is not found, stop: the bundle needs Node.js 18 or later, which Claude Code's native and desktop installs don't include. Tell the user that plainly, and offer the fallback — they can email Support@taboola.com directly with a description of the problem and the account ID.
 
 Writes nothing. Prints what would be captured: session ID, time window, turn counts, Realize actions attempted and how many failed, account/campaign IDs involved, local paths, and estimated file size.
 
@@ -57,19 +61,20 @@ If the preview says match confidence is **guessed**, tell the user plainly: the 
 
 **Do not compose a title.** The script uses the user's own complaint as the email subject, collapsed to one line, capped for a subject header, with the account ID appended for triage. Case intake copies that subject into the case Subject field, and the user's sentence is the most faithful description of their own problem available.
 
-`--title-file` still exists, but only as the fallback for a run where the user gave no description at all. If they described the problem, the description is the subject.
+`--title-file` still exists, but only as the fallback for a run where the user gave no description at all. If they described the problem, the description is the subject. A title file follows the same rules as the complaint file in Step 4: it must sit directly in `~/.realize-plugin/tmp/`, named `title-<YYYYMMDD-HHMMSS>-<random>.txt`, and the run is `node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --write --title-file ~/.realize-plugin/tmp/title-<…>.txt` — one file flag per run, nothing else on the line.
 
 ### Step 4 — Write the file
 
 **Never pass the complaint or title as a quoted shell argument.** Write them to files first, then point the script at the files:
 
-1. `Write` the user's description verbatim to `complaint.txt` (use the session scratchpad or the system temp folder — never the plugin repo).
+1. `Write` the user's description verbatim to a new file `~/.realize-plugin/tmp/complaint-<YYYYMMDD-HHMMSS>-<random>.txt` — the current time plus a few random letters or digits, e.g. `complaint-20261019-141502-k7q2.txt`. A name per run keeps two support runs (two sessions, say) from reading each other's text. That folder is the only place the script reads text from, it only accepts `complaint-…` / `title-…` `.txt` names made of letters, digits, `-` and `_`, and it's the only place this skill may write without a prompt.
 2. Run:
 
 ```bash
-node skills/support/scripts/build-bundle.js --write \
-  --complaint-file <path>/complaint.txt
+node "${CLAUDE_PLUGIN_ROOT}/skills/support/scripts/build-bundle.js" --write --complaint-file ~/.realize-plugin/tmp/complaint-<YYYYMMDD-HHMMSS>-<random>.txt
 ```
+
+with the exact file name you wrote, and nothing else on the line.
 
 This is not a style preference. The shell rewrites this text: `$12.40` arrives as `2.40`, `$500` arrives as `00`, and backticks or `$(…)` **execute**. Complaints in this domain are full of currency amounts, and users paste error text they didn't write. The whole point of the bundle is that the evidence reaches PS unaltered, so it must not pass through the shell.
 
@@ -77,7 +82,7 @@ This is not a style preference. The shell rewrites this text: `$12.40` arrives a
 
 The complaint is the user's own description — use their words. If they ran the command with no description, ask one short question ("In one line, what went wrong?") and pass the answer through unedited. Don't write it for them.
 
-`--out <path>` overrides the destination. Default is Desktop, then Downloads, then home folder — skipping any that OneDrive has redirected to the cloud.
+`--out <path>` overrides the destination. Default is Desktop, then Downloads, then home folder — skipping any that OneDrive has redirected to the cloud. `--out` must name a new `.md` file directly inside one of those folders; the script refuses anything else. It isn't pre-approved, so the user sees a permission prompt for it.
 
 ### Step 5 — Tell them how to send it
 
@@ -92,7 +97,7 @@ Three parts, because case intake maps each one to a different field. The file's 
 
 Say plainly that nothing was sent automatically — sending is their decision.
 
-Then delete the scratch `complaint.txt` you created in Step 4. It holds the user's description of their problem and serves no purpose once the bundle exists.
+You don't need to delete the complaint file — the script removes it once the bundle is written, because it holds the user's description and serves no purpose after that. Files left behind by a cancelled run are removed by the next run once they are a day old. If the script reports it couldn't delete the file, the bundle was still written; tell the user where the leftover file is.
 
 ## What the bundle contains
 
@@ -120,11 +125,11 @@ Then delete the scratch `complaint.txt` you created in Step 4. It holds the user
 - **The current turn is mid-write.** The transcript is complete up to roughly the user's command message; the assistant reply being composed right now isn't in it yet. Harmless, but don't promise it captured "everything including this reply".
 - **Large sessions get truncated.** Tool results cap at 2,000 characters, user messages at 4,000, internal reasoning at 1,200, and the bundle at 8 MB to stay email-attachable. Truncation is marked inline and never leaves a code fence or `<details>` block unclosed. If a specific large CSV matters to the case, tell the user to attach it separately. Transcripts above 256 MB are refused outright with an explanation rather than crashing.
 - **An unreadable `--complaint-file` is fatal, and that's deliberate.** It exits 1 without writing. Continuing would produce a bundle stating *"The user did not add a description"* about a user who did describe the problem — a false statement to support is worse than no bundle. It would also silently drop the email subject, since the subject is derived from the complaint. If you see that error, check the path you wrote to.
-- **The script refuses to overwrite.** If `--out` points at an existing file it exits 1 rather than clobbering it. Pass `--force` only when the user has asked to replace that specific file. (An auto-generated default name that collides simply gets a `-1` suffix — no error.)
+- **The script refuses to overwrite.** If `--out` points at an existing file it exits 1 rather than clobbering it; pick a different file name. `--force` works only when a person runs the script in a terminal, so don't pass it. (An auto-generated default name that collides simply gets a `-1` suffix — no error.)
 - **The script refuses to write inside a git repository**, including this one, and exits 1. The bundle holds customer campaign data and this plugin's repo is public, so a bundle committed by accident is a data leak. If you see that error, choose a path outside the repo — the default destination already is one.
 - **Unit tests:** `node skills/support/scripts/test-build-bundle.js` covers the redaction rules, table-cell safety, truncation, and destination guards. Run it after touching the script; CI runs it too.
 - **No Realize actions in the session** is normal and not an error — it usually means the complaint is about the *content* of an answer, not a failed call. The bundle says so explicitly.
-- **Node is required** and always present, since Claude Code itself runs on Node. Do not add a Python path.
+- **Node.js 18+ is required, and not every install has it** — the native installer and desktop app don't include it. If `node` is missing, follow the fallback in Step 1. Do not add a Python path.
 
 ## Example prompts
 

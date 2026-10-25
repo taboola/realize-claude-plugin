@@ -1,7 +1,7 @@
 ---
 name: campaigns
 description: List and inspect Realize campaigns, their creatives/items, and the campaign groups above them. Use after an account_id is resolved. Also answers "what is this campaign optimizing toward" — a group's conversion goal covers every campaign in it that sets none of its own.
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "AskUserQuestion"]
 ---
 
 # Campaigns

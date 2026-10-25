@@ -14,14 +14,19 @@
  *
  * Usage:
  *   node build-bundle.js --preview
- *   node build-bundle.js --write --title-file <path> --complaint-file <path>
- *                        [--out <path>] [--force]
+ *   node build-bundle.js --write --complaint-file ~/.realize-plugin/tmp/complaint-<stamp>-<rand>.txt
+ *   node build-bundle.js --write --title-file ~/.realize-plugin/tmp/title-<stamp>-<rand>.txt
+ *                        [--out <file.md>] [--force]
  *
  * Pass user-authored text by file, not as a quoted argument: the shell rewrites
  * it (`$12.40` becomes `2.40`) and `$(…)` executes. `--title` / `--complaint`
- * remain for trivial ASCII only.
+ * remain for trivial ASCII only. Both file options read only files named
+ * complaint-*.txt / title-*.txt directly inside INPUT_DIR (~/.realize-plugin/tmp);
+ * they are deleted after a successful --write, and leftovers from cancelled
+ * runs are pruned after a day. `--force` needs an interactive terminal.
  *
- * Node ships with Claude Code, so it is always available. No dependencies.
+ * Requires Node 18+ on PATH. Claude Code's native and desktop installs do not
+ * provide one; the skill tells the user when `node` is missing. No dependencies.
  */
 
 const fs = require('fs');
@@ -29,6 +34,17 @@ const path = require('path');
 const os = require('os');
 
 const SUPPORT_EMAIL = 'Support@taboola.com';
+
+// The only folder --complaint-file / --title-file may read from. This script is
+// pre-approved to run without a prompt, so a file option that accepted any path
+// would let it read — and copy into an email attachment — any file the user
+// can read. The skill's write permission is scoped to this same folder.
+const INPUT_DIR = path.join(os.homedir(), '.realize-plugin', 'tmp');
+// One file per run (`complaint-20261019-141502-k7q2.txt`), so two support runs
+// never read each other's text. Anything else in the folder is refused.
+const INPUT_NAME = /^(complaint|title)-[A-Za-z0-9_-]+\.txt$/;
+// Leftovers from a run that was cancelled before --write.
+const KEEP_INPUT_MS = 24 * 60 * 60 * 1000;
 
 // Prepended to the summary so the case opens with its own provenance. Requested
 // by PS: a Description that starts mid-diagnostics reads like a forwarded stack
@@ -63,6 +79,7 @@ function parseArgs(argv) {
     out: '',
     force: false,
     allowGit: false,
+    inputFiles: [],
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -72,8 +89,8 @@ function parseArgs(argv) {
     else if (a === '--allow-git') out.allowGit = true;
     else if (a === '--title') out.title = argv[++i] || '';
     else if (a === '--complaint') out.complaint = argv[++i] || '';
-    else if (a === '--title-file') out.title = readTextFile(argv[++i]);
-    else if (a === '--complaint-file') out.complaint = readTextFile(argv[++i]);
+    else if (a === '--title-file') out.title = readTextFile(argv[++i], INPUT_DIR, out.inputFiles);
+    else if (a === '--complaint-file') out.complaint = readTextFile(argv[++i], INPUT_DIR, out.inputFiles);
     else if (a === '--out') out.out = argv[++i] || '';
   }
   if (!out.preview && !out.write) out.preview = true;
@@ -95,16 +112,60 @@ function parseArgs(argv) {
  * byte-for-byte. `--complaint` / `--title` remain for trivial ASCII, but the
  * file variants are the supported path.
  */
-function readTextFile(p) {
+function readTextFile(p, inputDir = INPUT_DIR, seen = []) {
   if (!p) throw new Error('--complaint-file / --title-file was given without a path.');
+  // realpath on both sides, so neither `..` nor a symlink inside the folder can
+  // point the read somewhere else.
+  let real;
+  let root;
   try {
-    return fs.readFileSync(p, 'utf8').trim();
+    real = fs.realpathSync(p);
+    root = fs.realpathSync(inputDir);
+  } catch (err) {
+    throw new Error(`could not read ${p} — ${err.message}`);
+  }
+  if (path.dirname(real) !== root) {
+    throw new Error(`${p} must be a file directly inside ${inputDir}. Write the text there and pass that path.`);
+  }
+  if (!INPUT_NAME.test(path.basename(real))) {
+    throw new Error(`${p}: name the file complaint-<time>-<random>.txt or title-<time>-<random>.txt.`);
+  }
+  // realpath sees through symlinks but not hard links: a second name for a
+  // file elsewhere looks like a regular file inside the folder. A file this
+  // run wrote has exactly one name.
+  const st = fs.lstatSync(real);
+  if (!st.isFile() || st.nlink !== 1) {
+    throw new Error(`${p} must be a regular file written for this run.`);
+  }
+  seen.push(real);
+  try {
+    return fs.readFileSync(real, 'utf8').trim();
   } catch (err) {
     // Fatal on purpose. Continuing would write a bundle whose "What the user
     // reported" section reads "The user did not add a description" — an
     // affirmative false statement to support about a user who did describe the
     // problem. Losing the complaint is worse than failing loudly.
     throw new Error(`could not read ${p} — ${err.message}`);
+  }
+}
+
+/** Remove complaint/title files a cancelled run left behind, once a day old. */
+function pruneInputDir(inputDir = INPUT_DIR, now = Date.now()) {
+  let names = [];
+  try {
+    names = fs.readdirSync(inputDir);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!INPUT_NAME.test(name)) continue;
+    const p = path.join(inputDir, name);
+    try {
+      const st = fs.lstatSync(p);
+      if (st.isFile() && now - st.mtimeMs > KEEP_INPUT_MS) fs.rmSync(p, { force: true });
+    } catch {
+      // Already gone, or not ours to remove; nothing to do.
+    }
   }
 }
 
@@ -919,6 +980,64 @@ function defaultOutPath(sessionId) {
   return path.join(os.tmpdir(), name);
 }
 
+/** The folders a bundle may be written to: the ones defaultOutPath() picks from. */
+function allowedOutDirs() {
+  const home = os.homedir();
+  return [path.join(home, 'Desktop'), path.join(home, 'Downloads'), home, os.tmpdir()];
+}
+
+/** A person at a terminal — never the case for a command the model runs. */
+function isInteractive() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+/**
+ * Limits on where a bundle may be written, checked before anything else runs.
+ *
+ * The skill pre-approves this script, and a permission rule can't pin every
+ * argument, so the script itself refuses what would turn "write a support
+ * bundle" into "write any file": `--out` must be a new `.md` file directly
+ * inside one of the default bundle folders and not a symlink, and `--force` /
+ * `--allow-git` need an interactive terminal. Without the `.md` rule,
+ * `--out ~/.zshrc` would plant the transcript in a file the shell executes.
+ */
+function vetWriteArgs(args, { interactive = isInteractive(), outDirs = allowedOutDirs() } = {}) {
+  if ((args.force || args.allowGit) && !interactive) {
+    throw new Error('--force and --allow-git only work when a person runs this script in a terminal.');
+  }
+  if (!args.out) return;
+  const out = path.resolve(args.out);
+  const name = path.basename(out);
+  if (path.extname(name).toLowerCase() !== '.md' || name.startsWith('.')) {
+    throw new Error(`${args.out}: the bundle must be a .md file.`);
+  }
+  let dir;
+  try {
+    dir = fs.realpathSync(path.dirname(out));
+  } catch {
+    throw new Error(`${path.dirname(out)} does not exist.`);
+  }
+  const allowed = outDirs.some((d) => {
+    try {
+      return fs.realpathSync(d) === dir;
+    } catch {
+      return false;
+    }
+  });
+  if (!allowed) {
+    throw new Error(`${args.out}: write the bundle directly into your Desktop, Downloads or home folder.`);
+  }
+  let st = null;
+  try {
+    st = fs.lstatSync(out);
+  } catch {
+    // Doesn't exist yet — the normal case.
+  }
+  if (st && st.isSymbolicLink()) {
+    throw new Error(`${args.out} is a symbolic link; choose a different file name.`);
+  }
+}
+
 /** Add a numeric suffix until the name is free. */
 function nextAvailablePath(p) {
   const dir = path.dirname(p);
@@ -936,7 +1055,9 @@ function nextAvailablePath(p) {
 // ---------------------------------------------------------------------------
 
 function main() {
+  pruneInputDir();
   const args = parseArgs(process.argv.slice(2));
+  vetWriteArgs(args);
   const loc = findTranscript();
 
   if (loc.error) {
@@ -1016,7 +1137,7 @@ function main() {
       // Explicit path: the caller named this file, so silently replacing it
       // would destroy something they chose.
       throw new Error(
-        `${outPath} already exists. Choose a different --out path, or pass --force to overwrite it.`
+        `${outPath} already exists. Choose a different --out file name.`
       );
     }
     // Auto-generated name (second-resolution timestamp): two runs in the same
@@ -1025,7 +1146,22 @@ function main() {
   }
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, body, 'utf8');
+  // 'wx' fails if anything — including a symlink planted after the checks
+  // above — already sits at that path. Only an interactive --force replaces.
+  fs.writeFileSync(outPath, body, { encoding: 'utf8', flag: args.force ? 'w' : 'wx' });
+
+  // The complaint now lives in the bundle; the scratch copy has no purpose and
+  // shouldn't outlive it. Done here rather than by the model, because a cleanup
+  // command the user declines leaves their description on disk.
+  // A failed delete is a warning, not a failed bundle: the file the user needs
+  // exists, and reporting failure would send them to retry for nothing.
+  for (const f of args.inputFiles) {
+    try {
+      fs.rmSync(f, { force: true });
+    } catch (err) {
+      console.error(`WARNING: bundle written; could not delete ${f} (${err.message}). Delete it by hand.`);
+    }
+  }
 
   console.log('WROTE');
   console.log(`Path        : ${outPath}`);
@@ -1044,6 +1180,11 @@ function main() {
 // would prove nothing about this file.
 module.exports = {
   redact,
+  readTextFile,
+  pruneInputDir,
+  INPUT_DIR,
+  vetWriteArgs,
+  allowedOutDirs,
   redactValue,
   oneLine,
   parseArgs,
