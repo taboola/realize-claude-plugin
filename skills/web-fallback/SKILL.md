@@ -6,7 +6,7 @@ allowed-tools: ["Read", "WebSearch", "WebFetch(domain:realize.com)", "WebFetch(d
 
 # Web Fallback
 
-The knowledge base is finite; the questions aren't. There are 12 topic files, and an advertiser can ask hundreds of reasonable "how do I…" questions that fall just outside them. Before this skill existed, those questions got a thin answer from model priors or a shrug — neither of which is what the user came for, and the first is worse than the second.
+The knowledge base is finite; the questions aren't. There are 13 topic files, and an advertiser can ask hundreds of reasonable "how do I…" questions that fall just outside them. Before this skill existed, those questions got a thin answer from model priors or a shrug — neither of which is what the user came for, and the first is worse than the second.
 
 This skill closes that gap with one narrow move: look the topic up in Taboola's public advertiser help documentation, and answer with a *"this is what I found online"* framing. It is the last tier of the sourcing ladder in `os/guardrails.md` → *Sourcing — prioritize the plugin's own sources*, and it never outranks anything above it.
 
@@ -34,7 +34,7 @@ The topic file existing is not coverage. What matters is whether it answers **th
 
 The worked example: `knowledge/tracking.md` explains pixel-vs-S2S selection, network-vs-account-level pixel, and validation. It says nothing about installing the pixel on a specific storefront platform. *"Which tracking method should I use?"* is covered. *"How do I install the pixel on Shopify?"* is a miss — same topic, different question.
 
-**The how-vs-do split on UI-only domains.** A UI-only *action* ("install the pixel on my store for me", "upload this CRM audience") still gets the one-sentence acknowledgment plus the UI redirect — a lookup never unlocks work the plugin doesn't do. (Conversion-rule creation is **not** such an action — it's an MCP-backed gated write; don't cite it as a UI-only example.) But when the user asked *how* to do it themselves, the steps may come from a lookup, and the redirect to the Realize UI stays in the answer either way.
+**The how-vs-do split on UI-only domains.** An action with no MCP tool at any level ("install the pixel on my store for me", "build me a predictive audience from my purchasers") still gets the one-sentence acknowledgment plus the UI redirect — a lookup never unlocks work the plugin doesn't do. (Conversion-rule creation is **not** such an action — it's an MCP-backed gated write; don't cite it as a UI-only example.) But when the user asked *how* to do it themselves, the steps may come from a lookup, and the redirect to the Realize UI stays in the answer either way.
 
 ## Allowed source
 

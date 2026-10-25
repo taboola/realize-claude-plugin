@@ -173,7 +173,7 @@ scan_warn "Deprecated: bid algorithm / auto-bid" '\b(bid\s+algorithm|auto[- ]bid
 scan_warn "Deprecated: optimization event"       '\boptimi[sz]ation\s+event\b' "${PUBLIC[@]}"
 
 # Competitor terms (soft — sometimes referenced for clarification)
-scan_warn "Deprecated: lookalike as feature"     '\blookalike\s+(audience|segment|targeting)' "${PUBLIC[@]}"
+scan_warn "Deprecated: lookalike as feature"     '\blookalike\s+(audience|segment|targeting|seed|rule)' "${PUBLIC[@]}"
 scan_warn "Possible generic 'first-party segments'" '\bfirst[- ]party\s+segments\b' "${PUBLIC[@]}"
 
 # Awareness — Brand Awareness is allowed as the objective name (Tier 2 product context).

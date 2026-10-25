@@ -4,6 +4,31 @@
   "pathConvention": "Every topic.path is relative to the directory containing this manifest file (i.e., the /knowledge directory).",
   "topics": [
     {
+      "slug": "audiences",
+      "title": "Audiences",
+      "path": "audiences.md",
+      "tags": [
+        "audiences",
+        "audience",
+        "pixel audience",
+        "combined audience",
+        "customer list",
+        "CRM upload",
+        "CRM audience",
+        "lookalike",
+        "lookalike seed",
+        "audiences_targeting",
+        "archive an audience",
+        "search_audiences",
+        "combinable",
+        "audience expansion",
+        "similarity level",
+        "predictive audience",
+        "similarity_level"
+      ],
+      "description": "What the MCP can read and write about audiences: the three modes of the audience read, the traps that return plausible wrong results (data_type is not audience_type, a 404 by id, the combinable population), the audiences_targeting envelope, and where the capability boundary actually sits for CRM upload and lookalike creation."
+    },
+    {
       "slug": "bidding",
       "title": "Bidding",
       "path": "bidding.md",
@@ -143,9 +168,17 @@
         "Native vs Display lock-in",
         "cross-period comparison",
         "percent share",
-        "delta pp"
+        "delta pp",
+        "conversion goal",
+        "conversion goal inheritance",
+        "what is this campaign optimizing toward",
+        "campaign_group_id",
+        "reading a campaign group",
+        "shared budget",
+        "budget distribution method",
+        "attach campaign to group"
       ],
-      "description": "Campaign Groups, objectives, campaign types (Sponsored Content / Display) including the Native-vs-Display lock-in and the two MCP paths (CPC + first-item / VCPM), hierarchy, platform/device splits, and cross-period comparison of structural splits in % share."
+      "description": "Campaign Groups, the conversion-goal chain (campaign, then Campaign Group, then account default) and the canonical procedure for reading a group, objectives, campaign types (Sponsored Content / Display) including the Native-vs-Display lock-in and the two MCP paths (CPC + first-item / VCPM), hierarchy, which budget fields a group owns, platform/device splits, and cross-period comparison of structural splits in % share."
     },
     {
       "slug": "brand-safety",
