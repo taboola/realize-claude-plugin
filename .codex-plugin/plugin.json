@@ -1,8 +1,7 @@
 {
   "name": "realize-plugin",
-  "displayName": "Realize Plugin",
   "version": "0.2.0",
-  "description": "Query and manage Realize campaigns through natural language on Codex — powered by the Realize remote MCP. Ships the system prompt (including the write-tool preview-then-confirm gate), the knowledge layer, and the MCP wiring. The Claude Code skill-driven workflows (campaign-creation walkthroughs, optimization diagnostics, report aggregation prose) are not loaded on Codex; write tools remain gated by the rules in os/guardrails.md. See INSTALL.md for Codex-specific install notes (manifest name and MCP URL).",
+  "description": "Query and manage Realize campaigns through natural language on Codex — powered by the Realize remote MCP. Ships a focused guardrails skill and the MCP wiring. The Claude Code skill-driven workflows (campaign-creation walkthroughs, optimization diagnostics, report aggregation prose) are not loaded on Codex; writes remain gated by explicit preview and confirmation. See INSTALL.md for Codex-specific install notes.",
   "author": {
     "name": "Taboola"
   },
@@ -18,12 +17,21 @@
     "mcp",
     "analytics"
   ],
-  "mcp": "../.mcp.json",
-  "systemPrompts": [
-    { "path": "../os/guardrails.md", "required": true }
-  ],
-  "knowledge": {
-    "manifest": "../knowledge/manifest.json",
-    "root": "../knowledge/"
-  }
+  "interface": {
+    "displayName": "Realize Plugin",
+    "shortDescription": "Query and manage Realize campaigns",
+    "longDescription": "Query Taboola Realize accounts, campaigns, items, targeting, conversion rules, and performance reports through natural language. Writes are gated by an account-targeted preview and explicit confirmation.",
+    "developerName": "Taboola",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "List my Realize accounts.",
+      "Show campaign performance for the last 7 days.",
+      "Help me diagnose a tracking problem."
+    ],
+    "composerIcon": "./.claude-plugin/icon.png",
+    "logo": "./.claude-plugin/icon.png"
+  },
+  "skills": "./skills/realize-guardrails/",
+  "mcpServers": "./.mcp.json"
 }
