@@ -1,7 +1,7 @@
 ---
 name: web-fallback
 description: Answer in-scope Realize questions the plugin's own knowledge base does not cover, by looking the topic up in Taboola's public advertiser help documentation. Activates only after a real miss — no knowledge file, no MCP tool, and no other skill answers the question as asked. Read-only. A fallback rather than a supplement — when the knowledge base has the answer, or when a web source contradicts it, the plugin's own guidance wins and no lookup happens.
-allowed-tools: ["Read", "WebSearch", "WebFetch"]
+allowed-tools: ["Read", "WebSearch", "WebFetch(domain:realize.com)", "WebFetch(domain:www.realize.com)"]
 ---
 
 # Web Fallback

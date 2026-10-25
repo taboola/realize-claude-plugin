@@ -1,7 +1,7 @@
 ---
 name: optimize-campaign
 description: Diagnose a Realize campaign that's underperforming or had a discrete performance event, and prescribe fixes. Walks 5 mandatory pre-checks then routes to RCA (when something broke on a specific date) or general optimization (ongoing review). Activates on questions like "why is this campaign underperforming?", "CPA spiked yesterday", "what should I pause?", "how do I improve CPA?", "campaign isn't spending", "lead quality is bad", "performance has plateaued".
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "AskUserQuestion"]
 ---
 
 # Optimize Campaign

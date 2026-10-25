@@ -1,7 +1,7 @@
 ---
 name: accounts
 description: Discover Realize accounts and capture the account_id required by every other Realize MCP tool. Must run before any campaign or report query.
-allowed-tools: ["Read", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "AskUserQuestion"]
 ---
 
 # Accounts

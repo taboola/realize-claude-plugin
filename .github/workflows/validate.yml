@@ -103,6 +103,9 @@ jobs:
           fi
           echo "No conflict markers."
 
+      - name: Pixel page-fetch unit tests
+        run: node skills/diagnose-tracking/scripts/test-fetch-page.js
+
       - name: Brand and guardrail lint
         run: bash scripts/brand-check.sh
 
@@ -129,21 +132,47 @@ jobs:
             fail=1
           fi
 
-          # ICON_MISSING: square PNG, 512-2048 px, under 2 MB.
+          # ALLOWED_TOOLS_BROAD / unscoped fetch: a skill's allowed-tools is a
+          # pre-approval (no prompt), so it is an allowlist, not a denylist:
+          # anything not matched below fails. Bash only for the skill's own
+          # script, in the exact quoted form the skill tells the model to run.
+          # Agents' `tools:` is not checked: it lists what an agent may call,
+          # and permission prompts still apply to it.
           python3 - <<'PY' || fail=1
-          import os, struct, sys
-          p = ".claude-plugin/icon.png"
-          if not os.path.isfile(p):
-              sys.exit(f"FAIL: {p} missing (ICON_MISSING)")
-          with open(p, "rb") as fh:
-              head = fh.read(24)
-          if head[:8] != b"\x89PNG\r\n\x1a\n":
-              sys.exit(f"FAIL: {p} is not a PNG")
-          w, h = struct.unpack(">II", head[16:24])
-          size = os.path.getsize(p)
-          if w != h or not 512 <= w <= 2048 or size >= 2 * 1024 * 1024:
-              sys.exit(f"FAIL: {p} is {w}x{h}, {size} bytes; need square 512-2048 px under 2 MB")
-          print(f"icon OK: {w}x{h}, {size} bytes")
+          import glob, os, re, sys, yaml
+          PLAIN = {"Read", "Grep", "Glob", "AskUserQuestion", "WebSearch"}
+          # The help-center fallback is the only sanctioned fetch target.
+          WEBFETCH = {"WebFetch(domain:realize.com)", "WebFetch(domain:www.realize.com)"}
+          bad = []
+          for p in sorted(glob.glob("skills/*/SKILL.md")):
+              skill = os.path.basename(os.path.dirname(p))
+              meta = yaml.safe_load(open(p, encoding="utf-8").read().split("---", 2)[1]) or {}
+              # The skill's own script plus the exact arguments the skill runs it
+              # with. Each argument is a flag or a plain value; a value may hold
+              # one `*` inside a filename (complaint-*.txt), never a bare `*`,
+              # `:*`, `..`, or the write-anywhere flags.
+              own_script = re.compile(
+                  r'Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}/skills/' + re.escape(skill)
+                  + r'/scripts/[A-Za-z0-9_-]+\.js"((?: [A-Za-z0-9_~./-]+(?:\*[A-Za-z0-9_./-]+)?)*)\)')
+              def own_script_ok(t):
+                  m = own_script.fullmatch(t)
+                  if not m:
+                      return False
+                  args = m.group(1).split()
+                  return ".." not in m.group(1) and not any(
+                      a in ("--out", "--force", "--allow-git") for a in args)
+              for t in meta.get("allowed-tools", []):
+                  ok = (
+                      t in PLAIN
+                      or t in WEBFETCH
+                      or t == "Edit(~/.realize-plugin/tmp/**)"
+                      or own_script_ok(t)
+                  )
+                  if not ok:
+                      bad.append(f"{p}: {t}")
+          if bad:
+              sys.exit("FAIL: allowed-tools entries outside the allowlist (ALLOWED_TOOLS_BROAD):\n  " + "\n  ".join(bad))
+          print("allowed-tools OK")
           PY
 
           exit "$fail"

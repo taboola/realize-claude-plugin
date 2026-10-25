@@ -16,8 +16,7 @@
       "mcp__realize-mcp__update_audience",
       "WebSearch",
       "WebFetch(domain:realize.com)",
-      "WebFetch(domain:www.realize.com)",
-      "Bash(curl:*)"
+      "WebFetch(domain:www.realize.com)"
     ]
   }
 }
