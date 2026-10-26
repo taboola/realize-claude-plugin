@@ -1,6 +1,7 @@
 ---
 name: realize-guardrails
 description: Apply the shared Realize account-resolution, user-facing output, privacy, and preview-then-confirm safety rules before answering Realize questions or performing writes.
+allowed-tools: ["Read"]
 ---
 
 # Realize guardrails
