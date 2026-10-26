@@ -1,6 +1,6 @@
 {
   "name": "realize-plugin",
-  "version": "0.2.0",
+  "version": "0.5.5",
   "description": "Query and manage Realize campaigns through natural language on Codex — powered by the Realize remote MCP. Ships a focused guardrails skill and the MCP wiring. The Claude Code skill-driven workflows (campaign-creation walkthroughs, optimization diagnostics, report aggregation prose) are not loaded on Codex; writes remain gated by explicit preview and confirmation. See INSTALL.md for Codex-specific install notes.",
   "author": {
     "name": "Taboola"
