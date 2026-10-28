@@ -129,9 +129,9 @@ The support bundle (`/realize-plugin:support`) and the pixel check's page downlo
 
 ## Install on Codex (experimental)
 
-> **Status:** the `.codex-plugin/` manifest exists in the repo but Codex support is not yet validated. Treat this section as a starting point; confirm the MCP URL/port for your Codex deployment before relying on it.
+> **Status:** the `.codex-plugin/` compatibility package is available for local Codex testing. Complete a clean install and representative read/write-gate tests before relying on it in production.
 
-The Codex build wires the Realize remote MCP and ships the system-prompt + knowledge layer. The Claude Code skills (campaign creation workflows, optimization diagnostics, report aggregation) are not loaded on Codex; the **write tool gate is defined in [`os/guardrails.md`](os/guardrails.md)** so it applies on Codex too.
+The Codex build wires the Realize remote MCP and loads only the focused [`realize-guardrails`](skills/realize-guardrails/SKILL.md) skill. The broader Claude Code skills (campaign creation workflows, optimization diagnostics, report aggregation, support bundles, and web fallback) are intentionally not loaded on Codex.
 
 Two things differ from the Claude Code install:
 
@@ -144,7 +144,7 @@ After install, run a read prompt the same as on Claude Code:
 List my Realize accounts.
 ```
 
-If a write is attempted on Codex, the preview-then-confirm gate from `os/guardrails.md` fires identically — no skill is required.
+If a write is attempted on Codex, the guardrails skill instructs the model to read [`os/guardrails.md`](os/guardrails.md) and apply the preview-then-confirm gate. Verify this explicitly during local testing: the preview must identify the account and Codex must wait for an explicit reply before any write.
 
 ---
 
