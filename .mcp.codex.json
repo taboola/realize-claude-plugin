@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "type": "http",
+      "url": "https://mcp.realize.com/mcp",
+      "oauth": {
+        "callbackPort": 3000
+      }
+    }
+  }
+}
